@@ -6,4 +6,23 @@ build/
 packages/compliance-circuits/build/*
 !packages/compliance-circuits/build/.gitkeep
 packages/*/.agent-identity.json
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
 
+# test/coverage output
+coverage/
+*.tsbuildinfo
+
+# circom build artifacts (you have compliance-circuits/build/ already, 
+# but the proving service also generates local witness files during testing)
+packages/*/witness.wtns
+packages/*/proof.json
+packages/*/public.json
+
+# misc
+*.tmp
+.env.*
+!.env.example
