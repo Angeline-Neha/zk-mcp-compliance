@@ -6,6 +6,4 @@ build/
 packages/compliance-circuits/build/*
 !packages/compliance-circuits/build/.gitkeep
 packages/*/.agent-identity.json
-packages/*/.agent-identity.json
-packages/*/.agent-identity.json
-packages/*/.agent-identity.json
+
