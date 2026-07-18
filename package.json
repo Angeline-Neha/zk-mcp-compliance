@@ -1,0 +1,9 @@
+{
+  "name": "zk-mcp-compliance",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  }
+}

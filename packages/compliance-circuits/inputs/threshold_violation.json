@@ -1,0 +1,12 @@
+{
+  "amount": "5000",
+  "accountAgeDays": "45",
+  "pastRefundCount": "1",
+  "transactionAgeDays": "10",
+  "policyLimit": "150",
+  "minAccountAgeDays": "30",
+  "maxPastRefundCount": "3",
+  "maxTransactionAgeDays": "120",
+  "policyLimitSalt": "48972134501928471234509182734",
+  "policyCommitment": "20708699009753953975212522479252360832124944777137938732364875551613935999206"
+}
