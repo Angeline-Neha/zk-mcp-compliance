@@ -8,3 +8,4 @@ packages/compliance-circuits/build/*
 packages/*/.agent-identity.json
 packages/*/.agent-identity.json
 packages/*/.agent-identity.json
+packages/*/.agent-identity.json
