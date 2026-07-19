@@ -4,7 +4,11 @@ import { loadOrCreateIdentity, AGENT_ID } from "./identity";
 import { lookupOrder as mcpLookupOrder, callIssueRefund } from "./financeClient";
 import { assembleRefundProofs } from "./proofGen";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let _groq: Groq | null = null;
+function getGroqClient(): Groq {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return _groq;
+}
 const MODEL = process.env.SUPPORT_AGENT_MODEL ?? "llama-3.3-70b-versatile";
 
 const SYSTEM_PROMPT = `You are a customer support agent for an e-commerce company, handling refund requests.
@@ -89,13 +93,38 @@ export async function handleTicket(
     { role: "user", content: ticketText },
   ];
 
+  let malformedRetries = 0;
+  const MAX_MALFORMED_RETRIES = 2;
+
   for (let turn = 0; turn < 6; turn++) {
-    const response = await groq.chat.completions.create({
-      model: MODEL,
-      max_tokens: 1024,
-      tools: TOOLS,
-      messages,
-    });
+    let response;
+    try {
+      response = await getGroqClient().chat.completions.create({
+        model: MODEL,
+        max_tokens: 1024,
+        tools: TOOLS,
+        messages,
+      });
+    } catch (err: any) {
+      // Llama 3.3 70B occasionally hallucinates extra/invalid arguments
+      // into a tool call (a known quirk of smaller/faster open models vs
+      // frontier ones) — Groq rejects these with tool_use_failed. Rather
+      // than crash the whole ticket, nudge the model to retry correctly,
+      // up to a small retry budget.
+      const isToolUseFailed = err?.error?.error?.code === "tool_use_failed";
+      if (isToolUseFailed && malformedRetries < MAX_MALFORMED_RETRIES) {
+        malformedRetries++;
+        messages.push({
+          role: "user",
+          content:
+            "Your last tool call was invalid — you likely included fields that aren't part of " +
+            "that tool's schema. Call the tool again using ONLY the exact fields defined for it.",
+        });
+        turn--; // don't count a malformed attempt against the real turn budget
+        continue;
+      }
+      throw err;
+    }
 
     const message = response.choices[0].message;
     messages.push(message);
