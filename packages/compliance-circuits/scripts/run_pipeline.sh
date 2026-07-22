@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Phase 3 — raw pipeline script, run BEFORE wrapping anything in a service.
+# Raw pipeline script, run BEFORE wrapping anything in a service.
 # compile -> Powers of Tau (2^12) -> phase-2 setup -> proving/verification
 # keys -> generate a proof from real inputs -> verify it.
+#
+# Usage: bash scripts/run_pipeline.sh [circuitName] [inputFile]
+#   defaults to refundPolicy / inputs/valid.json for backward compat
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 BUILD=build
-CIRCUIT=refundPolicy
+CIRCUIT="${1:-refundPolicy}"
+INPUT_FILE="${2:-inputs/valid.json}"
 
 mkdir -p "$BUILD"
 
@@ -28,10 +32,10 @@ npx snarkjs zkey contribute "$BUILD/${CIRCUIT}_0000.zkey" "$BUILD/${CIRCUIT}_fin
   --name="phase2 contribution" -e="$(head -c 32 /dev/urandom | base64)" -v
 npx snarkjs zkey export verificationkey "$BUILD/${CIRCUIT}_final.zkey" "$BUILD/${CIRCUIT}_verification_key.json"
 
-echo "==> 4. Generate a proof from real inputs (inputs/valid.json)"
+echo "==> 4. Generate a proof from real inputs (${INPUT_FILE})"
 node "$BUILD/${CIRCUIT}_js/generate_witness.js" \
   "$BUILD/${CIRCUIT}_js/${CIRCUIT}.wasm" \
-  inputs/valid.json \
+  "${INPUT_FILE}" \
   "$BUILD/witness.wtns"
 
 npx snarkjs groth16 prove "$BUILD/${CIRCUIT}_final.zkey" "$BUILD/witness.wtns" \

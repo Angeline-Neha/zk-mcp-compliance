@@ -67,8 +67,29 @@ is out of scope for this circuit.
 bibliography — this file is the audit trail for circuit constants, not the
 citation format for the paper itself.)*
 
-## Deletion Policy (`deletionPolicy.circom`) — not yet finalized
+## Deletion Policy (`deletionPolicy.circom`) — v1
 
-To be completed before Phase 7. Needs: consent-state grounds, retention-period
-floor, active-dependency check. Placeholder — do not implement Phase 7's
-circuit against this section until it's filled in with the same rigor as above.
+| Field | Threshold | Source |
+|---|---|---|
+| `consentRequired` | consent must be explicitly given | Internal policy (see below) |
+| `retentionFloorDays` | **2555 days (7 years)** | Cited: US business recordkeeping convention (below) |
+| `activeDependencyBlocks` | any active dependency blocks deletion | Internal policy (see below) |
+
+### Internal policy (consent / active-dependency)
+
+**ZK-MCP Reference Deletion Policy v1:**
+1. Deletion may only proceed if the account holder has **explicitly consented** to deletion (`consentGiven = true`). No deletion without affirmative request/consent.
+2. Deletion is blocked if the account has **any active dependency** — an open order, pending dispute, active subscription, or unresolved support ticket (`hasActiveDependency = false` required).
+3. Both (1) and (2) are necessary but not sufficient — see the cited retention floor below, which overrides consent.
+
+### Cited source (retention-period floor)
+
+The **7-year (2555-day)** `retentionFloorDays` threshold is grounded in a real, external, checkable convention: U.S. financial recordkeeping guidance consistently recommends retaining financial/transactional business records — ledgers, invoices, expense reports, financial statements — for **at least 7 years**, even though the IRS's standard audit window (period of limitations) is 3 years. The 7-year figure is the widely-cited conservative floor accounting for extended-audit scenarios (understatement of income by 25%+ extends the window to 6 years) and is repeatedly recommended by business/accounting advisory sources as the safe retention baseline.
+
+We use this as the mandatory retention floor: an account's underlying transaction/financial history may not be deleted until **at least 7 years** have passed since the last financial transaction on that account, **regardless of consent** — this is what Section 4 calls "any mandatory retention-period floor that blocks deletion even if requested."
+
+**What's explicitly out of scope:** we are not implementing jurisdiction-specific data-protection law (e.g. GDPR Article 17 erasure-request procedure, CCPA deletion-request timelines) — only the single arithmetic fact of a retention-floor day-count, analogous to how the refund circuit only took the chargeback-window day-count from card-network practice. A real production system would need real legal review per jurisdiction; this is a defensible engineering anchor for a checkable, compilable subset, not a compliance-law implementation.
+
+**References:**
+- US Chamber of Commerce (CO—) — business tax/document retention guidance, recommending 7-year retention for financial ledgers/invoices/statements
+- Multiple accounting-advisory sources — converging recommendation of 7 years as the safe floor beyond the IRS's 3-year standard audit window, citing the 6-year extended-audit exception (25%+ underreported income) as the driver for the more conservative figure

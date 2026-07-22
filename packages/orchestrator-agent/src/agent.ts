@@ -30,6 +30,10 @@ request. You do NOT decide refund amounts or approvals yourself — that's handl
 specialized support agent with its own real-time policy verification. Your only job is
 routing: does this ticket need the support agent, or not?
 
+IMPORTANT: call escalate_to_support_agent AT MOST ONCE per ticket. Once it returns a result,
+that is final — immediately give your final response to the customer based on that result.
+Do not call the tool again for the same ticket, even if you're unsure the outcome is "done."
+
 If a ticket is clearly not about refunds (e.g. a general question), just respond directly
 without using the tool.`;
 
@@ -68,6 +72,7 @@ export async function handleIncomingTask(ticketText: string): Promise<Orchestrat
 
   let malformedRetries = 0;
   const MAX_MALFORMED_RETRIES = 2;
+  let alreadyEscalated: { delegation: { attestationId: string; scopeLimit: number }; result: any } | null = null;
 
   for (let turn = 0; turn < 4; turn++) {
     let response;
@@ -117,6 +122,25 @@ export async function handleIncomingTask(ticketText: string): Promise<Orchestrat
         ticketText: string;
       };
 
+      if (alreadyEscalated) {
+        // Code-level guard: the model already escalated once for this
+        // ticket. Rather than trust the prompt instruction alone (Llama
+        // 3.3 70B can be unreliable about "don't call this again"), reuse
+        // the cached result instead of minting a second real delegation
+        // and running a second real refund attempt through support-agent.
+        messages.push({
+          role: "tool",
+          tool_call_id: call.id,
+          content: JSON.stringify({
+            note: "Already escalated for this ticket — reusing the prior result, not re-delegating.",
+            supportAgentFinalResponse: alreadyEscalated.result.finalResponse,
+            refundAttempted:
+              alreadyEscalated.result.toolCalls?.some((c: any) => c.tool === "request_refund") ?? false,
+          }),
+        });
+        continue;
+      }
+
       // 1. Real delegation via issuer-service — server-side subset-checked
       const supportAgentPublicKey = await getSupportAgentPublicKey();
       const delegation = await delegateToSupportAgent({
@@ -133,6 +157,7 @@ export async function handleIncomingTask(ticketText: string): Promise<Orchestrat
         delegatedScopeLimit: delegation.scopeLimit,
       });
       supportAgentResults.push(supportResult);
+      alreadyEscalated = { delegation, result: supportResult };
 
       messages.push({
         role: "tool",

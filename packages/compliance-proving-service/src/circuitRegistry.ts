@@ -24,6 +24,15 @@ export const CIRCUITS: Record<string, CircuitFiles> = {
       "refundPolicy_verification_key.json"
     ),
   },
+  deletionPolicy: {
+    wasm: path.join(CIRCUITS_DIR, "deletionPolicy", "deletionPolicy.wasm"),
+    zkey: path.join(CIRCUITS_DIR, "deletionPolicy", "deletionPolicy_final.zkey"),
+    verificationKey: path.join(
+      CIRCUITS_DIR,
+      "deletionPolicy",
+      "deletionPolicy_verification_key.json"
+    ),
+  },
 };
 
 export function getCircuit(circuitId: string): CircuitFiles {
