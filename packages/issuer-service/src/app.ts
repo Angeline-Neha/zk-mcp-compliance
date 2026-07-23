@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import { Express } from "express";
 import { z } from "zod";
 import { verifyProof } from "@zk-mcp/sigma-core";
 import {
@@ -14,7 +15,7 @@ import {
 import { issueNonce, checkAndBurnNonce } from "./nonceStore";
 import { pool } from "./db";
 
-export const app = express();
+export const app: Express = express();
 app.use(express.json());
 
 const scopeSchema = z.object({
@@ -277,7 +278,7 @@ app.post("/audit", async (req: Request, res: Response) => {
   );
 
   res.status(201).json({ logged: true });
-
+});
   // ---------------------------------------------------------------------------
 // GET /audit-log — read back the live event stream. This is what powers
 // spec Section 9's "Live event log" view: real-time stream of every proof
@@ -318,5 +319,5 @@ app.get("/audit-log", async (req: Request, res: Response) => {
       createdAt: row.created_at,
     })),
   });
-});
+
 });

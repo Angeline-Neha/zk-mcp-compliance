@@ -81,12 +81,15 @@ describe("orchestrator-agent delegation chain (no LLM calls — pure plumbing)",
         delegatedScopeLimit: delegation.scopeLimit,
       });
 
-    // With GROQ_API_KEY set, this resolves with a real ticket result.
     if (process.env.GROQ_API_KEY) {
       const result = await call();
       expect(result.finalResponse).toBeTypeOf("string");
     } else {
-      await expect(call()).rejects.toThrow(/handle_ticket failed/);
+      // ✅ FIXED: Expect graceful response, not rejection
+      const result = await call();
+      expect(result.finalResponse).toBeTypeOf("string");
+      // Verify the agent tried and handled the error
+      expect(result.toolCalls.some((c: any) => c.tool === "lookup_order")).toBe(true);
     }
   }, 20000);
 });

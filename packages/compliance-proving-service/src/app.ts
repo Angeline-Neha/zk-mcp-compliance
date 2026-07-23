@@ -1,18 +1,22 @@
-import express, { Request, Response } from "express";
+import express, { Express, Request, Response } from "express";
 import { z } from "zod";
 // snarkjs ships without types; groth16.fullProve / groth16.verify are the
 // real proving/verification functions, same ones the CLI wraps.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const snarkjs = require("snarkjs");
 import fs from "fs";
-import { getCircuit } from "./circuitRegistry";
+import { getCircuit } from "./circuitRegistry.js";
+import path from "path";
 
-export const app = express();
+// ✅ FIX #1: Add explicit type annotation for app
+export const app: Express = express();
 app.use(express.json({ limit: "1mb" }));
 
+// ✅ FIX #3 & #4: Fix input schema to accept only strings (circuit inputs are always strings)
 const proveSchema = z.object({
   circuitId: z.string().min(1),
-  input: z.record(z.string(), z.union([z.string(), z.number()])),
+  input: z.record(z.string(), z.string()),  // ← Changed to z.string() only
+  accountRef: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -26,8 +30,9 @@ app.post("/prove", async (req: Request, res: Response) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "invalid request", details: parsed.error.issues });
   }
-  const { circuitId, input } = parsed.data;
+  const { circuitId, input, accountRef } = parsed.data;
 
+  // ✅ Get circuit first (before validation)
   let circuit;
   try {
     circuit = getCircuit(circuitId);
@@ -35,6 +40,63 @@ app.post("/prove", async (req: Request, res: Response) => {
     return res.status(404).json({ error: err.message });
   }
 
+  // ✅ VALIDATE: Private inputs match real DB state
+  if (circuitId === "deletionPolicy" && accountRef) {
+    try {
+      // ✅ FIX #2: Add .js extension for node16 module resolution
+      const { getAccount } = await import("./db.js");
+      
+      const realAccount = await getAccount(accountRef);
+      if (!realAccount) {
+        return res.status(404).json({ 
+          error: "account not found",
+          accountRef
+        });
+      }
+
+      // ✅ FIX #3 & #4: Input is always string from schema now, just compare strings
+      const consentGiven = input.consentGiven;
+      const realConsent = realAccount.consentGiven ? "1" : "0";
+      
+      const daysSinceLastTx = input.daysSinceLastTransaction;
+      const realDaysSince = String(realAccount.daysSinceLastTransaction);
+      
+      const hasActiveDep = input.hasActiveDependency;
+      const realHasActiveDep = realAccount.hasActiveDependency ? "1" : "0";
+
+      // ✅ REJECT if inputs don't match
+      if (
+        consentGiven !== realConsent ||
+        daysSinceLastTx !== realDaysSince ||
+        hasActiveDep !== realHasActiveDep
+      ) {
+        return res.status(422).json({
+          error: "proof inputs do not match account state",
+          claimed: {
+            consentGiven: input.consentGiven,
+            daysSinceLastTransaction: input.daysSinceLastTransaction,
+            hasActiveDependency: input.hasActiveDependency,
+          },
+          actual: {
+            consentGiven: realConsent,
+            daysSinceLastTransaction: realDaysSince,
+            hasActiveDependency: realHasActiveDep,
+          },
+        });
+      }
+    } catch (err: any) {
+      // If it's not our validation error, it's a DB error
+      if (!err.message?.includes("do not match")) {
+        return res.status(500).json({ 
+          error: "failed to validate inputs against account",
+          detail: err.message 
+        });
+      }
+      throw err;
+    }
+  }
+
+  // ✅ NOW generate proof (only after validation passes)
   try {
     const start = Date.now();
     const { proof, publicSignals } = await snarkjs.groth16.fullProve(

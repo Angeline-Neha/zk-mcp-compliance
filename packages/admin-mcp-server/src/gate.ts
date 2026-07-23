@@ -59,7 +59,7 @@ async function logAudit(entry: {
 }
 
 async function poseidonHash(inputs: (string | number)[]): Promise<string> {
-  const { buildPoseidon } = await import("circomlibjs");
+  const { buildPoseidon } = require("circomlibjs");  
   const poseidon = await buildPoseidon();
   const hash = poseidon(inputs);
   return poseidon.F.toObject(hash).toString();

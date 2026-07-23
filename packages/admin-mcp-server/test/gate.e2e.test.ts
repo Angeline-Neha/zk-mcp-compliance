@@ -4,6 +4,7 @@ import { buildPoseidon } from "circomlibjs";
 import { createHash } from "crypto";
 import { handleDeleteAccount } from "../src/tool";
 import { pool } from "../src/db";
+import { afterAll } from "vitest";
 
 const ISSUER = "http://localhost:4001";
 const PROVING = "http://localhost:4002";
@@ -57,12 +58,33 @@ async function proveDeletion(input: Record<string, string>) {
 }
 
 beforeAll(async () => {
+  // 1. Existing policy registration
   const commitment = await realPolicyCommitment();
   await fetch(`${ISSUER}/policy-commitment`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ toolScope: "delete_account", commitmentHex: commitment }),
   });
+
+  // 2. NEW: Clean up any previous test runs
+  await pool.query(`
+    DELETE FROM accounts 
+    WHERE account_ref IN ('acct-001', 'acct-002', 'acct-003', 'acct-004')
+  `);
+
+  // 3. NEW: Seed the database with the required test accounts
+  await pool.query(`
+    INSERT INTO accounts (account_ref, customer_id, deleted) 
+    VALUES
+      ('acct-001', 'cust-001', false),
+      ('acct-002', 'cust-002', false),
+      ('acct-003', 'cust-003', false),
+      ('acct-004', 'cust-004', false)
+  `);
+});
+
+afterAll(async () => {
+  await pool.end();
 });
 
 describe("admin-mcp-server gate — full real pipeline", () => {
@@ -256,3 +278,4 @@ describe("admin-mcp-server gate — full real pipeline", () => {
     expect(result.reason).toMatch(/account-binding mismatch/);
   }, 30000);
 });
+
