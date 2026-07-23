@@ -277,4 +277,46 @@ app.post("/audit", async (req: Request, res: Response) => {
   );
 
   res.status(201).json({ logged: true });
+
+  // ---------------------------------------------------------------------------
+// GET /audit-log — read back the live event stream. This is what powers
+// spec Section 9's "Live event log" view: real-time stream of every proof
+// attempt (agent, tool, which proof(s) passed/failed, timestamp). Never
+// returns raw private inputs — only what was written by POST /audit
+// (proof hashes, pass/fail, reason, policy commitment).
+//
+// Supports simple pagination via ?limit=N&before=<ISO timestamp>, newest
+// first, for a frontend to poll or infinite-scroll against.
+// ---------------------------------------------------------------------------
+app.get("/audit-log", async (req: Request, res: Response) => {
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const before = req.query.before as string | undefined;
+
+  const result = before
+    ? await pool.query(
+        `SELECT id, agent_id, scope_action, tool_name, proof1_hash, proof2_hash, pass, reason, policy_commitment, created_at
+         FROM audit_log WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2`,
+        [before, limit]
+      )
+    : await pool.query(
+        `SELECT id, agent_id, scope_action, tool_name, proof1_hash, proof2_hash, pass, reason, policy_commitment, created_at
+         FROM audit_log ORDER BY created_at DESC LIMIT $1`,
+        [limit]
+      );
+
+  res.status(200).json({
+    entries: result.rows.map((row) => ({
+      id: row.id,
+      agentId: row.agent_id,
+      scopeAction: row.scope_action,
+      toolName: row.tool_name,
+      proof1Hash: row.proof1_hash,
+      proof2Hash: row.proof2_hash,
+      pass: row.pass,
+      reason: row.reason,
+      policyCommitment: row.policy_commitment,
+      createdAt: row.created_at,
+    })),
+  });
+});
 });

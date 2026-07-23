@@ -405,3 +405,33 @@ describe("POST /policy-commitment + GET /policy-commitment/:toolScope", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("GET /audit-log — real event stream read-back", () => {
+  it("returns previously written audit entries, newest first", async () => {
+    await request(app).post("/audit").send({
+      agentId: "audit-log-test-agent",
+      scopeAction: "issue_refund",
+      toolName: "issue_refund",
+      proof1Hash: "aaa111",
+      proof2Hash: "bbb222",
+      pass: true,
+      policyCommitment: "0xabc",
+    });
+
+    const res = await request(app).get("/audit-log?limit=5");
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.entries)).toBe(true);
+    expect(res.body.entries.length).toBeGreaterThan(0);
+    expect(res.body.entries[0]).toHaveProperty("agentId");
+    expect(res.body.entries[0]).toHaveProperty("createdAt");
+    // never leaks raw private inputs — only these specific fields
+    expect(Object.keys(res.body.entries[0]).sort()).toEqual(
+      ["agentId", "createdAt", "id", "pass", "policyCommitment", "proof1Hash", "proof2Hash", "reason", "scopeAction", "toolName"].sort()
+    );
+  });
+
+  it("respects the limit parameter", async () => {
+    const res = await request(app).get("/audit-log?limit=1");
+    expect(res.body.entries.length).toBeLessThanOrEqual(1);
+  });
+});

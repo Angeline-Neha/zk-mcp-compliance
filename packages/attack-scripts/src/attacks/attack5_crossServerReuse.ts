@@ -44,6 +44,8 @@ export async function attack5_crossServerReuse(): Promise<AttackResult> {
           sigmaProof: proof,
           nonce,
           accountRef: "acct-001",
+          claimedAccountIdSalt: "dummy-salt",
+          complianceProof: { proof: {}, publicSignals: ["1", "0", "0"] },
         },
       },
     }),

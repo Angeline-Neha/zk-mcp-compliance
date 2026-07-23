@@ -33,13 +33,24 @@ function buildServer(): McpServer {
       },
     },
     async (args) => {
-      const parsed = deleteAccountInputSchema.parse(args);
-      const result = await handleDeleteAccount(parsed);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        isError: !result.allowed,
-      };
-    }
+        try {
+          const parsed = deleteAccountInputSchema.parse(args);
+          const result = await handleDeleteAccount(parsed);
+          return {
+            content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+            isError: !result.allowed,
+          };
+        } catch (err) {
+          const reason =
+            err instanceof z.ZodError
+              ? `malformed request: ${err.issues.map((i) => i.path.join(".")).join(", ")} invalid or missing`
+              : "internal error handling delete_account";
+          return {
+            content: [{ type: "text", text: JSON.stringify({ allowed: false, reason }, null, 2) }],
+            isError: true,
+          };
+        }
+      }
   );
 
   server.registerTool(

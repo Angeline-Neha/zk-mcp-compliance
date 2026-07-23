@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { redis } from "./redis";
 
-const NONCE_TTL_SECONDS = 60;
+const NONCE_TTL_SECONDS = Number(process.env.NONCE_TTL_SECONDS ?? 60);
 
 function nonceKey(scope: string, serverId: string, nonce: string): string {
   return `nonce:${serverId}:${scope}:${nonce}`;

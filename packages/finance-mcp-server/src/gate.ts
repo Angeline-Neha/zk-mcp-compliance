@@ -111,6 +111,30 @@ export async function runGate(input: GateInput): Promise<GateResult> {
     };
   }
 
+  // ---------------------------------------------------------------------
+  // DEMO-ONLY: Proof 2 kill switch. When DEMO_DISABLE_PROOF_2=true, the
+  // gate skips compliance verification entirely and allows through on
+  // Proof 1 alone — for demonstrating what an identity/scope-only system
+  // (e.g. plain OAuth/JWT-based MCP auth) would have allowed. Toggled via
+  // env var so the NEXT request picks it up immediately — no code edit,
+  // no service restart, no risk of a botched live edit mid-presentation.
+  // NEVER set this in a real deployment; it exists only for the ablation
+  // demo described in the frontend/demo plan.
+  // ---------------------------------------------------------------------
+  if (process.env.DEMO_DISABLE_PROOF_2 === "true") {
+    await logAudit({
+      agentId: input.agentId,
+      scopeAction: input.requestedScope.action,
+      toolName: input.toolName,
+      proof1Hash,
+      proof2Hash: null,
+      pass: true,
+      reason: "DEMO MODE: Proof 2 was skipped (DEMO_DISABLE_PROOF_2=true) — identity/scope-only ablation",
+      policyCommitment: null,
+    });
+    return { allowed: true, proof1Valid: true, proof2Valid: false };
+  }
+
   // ---- Proof 2: compliance (Groth16), via compliance-proving-service -----
   const proof2Res = await fetch(`${PROVING_SERVICE_URL}/verify`, {
     method: "POST",
