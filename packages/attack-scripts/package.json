@@ -2,10 +2,14 @@
   "name": "@zk-mcp/attack-scripts",
   "version": "0.0.1",
   "private": true,
+  "main": "src/common.ts",
+
   "scripts": {
     "attack": "tsx src/runAll.ts"
   },
   "dependencies": {
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
     "@zk-mcp/sigma-core": "workspace:*",
     "circomlibjs": "^0.1.7"
   },
@@ -15,3 +19,4 @@
     "tsx": "^4.23.1"
   }
 }
+

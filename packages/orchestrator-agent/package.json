@@ -2,7 +2,7 @@
   "name": "@zk-mcp/orchestrator-agent",
   "version": "0.0.1",
   "private": true,
-  "main": "src/index.ts",
+  "main": "src/lib.ts",
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
