@@ -2,15 +2,17 @@ import express, { Express } from "express";
 import { taskRouter, adminTaskRouter } from "./routes/task";
 import { attacksRouter } from "./routes/attacks";
 import { demoControlRouter } from "./routes/demoControl";
-import { registerSSE } from "./sse";
+import { registerEventsRoutes } from "./routes/events";
+import { inspectorRouter } from "./routes/inspector";
 
 export const app: Express = express();
 app.use(express.json());
 app.use(require("cors")());
 app.use("/task", taskRouter);
+app.use("/task/inspector", inspectorRouter);
 app.use("/admin-task", adminTaskRouter);
 app.use("/attack", attacksRouter);
 app.use("/demo", demoControlRouter);
-registerSSE(app);
+registerEventsRoutes(app);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

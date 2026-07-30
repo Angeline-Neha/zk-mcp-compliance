@@ -3,12 +3,12 @@ import { Node } from './Node';
 import { Thread } from './Thread';
 import { Checkpoint } from './Checkpoint';
 import { Telegram } from './Telegram';
-import { InspectorDrawer } from './InspectorDrawer';
 import {
   NODES, EDGES,
   type NodeId, type EdgeId,
   type NodeVisualState, type ThreadState, type CheckpointState,
 } from './topology';
+import type { ThreadPulse } from '../../lib/requestStateMachine';
 
 /* ── Board state types (all props-driven; Phase 3 swaps data source) ── */
 export interface BoardNodeState {
@@ -20,6 +20,8 @@ export interface BoardEdgeState {
   thread: ThreadState;
   checkpoint?: { state: CheckpointState; reason?: string };
   telegram?: boolean;
+  /** Concurrent in-flight pulses (Phase 3) */
+  pulses?: ThreadPulse[];
 }
 
 export interface CaseBoardState {
@@ -38,6 +40,7 @@ interface NodeRect {
 interface Props {
   boardState: CaseBoardState;
   onNodeClick?: (id: NodeId) => void;
+  onInspectRequest?: (requestId: string) => void;
 }
 
 /* ── Layout: node positions in the topology grid ──────────────────── */
@@ -52,11 +55,10 @@ const NODE_POSITIONS: Record<NodeId, React.CSSProperties> = {
   'admin-mcp':     { top: '60%', left: '7%' },
 };
 
-export function CaseBoard({ boardState, onNodeClick }: Props) {
+export function CaseBoard({ boardState, onNodeClick, onInspectRequest }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Partial<Record<NodeId, HTMLDivElement | null>>>({});
   const [nodeRects, setNodeRects] = useState<Partial<Record<NodeId, NodeRect>>>({});
-  const [inspectorNode, setInspectorNode] = useState<NodeId | null>(null);
 
   /* ── Measure node positions after layout ── */
   const measure = useCallback(() => {
@@ -85,8 +87,8 @@ export function CaseBoard({ boardState, onNodeClick }: Props) {
   }, [measure]);
 
   function handleNodeClick(id: NodeId) {
-    setInspectorNode(id);
     onNodeClick?.(id);
+    onInspectRequest?.(id);
   }
 
   return (
@@ -174,6 +176,7 @@ export function CaseBoard({ boardState, onNodeClick }: Props) {
                 fromRect={fromRect}
                 toRect={toRect}
                 state={threadState}
+                pulses={edgeState?.pulses}
               />
 
               {hasRects && cpState && cpState.state !== 'hidden' && (
@@ -262,13 +265,6 @@ export function CaseBoard({ boardState, onNodeClick }: Props) {
           </div>
         );
       })}
-
-      {/* ── Inspector drawer ── */}
-      <InspectorDrawer
-        open={inspectorNode !== null}
-        onClose={() => setInspectorNode(null)}
-        requestId={inspectorNode ? `node:${inspectorNode}` : undefined}
-      />
     </div>
   );
 }

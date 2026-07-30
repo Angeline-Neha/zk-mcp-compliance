@@ -7,14 +7,26 @@ import { ExhibitsView } from "./views/ExhibitsView";
 import { WireView } from "./views/WireView";
 import { AuditorView } from "./views/AuditorView";
 import { IntakeView } from "./views/IntakeView";
+import { InspectorDrawer } from "./components/inspector/InspectorDrawer";
 import { useRequestStream } from "./lib/useRequestStream";
+import { useInspector } from "./lib/useInspector";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<SidebarTab>("board");
-  const [selectedDocketId, setSelectedDocketId] = useState<string | undefined>();
+  const [inspectorRequestId, setInspectorRequestId] = useState<string | null>(null);
 
-  /* ── Live SSE stream ── */
-  const { connected, boardState, docketEntries, wireLines, stats } = useRequestStream();
+  const { connected, reconnecting, boardState, docketEntries, wireLines, stats } = useRequestStream();
+  const { data: inspectorData, loading: inspectorLoading, error: inspectorError } = useInspector(
+    inspectorRequestId
+  );
+
+  function openInspector(requestId: string) {
+    setInspectorRequestId(requestId);
+  }
+
+  function closeInspector() {
+    setInspectorRequestId(null);
+  }
 
   return (
     <div
@@ -27,31 +39,40 @@ export default function App() {
         backgroundColor: "#EDE6D6",
       }}
     >
-      {/* Row 1: Status strip */}
       <StatusStrip
         agentsOnline={stats.agentsOnline}
         requestsPerMin={stats.requestsPerMin}
         verifiedPct={stats.verifiedPct}
-        connected={connected}
+        connected={connected && !reconnecting}
       />
 
-      {/* Row 2 col 1: Sidebar */}
       <Sidebar active={activeTab} onChange={setActiveTab} />
 
-      {/* Row 2 col 2: Main canvas */}
       <main style={{ overflow: "hidden", display: "flex", flexDirection: "column", gridColumn: 2, gridRow: 2 }}>
-        {activeTab === "board"    && <BoardView boardState={boardState} />}
+        {activeTab === "board" && (
+          <BoardView boardState={boardState} onInspectRequest={openInspector} />
+        )}
         {activeTab === "exhibits" && <ExhibitsView />}
-        {activeTab === "wire"     && <WireView lines={wireLines} />}
-        {activeTab === "auditor"  && <AuditorView />}
-        {activeTab === "intake"   && <IntakeView />}
+        {activeTab === "wire" && (
+          <WireView lines={wireLines} onLineClick={openInspector} />
+        )}
+        {activeTab === "auditor" && <AuditorView />}
+        {activeTab === "intake" && <IntakeView />}
       </main>
 
-      {/* Row 2 col 3: Docket */}
       <Docket
         entries={docketEntries}
-        selectedId={selectedDocketId}
-        onSelect={setSelectedDocketId}
+        selectedId={inspectorRequestId ?? undefined}
+        onSelect={openInspector}
+      />
+
+      <InspectorDrawer
+        open={inspectorRequestId !== null}
+        onClose={closeInspector}
+        requestId={inspectorRequestId ?? undefined}
+        loading={inspectorLoading}
+        error={inspectorError}
+        snapshot={inspectorData}
       />
     </div>
   );

@@ -102,7 +102,8 @@ export async function assembleRefundProofs(
     throw new Error(`Compliance proof generation failed: ${body.error ?? proveRes.statusText}`);
   }
 
-  const { proof, publicSignals } = await proveRes.json();
+  const { proof, publicSignals, durationMs } = await proveRes.json();
+  const proofSizeBytes = JSON.stringify(proof).length;
 
   return {
     sigmaProof,
@@ -110,7 +111,8 @@ export async function assembleRefundProofs(
     complianceProof: { proof, publicSignals },
     claimedAmount: order.amount,
     claimedAmountSalt: amountSalt,
-    // Attack 8: returned so callers can forward it in the issue_refund args
     sessionIntentHash,
+    proof2DurationMs: durationMs ?? 0,
+    proof2SizeBytes: proofSizeBytes,
   };
 }

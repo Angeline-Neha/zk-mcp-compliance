@@ -369,9 +369,12 @@ async function attemptRefund(
     claimedAmount: proofs.claimedAmount,
     claimedAmountSalt: proofs.claimedAmountSalt,
     complianceProof: proofs.complianceProof,
-    // Attack 8 fields — forwarded to the gate's verifyIntentBinding check
     sessionId,
     intentCommitmentHash,
+    proof2Meta: {
+      durationMs: proofs.proof2DurationMs ?? 0,
+      proofSizeBytes: proofs.proof2SizeBytes ?? 0,
+    },
   });
 
   return result;

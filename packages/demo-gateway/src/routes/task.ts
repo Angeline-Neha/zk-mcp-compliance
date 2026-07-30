@@ -4,6 +4,7 @@ import { handleIncomingTask, handleIncomingStructuredTask } from "@zk-mcp/orches
 import { handleTicket } from "@zk-mcp/admin-agent";
 import { randomUUID } from "crypto";
 import { Pool } from "pg";
+import { trackTaskRequest } from "../lib/requestEvents";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL ?? "postgresql://zkmcp:zkmcp@localhost:5432/zkmcp",
@@ -45,7 +46,15 @@ taskRouter.post("/", async (req, res) => {
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "invalid request" });
   try {
-    const result = await handleIncomingTask(parsed.data.ticketText);
+    const requestId = randomUUID();
+    const result = await trackTaskRequest({
+      requestId,
+      path: "refund",
+      agentId: "orchestrator-agent",
+      tool: "issue_refund",
+      scopeAction: "issue_refund",
+      handler: () => handleIncomingTask(parsed.data.ticketText),
+    });
     res.status(200).json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -97,11 +106,22 @@ taskRouter.post("/structured", async (req, res) => {
   }
 
   try {
-    const result = await handleIncomingStructuredTask({
-      sessionId: randomUUID(), // server-minted — never from user input
+    const requestId = randomUUID();
+    const result = await trackTaskRequest({
+      requestId,
+      path: "refund",
       customerId,
-      orderRef,                // extracted & ownership-validated — never from LLM
-      justification: ticketText,
+      orderRef,
+      agentId: "support-agent",
+      tool: "request_refund",
+      scopeAction: "issue_refund",
+      handler: () =>
+        handleIncomingStructuredTask({
+          sessionId: randomUUID(),
+          customerId,
+          orderRef,
+          justification: ticketText,
+        }),
     });
     res.status(200).json(result);
   } catch (err: any) {
@@ -114,7 +134,15 @@ adminTaskRouter.post("/", async (req, res) => {
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "invalid request" });
   try {
-    const result = await handleTicket(parsed.data.ticketText);
+    const requestId = randomUUID();
+    const result = await trackTaskRequest({
+      requestId,
+      path: "deletion",
+      agentId: "admin-agent",
+      tool: "request_deletion",
+      scopeAction: "delete_account",
+      handler: () => handleTicket(parsed.data.ticketText),
+    });
     res.status(200).json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

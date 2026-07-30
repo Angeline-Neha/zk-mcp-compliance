@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import { Express } from "express";
 import { z } from "zod";
-import { verifyProof } from "@zk-mcp/sigma-core";
+import { verifyProof, computeChallenge } from "@zk-mcp/sigma-core";
 import {
   registerAttestation,
   delegateAttestation,
@@ -12,7 +12,7 @@ import {
   verifyChainNarrows,
   DelegationRejectedError,
 } from "./attestations";
-import { issueNonce, checkAndBurnNonce } from "./nonceStore";
+import { issueNonce, checkAndBurnNonce, peekNonceTtlMs } from "./nonceStore";
 import { pool } from "./db";
 
 export const app: Express = express();
@@ -131,6 +131,7 @@ const verifySchema = z.object({
   nonce: z.string().min(1),
   serverId: z.string().min(1),
   requestedScope: scopeSchema,
+  intentCommitmentHash: z.string().optional(),
 });
 
 app.post("/verify", async (req: Request, res: Response) => {
@@ -138,65 +139,112 @@ app.post("/verify", async (req: Request, res: Response) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "invalid request", details: parsed.error.issues });
   }
-  const { attestationId, proof, nonce, serverId, requestedScope } = parsed.data;
+  const { attestationId, proof, nonce, serverId, requestedScope, intentCommitmentHash } = parsed.data;
 
-  const attestation = await getAttestation(attestationId);
-  if (!attestation) {
-    return res.status(200).json({ valid: false, reason: "attestation does not exist" });
-  }
-
-  // scope check (confused-deputy / lateral-movement protection, Attacks #2 and #4)
-  if (
-    attestation.scope.action !== requestedScope.action ||
-    (attestation.scope.limit !== undefined &&
-      requestedScope.limit !== undefined &&
-      requestedScope.limit > attestation.scope.limit)
-  ) {
-    return res.status(200).json({ valid: false, reason: "scope mismatch" });
-  }
-
-  if (await isExpired(attestation)) {
-    return res.status(200).json({ valid: false, reason: "attestation expired" });
-  }
-
-  // revocation re-checked HERE, at verify-time — not cached from
-  // registration/proof-generation time. This is what stops the
-  // TOCTOU / revocation-race attack (#6).
-  if (await isRevoked(attestation.id)) {
-    return res.status(200).json({ valid: false, reason: "attestation revoked" });
-  }
-
-  if (!(await verifyChainNarrows(attestation.id))) {
-    return res.status(200).json({ valid: false, reason: "delegation chain does not narrow" });
-  }
-
-  // nonce check + burn — atomic, must happen before we accept the algebra
-  // as meaningful, since an already-burned nonce means this exact proof
-  // context was already consumed (Attack #1: replay).
-  const nonceOk = await checkAndBurnNonce(requestedScope.action, serverId, nonce);
-  if (!nonceOk) {
-    return res.status(200).json({ valid: false, reason: "nonce already burned or expired" });
-  }
-
-  // finally, the actual algebraic check — sigma-core, zero dependencies,
-  // trusted blindly per Phase 1.
-  const sigmaValid = verifyProof(proof, attestation.publicKey, {
+  const sigmaCtx = {
     scope: requestedScope.action,
     nonce,
     serverId,
-  });
+    ...(intentCommitmentHash ? { intentCommitmentHash } : {}),
+  };
 
-  if (!sigmaValid) {
-    return res.status(200).json({ valid: false, reason: "sigma proof algebra failed (s·G != R + c·P)" });
+  const checks: Record<string, { ok: boolean; detail: string; ttlMs?: number }> = {
+    scope: { ok: false, detail: "pending" },
+    revocation: { ok: false, detail: "pending" },
+    nonce: { ok: false, detail: "pending" },
+    algebra: { ok: false, detail: "pending" },
+  };
+
+  const attestation = await getAttestation(attestationId);
+  if (!attestation) {
+    checks.scope.detail = "attestation does not exist";
+    return res.status(200).json({
+      valid: false,
+      reason: "attestation does not exist",
+      checks,
+      proof1: { R: proof.R, s: proof.s, c: "", publicKey: "" },
+    });
   }
 
-  // Note: audit logging is intentionally NOT done here. /verify only checks
-  // Proof 1 in isolation (it has no visibility into Proof 2 or the overall
-  // tool-call outcome). The gate (finance-mcp-server) is responsible for
-  // writing the single, unified audit entry via POST /audit once BOTH
-  // proofs have been checked — see Stage 7 of the spec.
+  const cHex = computeChallenge(proof.R, attestation.publicKey, sigmaCtx).toString(16).padStart(64, "0");
+  const proof1 = { R: proof.R, s: proof.s, c: cHex, publicKey: attestation.publicKey };
 
-  res.status(200).json({ valid: true });
+  const scopeOk =
+    attestation.scope.action === requestedScope.action &&
+    !(
+      attestation.scope.limit !== undefined &&
+      requestedScope.limit !== undefined &&
+      requestedScope.limit > attestation.scope.limit
+    );
+  checks.scope = {
+    ok: scopeOk,
+    detail: scopeOk
+      ? `"${requestedScope.action}" matches`
+      : `scope mismatch (expected ${attestation.scope.action})`,
+  };
+
+  const revoked = await isRevoked(attestation.id);
+  const expired = await isExpired(attestation);
+  checks.revocation = {
+    ok: !revoked && !expired,
+    detail: revoked
+      ? "revoked (checked now)"
+      : expired
+        ? "attestation expired"
+        : "not revoked (checked now)",
+  };
+
+  const ttlMs = await peekNonceTtlMs(requestedScope.action, serverId, nonce);
+  const nonceOk = await checkAndBurnNonce(requestedScope.action, serverId, nonce);
+  checks.nonce = {
+    ok: nonceOk,
+    detail: nonceOk
+      ? `unburned, TTL ${ttlMs != null ? Math.round(ttlMs / 1000) : "?"}s remaining`
+      : "already burned or expired",
+    ...(ttlMs != null ? { ttlMs } : {}),
+  };
+
+  const sigmaValid = verifyProof(proof, attestation.publicKey, sigmaCtx);
+  checks.algebra = {
+    ok: sigmaValid,
+    detail: sigmaValid ? "s·G == R + c·P" : "s·G != R + c·P",
+  };
+
+  if (!scopeOk) {
+    return res.status(200).json({ valid: false, reason: "scope mismatch", checks, proof1 });
+  }
+  if (expired) {
+    return res.status(200).json({ valid: false, reason: "attestation expired", checks, proof1 });
+  }
+  if (revoked) {
+    return res.status(200).json({ valid: false, reason: "attestation revoked", checks, proof1 });
+  }
+  if (!(await verifyChainNarrows(attestation.id))) {
+    return res.status(200).json({
+      valid: false,
+      reason: "delegation chain does not narrow",
+      checks,
+      proof1,
+    });
+  }
+  if (!nonceOk) {
+    return res.status(200).json({
+      valid: false,
+      reason: "nonce already burned or expired",
+      checks,
+      proof1,
+    });
+  }
+  if (!sigmaValid) {
+    return res.status(200).json({
+      valid: false,
+      reason: "sigma proof algebra failed (s·G != R + c·P)",
+      checks,
+      proof1,
+    });
+  }
+
+  res.status(200).json({ valid: true, checks, proof1 });
 });
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

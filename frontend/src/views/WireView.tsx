@@ -3,9 +3,10 @@ import { TeletypeLog } from '../components/wire/TeletypeLog';
 
 interface Props {
   lines: WireLine[];
+  onLineClick?: (requestId: string) => void;
 }
 
-export function WireView({ lines }: Props) {
+export function WireView({ lines, onLineClick }: Props) {
   const passCount = lines.filter((l) => l.outcome === 'pass').length;
   const failCount = lines.filter((l) => l.outcome === 'fail').length;
   const total     = lines.length;
@@ -68,7 +69,7 @@ export function WireView({ lines }: Props) {
       </div>
 
       {/* Teletype area */}
-      <TeletypeLog lines={lines} />
+      <TeletypeLog lines={lines} onLineClick={onLineClick} />
     </div>
   );
 }

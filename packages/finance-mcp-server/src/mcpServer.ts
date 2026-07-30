@@ -34,6 +34,9 @@ function buildServer(): McpServer {
           proof: z.any(),
           publicSignals: z.array(z.string()),
         }),
+        sessionId: z.string().optional(),
+        intentCommitmentHash: z.string().optional(),
+        proof2Meta: z.object({ durationMs: z.number(), proofSizeBytes: z.number() }).optional(),
       },
     },
     async (args) => {

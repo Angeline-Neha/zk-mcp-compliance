@@ -40,3 +40,15 @@ export async function checkAndBurnNonce(
   const result = await redis.getdel(key);
   return result === "issued";
 }
+
+/** Peek remaining TTL (ms) before burn — for inspector display. */
+export async function peekNonceTtlMs(
+  scope: string,
+  serverId: string,
+  nonce: string
+): Promise<number | null> {
+  const key = nonceKey(scope, serverId, nonce);
+  const ttlSec = await redis.ttl(key);
+  if (ttlSec < 0) return null;
+  return ttlSec * 1000;
+}

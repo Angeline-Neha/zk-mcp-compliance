@@ -2,9 +2,10 @@ import type { WireLine } from '../../lib/useRequestStream';
 
 interface Props {
   lines: WireLine[];
+  onLineClick?: (requestId: string) => void;
 }
 
-export function TeletypeLog({ lines }: Props) {
+export function TeletypeLog({ lines, onLineClick }: Props) {
   return (
     <div
       style={{
@@ -24,24 +25,37 @@ export function TeletypeLog({ lines }: Props) {
           <p style={{ marginTop: 8, letterSpacing: '0.1em' }}>WIRE IDLE — AWAITING TRAFFIC…</p>
         </div>
       ) : (
-        [...lines].reverse().map((line) => <TeletypeLine key={line.id} line={line} />)
+        [...lines].reverse().map((line) => (
+          <TeletypeLine key={line.id} line={line} onClick={onLineClick} />
+        ))
       )}
     </div>
   );
 }
 
-function TeletypeLine({ line }: { line: WireLine }) {
+function TeletypeLine({
+  line,
+  onClick,
+}: {
+  line: WireLine;
+  onClick?: (requestId: string) => void;
+}) {
   const outcomeColor = line.outcome === 'pass' ? '#4A8C6A' : '#B23A2F';
   const agentShort = line.agent.replace('-agent', '').replace('-service', '').replace('-mcp', '').toUpperCase();
 
   return (
     <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={() => onClick?.(line.requestId)}
+      onKeyDown={(e) => e.key === 'Enter' && onClick?.(line.requestId)}
       style={{
         display: 'flex',
         gap: 10,
         borderBottom: '1px solid rgba(176,141,87,0.06)',
         paddingBottom: 1,
         marginBottom: 1,
+        cursor: onClick ? 'pointer' : 'default',
       }}
     >
       {/* Timestamp */}

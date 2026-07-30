@@ -1,9 +1,10 @@
 import type { ThreadState } from './topology';
+import type { ThreadPulse } from '../../lib/requestStateMachine';
 
 interface ThreadRect {
-  cx: number;   // center-x of node
-  top: number;  // top of node
-  bottom: number; // bottom of node
+  cx: number;
+  top: number;
+  bottom: number;
 }
 
 export interface ThreadProps {
@@ -11,6 +12,7 @@ export interface ThreadProps {
   fromRect?: ThreadRect;
   toRect?: ThreadRect;
   state: ThreadState;
+  pulses?: ThreadPulse[];
 }
 
 const THREAD_COLORS: Record<ThreadState, string> = {
@@ -24,14 +26,12 @@ const THREAD_COLORS: Record<ThreadState, string> = {
 function cubicPath(x1: number, y1: number, x2: number, y2: number): string {
   const dy = y2 - y1;
   const dx = x2 - x1;
-  // Vertical-dominant: pull control points along Y axis
   const cpY = Math.abs(dy) > Math.abs(dx) ? dy * 0.45 : Math.abs(dy) * 0.6;
   const cpX = dx * 0.1;
   return `M ${x1} ${y1} C ${x1 + cpX} ${y1 + cpY} ${x2 - cpX} ${y2 - cpY} ${x2} ${y2}`;
 }
 
 function pathPoint(x1: number, y1: number, x2: number, y2: number, t: number) {
-  // Evaluate cubic bezier at t ∈ [0,1]
   const dy = y2 - y1;
   const dx = x2 - x1;
   const cpY = Math.abs(dy) > Math.abs(dx) ? dy * 0.45 : Math.abs(dy) * 0.6;
@@ -45,7 +45,7 @@ function pathPoint(x1: number, y1: number, x2: number, y2: number, t: number) {
   };
 }
 
-export function Thread({ id, fromRect, toRect, state }: ThreadProps) {
+export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
   if (state === 'no-path' || !fromRect || !toRect) return null;
 
   const x1 = fromRect.cx;
@@ -55,13 +55,13 @@ export function Thread({ id, fromRect, toRect, state }: ThreadProps) {
 
   const color = THREAD_COLORS[state];
   const d = cubicPath(x1, y1, x2, y2);
-
-  // Brass pin positions
   const pinR = 3.5;
+
+  const hasPulses = (pulses?.length ?? 0) > 0;
+  const showTravel = state === 'pass' || state === 'pending' || hasPulses;
 
   return (
     <g id={`thread-${id}`}>
-      {/* Shadow/depth layer */}
       <path
         d={d}
         fill="none"
@@ -70,8 +70,7 @@ export function Thread({ id, fromRect, toRect, state }: ThreadProps) {
         strokeLinecap="round"
       />
 
-      {/* Main thread */}
-      {state === 'pending' ? (
+      {state === 'pending' || (hasPulses && state === 'idle') ? (
         <path
           d={d}
           fill="none"
@@ -84,7 +83,6 @@ export function Thread({ id, fromRect, toRect, state }: ThreadProps) {
       ) : state === 'fail' ? (
         <>
           <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeDasharray="4 3" opacity={0.7} />
-          {/* Fracture X at destination */}
           <FractureMarker x={x2} y={y2} />
         </>
       ) : (
@@ -97,21 +95,26 @@ export function Thread({ id, fromRect, toRect, state }: ThreadProps) {
         />
       )}
 
-      {/* Brass pins at endpoints */}
       <circle cx={x1} cy={y1} r={pinR} fill="#B08D57" opacity={0.7} />
       <circle cx={x1} cy={y1} r={pinR - 1.5} fill="#EDE6D6" />
       <circle cx={x2} cy={y2} r={pinR} fill="#B08D57" opacity={0.7} />
       <circle cx={x2} cy={y2} r={pinR - 1.5} fill="#EDE6D6" />
 
-      {/* Traveling pulse dot (pass state) */}
-      {state === 'pass' && (
+      {/* Single pulse for pass/pending thread state */}
+      {showTravel && !hasPulses && (
         <TravelPulse d={d} color={color} />
       )}
 
-      {/* Pending pulse traveling */}
-      {state === 'pending' && (
-        <TravelPulse d={d} color={color} />
-      )}
+      {/* Concurrent pulse queue (Phase 3) */}
+      {pulses?.map((pulse, i) => (
+        <TravelPulse
+          key={pulse.requestId}
+          d={d}
+          color={color}
+          opacity={pulse.opacity}
+          begin={`${i * 0.35}s`}
+        />
+      ))}
     </g>
   );
 }
@@ -125,18 +128,28 @@ function FractureMarker({ x, y }: { x: number; y: number }) {
   );
 }
 
-function TravelPulse({ d, color }: { d: string; color: string }) {
+function TravelPulse({
+  d,
+  color,
+  opacity = 0.6,
+  begin = '0s',
+}: {
+  d: string;
+  color: string;
+  opacity?: number;
+  begin?: string;
+}) {
   return (
-    <circle r="4" fill={color} opacity="0.6">
+    <circle r="4" fill={color} opacity={opacity}>
       <animateMotion
         dur="1.8s"
         repeatCount="indefinite"
         path={d}
         rotate="auto"
+        begin={begin}
       />
     </circle>
   );
 }
 
-// Export pathPoint for use by Checkpoint and Telegram
 export { pathPoint };

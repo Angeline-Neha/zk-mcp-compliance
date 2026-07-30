@@ -37,3 +37,26 @@ export function eventsSince(sinceId: number | null): SSEEvent[] {
 export function formatSSE(ev: SSEEvent): string {
   return `id: ${ev.id}\nevent: ${ev.type}\ndata: ${JSON.stringify(ev.data)}\n\n`;
 }
+
+/* ── Client registry (shared global stream) ─────────────────────── */
+type SSEClient = { write: (chunk: string) => void };
+
+const clients = new Set<SSEClient>();
+
+export function registerSSEClient(client: SSEClient): () => void {
+  clients.add(client);
+  return () => clients.delete(client);
+}
+
+export function broadcast(type: string, data: unknown): SSEEvent {
+  const ev = pushEvent(type, data);
+  const msg = formatSSE(ev);
+  for (const client of clients) {
+    try {
+      client.write(msg);
+    } catch {
+      clients.delete(client);
+    }
+  }
+  return ev;
+}

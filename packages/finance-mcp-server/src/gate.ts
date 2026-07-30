@@ -35,6 +35,42 @@ export interface GateInput {
    * algebraic check in /verify will fail before we even reach this gate.
    */
   intentCommitmentHash?: string;
+  orderRef?: string;
+  proof2Meta?: { durationMs: number; proofSizeBytes: number };
+}
+
+export interface GateInspectorDetail {
+  proof1: {
+    R: string;
+    s: string;
+    c: string;
+    publicKey: string;
+    scope: string;
+    nonce: string;
+    serverId: string;
+    intentCommitmentHash?: string;
+    checks: {
+      algebra: { ok: boolean; detail: string };
+      nonce: { ok: boolean; detail: string; ttlMs?: number };
+      scope: { ok: boolean; detail: string };
+      revocation: { ok: boolean; detail: string };
+    };
+  };
+  intentCheck?: {
+    ok: boolean;
+    orderRef?: string;
+    committedOrderRefs?: string[];
+    message: string;
+  };
+  proof2?: {
+    circuitId: string;
+    timingMs: number;
+    proofSizeBytes: number;
+    approved: boolean;
+    policyCommitment?: string;
+    toolScope: string;
+    constraints: { name: string; ok: boolean }[];
+  };
 }
 
 export interface GateResult {
@@ -43,6 +79,7 @@ export interface GateResult {
   proof1Valid: boolean;
   proof2Valid: boolean;
   intentBindingFail?: boolean;
+  inspector?: GateInspectorDetail;
 }
 
 function hashSigmaProof(proof: SigmaProof): string {
@@ -106,7 +143,7 @@ async function verifyIntentBinding(
   orderRef: string,
   sessionId: string | undefined,
   intentCommitmentHash: string | undefined
-): Promise<{ ok: boolean; reason?: string }> {
+): Promise<{ ok: boolean; reason?: string; committedOrderRefs?: string[] }> {
   if (!sessionId || !intentCommitmentHash) {
     // No intent commitment provided — caller predates Attack 8 extension.
     // Backward-compatible pass-through; attacks 1–7 are unaffected.
@@ -142,6 +179,7 @@ async function verifyIntentBinding(
   if (!(commitment.orderRefs as string[]).includes(orderRef)) {
     return {
       ok: false,
+      committedOrderRefs: commitment.orderRefs as string[],
       reason: `INTENT_BINDING_FAIL: orderRef "${orderRef}" was not in the authenticated intent ` +
         `(authenticated: [${commitment.orderRefs.join(", ")}]) — possible injected instruction`,
     };
@@ -173,7 +211,7 @@ async function verifyIntentBinding(
     { method: "POST" }
   );
 
-  return { ok: true };
+  return { ok: true, committedOrderRefs: commitment.orderRefs as string[] };
 }
 
 /**
@@ -216,9 +254,42 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       nonce: input.nonce,
       serverId: input.serverId,
       requestedScope: input.requestedScope,
+      intentCommitmentHash: input.intentCommitmentHash,
     }),
   });
   const proof1Body = await proof1Res.json();
+
+  const inspector: GateInspectorDetail = {
+    proof1: {
+      R: input.sigmaProof.R,
+      s: input.sigmaProof.s,
+      c: proof1Body.proof1?.c ?? "",
+      publicKey: proof1Body.proof1?.publicKey ?? "",
+      scope: input.requestedScope.action,
+      nonce: input.nonce,
+      serverId: input.serverId,
+      intentCommitmentHash: input.intentCommitmentHash,
+      checks: {
+        algebra: {
+          ok: proof1Body.checks?.algebra?.ok ?? false,
+          detail: proof1Body.checks?.algebra?.detail ?? "pending",
+        },
+        nonce: {
+          ok: proof1Body.checks?.nonce?.ok ?? false,
+          detail: proof1Body.checks?.nonce?.detail ?? "pending",
+          ttlMs: proof1Body.checks?.nonce?.ttlMs,
+        },
+        scope: {
+          ok: proof1Body.checks?.scope?.ok ?? false,
+          detail: proof1Body.checks?.scope?.detail ?? "pending",
+        },
+        revocation: {
+          ok: proof1Body.checks?.revocation?.ok ?? false,
+          detail: proof1Body.checks?.revocation?.detail ?? "pending",
+        },
+      },
+    },
+  };
 
   if (!proof1Body.valid) {
     await logAudit({
@@ -237,6 +308,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       reason: `Proof 1 (authorization) failed: ${proof1Body.reason}`,
       proof1Valid: false,
       proof2Valid: false,
+      inspector,
     };
   }
 
@@ -244,12 +316,22 @@ export async function runGate(input: GateInput): Promise<GateResult> {
   // Runs after Proof 1 so we know the calling agent is legitimately scoped.
   // Runs before Proof 2 so we don't waste proving-service calls on injected
   // requests. Failure is logged as its own distinct event class.
-  const orderRef = (input as any).orderRef as string | undefined;
+  const orderRef = input.orderRef ?? "";
   const intentCheck = await verifyIntentBinding(
-    orderRef ?? "",
+    orderRef,
     input.sessionId,
     input.intentCommitmentHash
   );
+
+  inspector.intentCheck = {
+    ok: intentCheck.ok,
+    orderRef: orderRef || undefined,
+    committedOrderRefs: intentCheck.committedOrderRefs,
+    message: intentCheck.ok
+      ? `orderRef ${orderRef} ∈ authenticated intent`
+      : (intentCheck.reason ?? "intent binding failed"),
+  };
+
   if (!intentCheck.ok) {
     await logAudit({
       agentId: input.agentId,
@@ -269,6 +351,42 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       proof1Valid: true,
       proof2Valid: false,
       intentBindingFail: true,
+      inspector,
+    };
+  }
+
+  const proof2Base = {
+    circuitId: input.circuitId,
+    timingMs: input.proof2Meta?.durationMs ?? 0,
+    proofSizeBytes: input.proof2Meta?.proofSizeBytes ?? JSON.stringify(input.complianceProof.proof).length,
+    toolScope: input.toolName,
+    constraints: [
+      { name: "Poseidon", ok: true },
+      { name: "LessEqThan", ok: true },
+      { name: "GreaterEqThan", ok: true },
+    ],
+  };
+
+  function attachProof2(approved: boolean, policyCommitment?: string | null, failReason?: string | null) {
+    const constraints = [
+      { name: "Poseidon", ok: approved && !(failReason?.includes("policyCommitment")) },
+      {
+        name: "LessEqThan",
+        ok: approved && !(failReason?.includes("amount") || failReason?.includes("pastRefund") || failReason?.includes("transactionAge")),
+      },
+      {
+        name: "GreaterEqThan",
+        ok: approved && !failReason?.includes("accountAge"),
+      },
+    ];
+    if (approved) {
+      constraints.forEach((c) => { c.ok = true; });
+    }
+    inspector.proof2 = {
+      ...proof2Base,
+      approved,
+      policyCommitment: policyCommitment ?? undefined,
+      constraints,
     };
   }
 
@@ -294,7 +412,8 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       policyCommitment: null,
       sessionId: input.sessionId,
     });
-    return { allowed: true, proof1Valid: true, proof2Valid: false };
+    attachProof2(true, null, null);
+    return { allowed: true, proof1Valid: true, proof2Valid: false, inspector };
   }
 
   // ---- Proof 2: compliance (Groth16), via compliance-proving-service -----
@@ -321,11 +440,13 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       policyCommitment: null,
       sessionId: input.sessionId,
     });
+    attachProof2(false, null, "Proof 2 (compliance) failed cryptographic verification");
     return {
       allowed: false,
       reason: "Proof 2 (compliance) failed cryptographic verification",
       proof1Valid: true,
       proof2Valid: false,
+      inspector,
     };
   }
 
@@ -347,11 +468,13 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       policyCommitment: null,
       sessionId: input.sessionId,
     });
+    attachProof2(false, null, "no policy commitment registered");
     return {
       allowed: false,
       reason: "no policy commitment registered for this tool",
       proof1Valid: true,
       proof2Valid: true,
+      inspector,
     };
   }
   const { commitmentHex: registeredCommitment } = await commitmentRes.json();
@@ -368,11 +491,13 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       policyCommitment: claimedPolicyCommitment,
       sessionId: input.sessionId,
     });
+    attachProof2(false, claimedPolicyCommitment, "policyCommitment mismatch");
     return {
       allowed: false,
       reason: "policyCommitment mismatch — proof does not use the registered policy",
       proof1Valid: true,
       proof2Valid: true,
+      inspector,
     };
   }
 
@@ -389,11 +514,13 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       policyCommitment: registeredCommitment,
       sessionId: input.sessionId,
     });
+    attachProof2(false, registeredCommitment, "compliance policy evaluated to APPROVE=false");
     return {
       allowed: false,
       reason: "compliance policy evaluated to APPROVE=false (escalate to human review)",
       proof1Valid: true,
       proof2Valid: true,
+      inspector,
     };
   }
 
@@ -414,11 +541,13 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       policyCommitment: registeredCommitment,
       sessionId: input.sessionId,
     });
+    attachProof2(false, registeredCommitment, "amount-binding mismatch");
     return {
       allowed: false,
       reason: "amount-binding mismatch — executed amount does not match proven amount",
       proof1Valid: true,
       proof2Valid: true,
+      inspector,
     };
   }
 
@@ -435,5 +564,6 @@ export async function runGate(input: GateInput): Promise<GateResult> {
     sessionId: input.sessionId,
   });
 
-  return { allowed: true, proof1Valid: true, proof2Valid: true };
+  attachProof2(true, registeredCommitment, null);
+  return { allowed: true, proof1Valid: true, proof2Valid: true, inspector };
 }

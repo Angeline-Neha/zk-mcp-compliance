@@ -22,6 +22,9 @@ export const issueRefundInputSchema = z.object({
    * Must match what was bound into the Fiat-Shamir challenge for Proof 1.
    */
   intentCommitmentHash: z.string().optional(),
+  proof2Meta: z
+    .object({ durationMs: z.number(), proofSizeBytes: z.number() })
+    .optional(),
 });
 
 export type IssueRefundInput = z.infer<typeof issueRefundInputSchema>;
@@ -35,6 +38,10 @@ export interface IssueRefundResult {
     pastRefundCount: number;
     transactionAgeDays: number;
   };
+  inspector?: any;
+  proof1Valid?: boolean;
+  proof2Valid?: boolean;
+  intentBindingFail?: boolean;
 }
 
 const SERVER_ID = "finance-mcp-server";
@@ -76,21 +83,35 @@ export async function handleIssueRefund(input: IssueRefundInput): Promise<IssueR
     complianceProof: input.complianceProof,
     claimedAmount: input.claimedAmount,
     claimedAmountSalt: input.claimedAmountSalt,
-    // Attack 8 intent-binding fields (optional — backward-compatible)
     sessionId: input.sessionId,
     intentCommitmentHash: input.intentCommitmentHash,
-    // orderRef is read by gate's verifyIntentBinding via (input as any).orderRef
-    ...(input.orderRef ? { orderRef: input.orderRef } : {}),
+    orderRef: input.orderRef,
+    proof2Meta: input.proof2Meta,
   };
 
   const gateResult = await runGate(gateInput);
   if (!gateResult.allowed) {
-    return { allowed: false, reason: gateResult.reason, orderContext: publicContext(orderContext) };
+    return {
+      allowed: false,
+      reason: gateResult.reason,
+      orderContext: publicContext(orderContext),
+      inspector: gateResult.inspector,
+      proof1Valid: gateResult.proof1Valid,
+      proof2Valid: gateResult.proof2Valid,
+      intentBindingFail: gateResult.intentBindingFail,
+    };
   }
 
   const { refundId } = await executeRefund(orderContext.orderId, orderContext.amount, input.agentId);
 
-  return { allowed: true, refundId, orderContext: publicContext(orderContext) };
+  return {
+    allowed: true,
+    refundId,
+    orderContext: publicContext(orderContext),
+    inspector: gateResult.inspector,
+    proof1Valid: true,
+    proof2Valid: true,
+  };
 }
 
 /**
