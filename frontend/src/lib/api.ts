@@ -95,13 +95,13 @@ export async function submitAdminTask(ticketText: string): Promise<TaskResult> {
 
 /**
  * Attack 8 — Structured intake.
- * orderRef is what the user pre-selected (never parsed from free text).
- * justification is the free-text field that may contain injected instructions.
+ * The server extracts the orderRef from the text, validates it belongs to
+ * this authenticated customer, and commits the intent before the LLM runs.
+ * The customerId comes from the session — never from the text field.
  */
 export async function submitStructuredTask(args: {
   customerId: string;
-  orderRef: string;
-  justification: string;
+  ticketText: string;
 }): Promise<TaskResult> {
   const res = await fetch(`${GATEWAY_URL}/task/structured`, {
     method: "POST",
