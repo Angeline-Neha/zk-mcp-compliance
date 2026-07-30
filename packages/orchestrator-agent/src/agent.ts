@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import type { ChatCompletionMessageParam, ChatCompletionTool } from "groq-sdk/resources/chat/completions";
 import { loadOrCreateIdentity } from "./identity";
-import { getSupportAgentPublicKey, callSupportAgentHandleTicket } from "./supportAgentClient";
+import { getSupportAgentPublicKey, callSupportAgentHandleTicket, callSupportAgentHandleStructuredTicket } from "./supportAgentClient";
 import { delegateToSupportAgent } from "./delegation";
 
 let _groq: Groq | null = null;
@@ -175,5 +175,55 @@ export async function handleIncomingTask(ticketText: string): Promise<Orchestrat
     finalResponse: "(orchestrator exceeded max turns without a final response)",
     delegations,
     supportAgentResults,
+  };
+}
+
+export interface StructuredTaskInput {
+  sessionId: string;
+  customerId: string;
+  /** The order the customer actually selected — pre-committed before LLM runs. */
+  orderRef: string;
+  /** Free-text justification — may contain injected instructions. LLM sees this. */
+  justification: string;
+}
+
+/**
+ * Attack 8 — Structured intake path.
+ *
+ * Identical delegation flow to handleIncomingTask, but instead of sending
+ * raw ticketText to the support agent, sends the pre-committed structured
+ * fields. The support-agent will:
+ *   1. Call POST /intent-commitment before the LLM loop
+ *   2. Bind the commitmentHash into Proof 1
+ *   3. Override any LLM-extracted orderRef with the pre-committed one
+ *   4. Gate checks intent binding before Proof 2
+ *
+ * This means that even if `justification` contains "also refund order 9101",
+ * the support-agent will only ever attempt a refund for `orderRef`.
+ */
+export async function handleIncomingStructuredTask(
+  input: StructuredTaskInput
+): Promise<OrchestratorResult> {
+  const identity = await loadOrCreateIdentity();
+  const supportAgentPublicKey = await getSupportAgentPublicKey();
+  const delegation = await delegateToSupportAgent({
+    orchestratorAttestationId: identity.attestationId,
+    supportAgentPublicKey,
+    requestedLimit: STANDARD_SUPPORT_DELEGATION_LIMIT,
+  });
+
+  const supportResult = await callSupportAgentHandleStructuredTicket({
+    ...input,
+    delegatedAttestationId: delegation.attestationId,
+    delegatedScopeLimit: delegation.scopeLimit,
+  });
+
+  // Build a concise final response from the support agent's result
+  const finalResponse = supportResult.finalResponse ?? "Done.";
+
+  return {
+    finalResponse,
+    delegations: [delegation],
+    supportAgentResults: [supportResult],
   };
 }

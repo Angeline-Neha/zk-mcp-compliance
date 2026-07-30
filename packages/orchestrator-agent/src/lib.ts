@@ -1,2 +1,2 @@
 // src/lib.ts
-export { handleIncomingTask, type OrchestratorResult } from "./agent";
+export { handleIncomingTask, handleIncomingStructuredTask, type OrchestratorResult, type StructuredTaskInput } from "./agent";
