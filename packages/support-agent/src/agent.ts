@@ -31,7 +31,8 @@ You have two tools:
 - request_refund: attempt to actually issue a refund for an order
 
 Always look up the order first. Then decide whether to attempt the refund or explain to the
-customer why it needs human review. Be honest and helpful in your final response to the customer.`;
+customer why it needs human review. Be honest and helpful in your final response to the customer.
+CRITICAL: Do NOT simulate a back-and-forth conversation or hallucinate fake "Customer response:" text. Provide ONLY your own direct, final response to the customer.`;
 
 const TOOLS: ChatCompletionTool[] = [
   {
@@ -126,6 +127,10 @@ export async function handleTicket(
   const attestationId = delegation?.attestationId ?? identity.attestationId;
   const scopeLimit = delegation?.scopeLimit ?? Number(process.env.SUPPORT_AGENT_REFUND_LIMIT ?? 500);
   const toolCalls: TicketResult["toolCalls"] = [];
+  // Track the refund outcome so the final response is always built
+  // deterministically from the real gate result — never from LLM free-text,
+  // which can be manipulated by prompt injection.
+  let refundOutcome: { allowed: boolean; reason?: string; refundId?: string } | null = null;
 
   // ---- Attack 8: resolve structured vs. legacy ticket --------------------
   let sessionId: string | undefined;
@@ -220,7 +225,13 @@ export async function handleTicket(
     const toolCallsThisTurn = message.tool_calls ?? [];
 
     if (toolCallsThisTurn.length === 0) {
-      // model produced a final text response, no more tool calls
+      // If a refund was already attempted, build the response from the real
+      // gate outcome — ignore whatever the LLM generated, which may have been
+      // manipulated by prompt injection inside the ticket text.
+      if (refundOutcome !== null) {
+        return { finalResponse: buildRefundResponse(refundOutcome), toolCalls };
+      }
+      // No refund attempted — safe to use the LLM's text (e.g. lookup-only).
       return { finalResponse: message.content ?? "", toolCalls };
     }
 
@@ -256,6 +267,11 @@ export async function handleTicket(
         resultPayload = { error: `unknown tool ${call.function.name}` };
       }
 
+      // Capture the refund outcome so we can build a deterministic response.
+      if (call.function.name === "request_refund") {
+        refundOutcome = resultPayload as { allowed: boolean; reason?: string; refundId?: string };
+      }
+
       toolCalls.push({ tool: call.function.name, input, result: resultPayload });
       messages.push({
         role: "tool",
@@ -263,9 +279,46 @@ export async function handleTicket(
         content: JSON.stringify(resultPayload),
       });
     }
+
+    // If refund was attempted this turn, return immediately with a deterministic
+    // response — do NOT give the LLM another turn to generate free text.
+    if (refundOutcome !== null) {
+      return { finalResponse: buildRefundResponse(refundOutcome), toolCalls };
+    }
   }
 
   return { finalResponse: "(agent exceeded max turns without a final response)", toolCalls };
+}
+
+/**
+ * Builds a deterministic, injection-proof customer-facing response directly
+ * from the real gate result. The LLM never gets to author this text.
+ */
+function buildRefundResponse(outcome: { allowed: boolean; reason?: string; refundId?: string }): string {
+  if (outcome.allowed) {
+    return `Your refund has been approved and processed successfully. Refund ID: ${outcome.refundId}. You should see the amount returned within 3–5 business days.`;
+  }
+
+  const reason = outcome.reason ?? "unknown";
+
+  // Translate gate-level reasons into plain customer language.
+  if (reason.includes("sigma proof algebra failed") || reason.includes("intent")) {
+    return "We were unable to process your refund request. A security check failed — this may indicate a tampered or replayed request. Please contact support if you believe this is an error.";
+  }
+  if (reason.includes("amount") && reason.includes("150")) {
+    return "Your refund request could not be auto-approved because the order amount exceeds the $150 auto-approval limit. Your case has been escalated to our support team for manual review.";
+  }
+  if (reason.includes("pastRefundCount") || reason.includes("refund")) {
+    return "Your refund request could not be auto-approved because your account has reached the maximum number of refunds allowed in the past 90 days. Your case has been escalated to our support team for manual review.";
+  }
+  if (reason.includes("transactionAge") || reason.includes("120")) {
+    return "Your refund request could not be auto-approved because the original transaction is older than the 120-day refund window. Please contact support for further assistance.";
+  }
+  if (reason.includes("accountAge") || reason.includes("30")) {
+    return "Your refund request could not be auto-approved because your account does not yet meet the minimum age requirement. Please contact support for further assistance.";
+  }
+
+  return `Your refund request could not be processed at this time. It has been escalated to our support team for manual review. (Reason: ${reason})`;
 }
 
 /**

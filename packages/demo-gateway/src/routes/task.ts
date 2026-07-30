@@ -17,6 +17,30 @@ const structuredBodySchema = z.object({
 });
 
 export const taskRouter: Router = express.Router();
+
+taskRouter.get("/customers", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT customer_id as id, customer_id as name FROM customers ORDER BY customer_id"
+    );
+    res.status(200).json({ customers: result.rows });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+taskRouter.get("/customers/:id/orders", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT order_ref as \"orderRef\" FROM orders WHERE customer_id = $1 ORDER BY created_at DESC",
+      [req.params.id]
+    );
+    res.status(200).json({ orders: result.rows });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 taskRouter.post("/", async (req, res) => {
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "invalid request" });

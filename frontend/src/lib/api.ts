@@ -109,7 +109,29 @@ export async function submitStructuredTask(args: {
     body: JSON.stringify(args),
   });
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
-  return res.json();
+  const raw = await res.json();
+  return {
+    ...raw,
+    toolCalls: raw.toolCalls ?? (raw.supportAgentResults ?? []).flatMap((r: any) => r.toolCalls ?? []),
+  };
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+}
+
+export async function fetchCustomers(): Promise<Customer[]> {
+  const res = await fetch(`${GATEWAY_URL}/task/customers`);
+  if (!res.ok) throw new Error("Failed to fetch customers");
+  return (await res.json()).customers;
+}
+
+export async function fetchCustomerOrders(customerId: string): Promise<string[]> {
+  const res = await fetch(`${GATEWAY_URL}/task/customers/${customerId}/orders`);
+  if (!res.ok) return [];
+  const body = await res.json();
+  return body.orders.map((o: any) => o.orderRef);
 }
 
 export interface AttackMeta {

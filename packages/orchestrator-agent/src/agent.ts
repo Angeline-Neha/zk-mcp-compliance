@@ -35,7 +35,8 @@ that is final — immediately give your final response to the customer based on 
 Do not call the tool again for the same ticket, even if you're unsure the outcome is "done."
 
 If a ticket is clearly not about refunds (e.g. a general question), just respond directly
-without using the tool.`;
+without using the tool.
+CRITICAL: Do NOT simulate a back-and-forth conversation or hallucinate fake "Customer response:" text. Provide ONLY your own direct, final response to the customer.`;
 
 const TOOLS: ChatCompletionTool[] = [
   {
