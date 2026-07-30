@@ -243,9 +243,6 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
-      pg:
-        specifier: ^8.22.0
-        version: 8.22.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -256,9 +253,6 @@ importers:
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.43
-      '@types/pg':
-        specifier: ^8.20.0
-        version: 8.20.0
       '@types/supertest':
         specifier: ^7.2.1
         version: 7.2.1

@@ -1,70 +1,58 @@
 import { useState } from "react";
-import { StatusBar } from "./components/StatusBar";
-import { LiveEventLog } from "./views/LiveEventLog";
-import { TaskInterface } from "./views/TaskInterface";
-import { AttackControlPanel } from "./views/AttackControlPanel";
-import { AgentGraph } from "./views/AgentGraph";
-import { AuditorComparison } from "./views/AuditorComparison";
-import { resetDemo } from "./lib/api";
-
-type ViewId = "log" | "task" | "attacks" | "graph" | "auditor";
-
-const VIEWS: { id: ViewId; label: string }[] = [
-  { id: "log", label: "Live Event Log" },
-  { id: "task", label: "Task Interface" },
-  { id: "attacks", label: "Attack Control Panel" },
-  { id: "graph", label: "Agent Graph" },
-  { id: "auditor", label: "Auditor Comparison" },
-];
+import { Sidebar, type SidebarTab } from "./components/layout/Sidebar";
+import { StatusStrip } from "./components/layout/StatusStrip";
+import { Docket } from "./components/layout/Docket";
+import { BoardView } from "./views/BoardView";
+import { ExhibitsView } from "./views/ExhibitsView";
+import { WireView } from "./views/WireView";
+import { AuditorView } from "./views/AuditorView";
+import { IntakeView } from "./views/IntakeView";
+import { useRequestStream } from "./lib/useRequestStream";
 
 export default function App() {
-  const [active, setActive] = useState<ViewId>("log");
-  const [resetting, setResetting] = useState(false);
+  const [activeTab, setActiveTab] = useState<SidebarTab>("board");
+  const [selectedDocketId, setSelectedDocketId] = useState<string | undefined>();
 
-  async function handleReset() {
-    setResetting(true);
-    try {
-      await resetDemo();
-    } finally {
-      setResetting(false);
-    }
-  }
+  /* ── Live SSE stream ── */
+  const { connected, boardState, docketEntries, wireLines, stats } = useRequestStream();
 
   return (
-    <div className="h-screen flex flex-col bg-ink">
-      <StatusBar />
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "52px 1fr 240px",
+        gridTemplateRows: "36px 1fr",
+        height: "100vh",
+        overflow: "hidden",
+        backgroundColor: "#EDE6D6",
+      }}
+    >
+      {/* Row 1: Status strip */}
+      <StatusStrip
+        agentsOnline={stats.agentsOnline}
+        requestsPerMin={stats.requestsPerMin}
+        verifiedPct={stats.verifiedPct}
+        connected={connected}
+      />
 
-      <div className="border-b border-slate-line bg-ink-raised px-4 flex items-center gap-1 overflow-x-auto scrollbar-thin">
-        {VIEWS.map((v) => (
-          <button
-            key={v.id}
-            onClick={() => setActive(v.id)}
-            className={`px-3 py-2.5 text-xs font-display font-medium uppercase tracking-wide whitespace-nowrap border-b-2 transition-colors ${
-              active === v.id
-                ? "border-pass text-pass"
-                : "border-transparent text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            {v.label}
-          </button>
-        ))}
-        <button
-          onClick={handleReset}
-          disabled={resetting}
-          className="ml-auto my-1.5 px-3 py-1 text-xs font-mono-data border border-slate-structure text-slate-400 rounded hover:border-fail/50 hover:text-fail disabled:opacity-40 transition-colors whitespace-nowrap"
-          title="Restores seed orders/accounts to known-good state for a fresh demo run"
-        >
-          {resetting ? "resetting…" : "reset demo state"}
-        </button>
-      </div>
+      {/* Row 2 col 1: Sidebar */}
+      <Sidebar active={activeTab} onChange={setActiveTab} />
 
-      <main className="flex-1 overflow-hidden">
-        {active === "log" && <LiveEventLog />}
-        {active === "task" && <TaskInterface />}
-        {active === "attacks" && <AttackControlPanel />}
-        {active === "graph" && <AgentGraph />}
-        {active === "auditor" && <AuditorComparison />}
+      {/* Row 2 col 2: Main canvas */}
+      <main style={{ overflow: "hidden", display: "flex", flexDirection: "column", gridColumn: 2, gridRow: 2 }}>
+        {activeTab === "board"    && <BoardView boardState={boardState} />}
+        {activeTab === "exhibits" && <ExhibitsView />}
+        {activeTab === "wire"     && <WireView lines={wireLines} />}
+        {activeTab === "auditor"  && <AuditorView />}
+        {activeTab === "intake"   && <IntakeView />}
       </main>
+
+      {/* Row 2 col 3: Docket */}
+      <Docket
+        entries={docketEntries}
+        selectedId={selectedDocketId}
+        onSelect={setSelectedDocketId}
+      />
     </div>
   );
 }
