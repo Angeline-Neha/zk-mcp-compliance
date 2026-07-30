@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { z } from "zod";
 import { handleDeleteAccount, deleteAccountInputSchema, lookupAccount } from "./tool";
-
+app.use(require("cors")());
 function buildServer(): McpServer {
   const server = new McpServer(
     { name: "admin-mcp-server", version: "0.0.1" },

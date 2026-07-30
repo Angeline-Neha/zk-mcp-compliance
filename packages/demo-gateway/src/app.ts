@@ -6,7 +6,7 @@ import { registerSSE } from "./sse";
 
 export const app = express();
 app.use(express.json());
-
+app.use(require("cors")());
 app.use("/task", taskRouter);
 app.use("/admin-task", adminTaskRouter);
 app.use("/attack", attacksRouter);

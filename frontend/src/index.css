@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply font-display;
+  }
+  body {
+    @apply bg-ink text-slate-100 antialiased;
+  }
+  ::selection {
+    @apply bg-pass/30 text-pass;
+  }
+}
+
+@layer utilities {
+  .font-mono-data {
+    @apply font-mono tracking-tight;
+  }
+  .panel {
+    @apply bg-ink-panel border border-slate-line rounded-lg;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-structure rounded-full;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+@keyframes trace-draw {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

@@ -17,6 +17,7 @@ import { pool } from "./db";
 
 export const app: Express = express();
 app.use(express.json());
+app.use(require("cors")());
 
 const scopeSchema = z.object({
   action: z.string().min(1),
@@ -289,6 +290,32 @@ app.post("/audit", async (req: Request, res: Response) => {
 // Supports simple pagination via ?limit=N&before=<ISO timestamp>, newest
 // first, for a frontend to poll or infinite-scroll against.
 // ---------------------------------------------------------------------------
+
+app.get("/attestations", async (_req: Request, res: Response) => {
+  const result = await pool.query(`
+    SELECT
+      a.id, a.agent_id, a.public_key, a.scope_action, a.scope_limit,
+      a.expiry, a.parent_attestation_id, a.created_at,
+      EXISTS(SELECT 1 FROM revocations r WHERE r.attestation_id = a.id) AS is_revoked
+    FROM attestations a
+    ORDER BY a.created_at ASC
+  `);
+
+  res.status(200).json({
+    attestations: result.rows.map((row) => ({
+      id: row.id,
+      agentId: row.agent_id,
+      publicKey: row.public_key,
+      scope: { action: row.scope_action, limit: row.scope_limit === null ? undefined : Number(row.scope_limit) },
+      expiry: row.expiry,
+      parentAttestationId: row.parent_attestation_id,
+      createdAt: row.created_at,
+      isRevoked: row.is_revoked,
+      isExpired: new Date(row.expiry).getTime() < Date.now(),
+    })),
+  });
+});
+
 app.get("/audit-log", async (req: Request, res: Response) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   const before = req.query.before as string | undefined;
