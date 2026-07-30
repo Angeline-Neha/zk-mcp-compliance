@@ -7,6 +7,7 @@ import { lateralMovementAttack } from "../attackSteps/lateralMovement";
 import { crossServerReuseAttack } from "../attackSteps/crossServerReuse";
 import { toctouAttack } from "../attackSteps/toctou";
 import { fakeComplianceProofAttack } from "../attackSteps/fakeComplianceProof";
+import { intentInjectionAttack } from "../attackSteps/intentInjection";
 import { AttackDefinition } from "../attackSteps/types";
 
 const ATTACKS: Record<string, AttackDefinition> = {
@@ -17,6 +18,7 @@ const ATTACKS: Record<string, AttackDefinition> = {
   "5": crossServerReuseAttack,
   "6": toctouAttack,
   "7": fakeComplianceProofAttack,
+  "8": intentInjectionAttack,
 };
 
 export const attacksRouter: Router = express.Router();

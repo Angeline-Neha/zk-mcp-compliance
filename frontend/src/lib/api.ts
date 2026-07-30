@@ -106,6 +106,7 @@ export const ATTACKS: AttackMeta[] = [
   { id: "5", title: "Cross-Server Credential Reuse" },
   { id: "6", title: "TOCTOU / Revocation Race" },
   { id: "7", title: "Fake Compliance Proof" },
+  { id: "8", title: "Intent Injection" },
 ];
 
 export interface AttackStartResponse {
