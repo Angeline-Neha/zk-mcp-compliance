@@ -1,10 +1,10 @@
-import express, { Application } from "express";
+import express, { Express } from "express";
 import { taskRouter, adminTaskRouter } from "./routes/task";
 import { attacksRouter } from "./routes/attacks";
 import { demoControlRouter } from "./routes/demoControl";
 import { registerSSE } from "./sse";
 
-export const app: Application = express();
+export const app: Express = express();
 app.use(express.json());
 app.use(require("cors")());
 app.use("/task", taskRouter);
