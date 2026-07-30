@@ -63,7 +63,7 @@ export async function attack8_intentInjection(): Promise<AttackResult> {
   const intentNonce = await getNonce("intent_commit", "support-agent")
     .catch(() => randomUUID()); // fallback if support-agent nonce issuer not available
 
-  const commitmentPreimage = ["customer-test", "9102", intentNonce, Date.now().toString()].join("|");
+  const commitmentPreimage = ["cust-ok-2", "9102", intentNonce, Date.now().toString()].join("|");
   const commitmentHash = createHash("sha256").update(commitmentPreimage).digest("hex");
 
   // Register the intent commitment (9102 only)
@@ -72,14 +72,14 @@ export async function attack8_intentInjection(): Promise<AttackResult> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       sessionId,
-      customerId: "customer-test",
+      customerId: "cust-ok-2",
       orderRefs: ["9102"],
       nonce: intentNonce,
     }),
   });
 
   if (!commitRes.ok) {
-    // The issuer DB may not have a "customer-test" / "9102" fixture in
+    // The issuer DB may not have a "cust-ok-2" / "9102" fixture in
     // all environments — if ownership check fails, skip sub-case A and
     // note it as a prerequisite gap rather than a failure.
     const body = await commitRes.json().catch(() => ({}));
@@ -87,7 +87,7 @@ export async function attack8_intentInjection(): Promise<AttackResult> {
       attack: "8: Intent Injection",
       blocked: false,
       reason: `Sub-case A setup failed (ownership check or DB fixture missing): ${JSON.stringify(body)}. ` +
-        "Ensure seed data includes customer-test owning order 9102.",
+        "Ensure seed data includes cust-ok-2 owning order 9102.",
     };
   }
   const { commitmentHash: storedHash } = await commitRes.json();
