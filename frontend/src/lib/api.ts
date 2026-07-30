@@ -72,7 +72,11 @@ export async function submitTask(ticketText: string): Promise<TaskResult> {
     body: JSON.stringify({ ticketText }),
   });
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
-  return res.json();
+  const raw = await res.json();
+  return {
+    ...raw,
+    toolCalls: raw.toolCalls ?? (raw.supportAgentResults ?? []).flatMap((r: any) => r.toolCalls ?? []),
+  };
 }
 
 export async function submitAdminTask(ticketText: string): Promise<TaskResult> {
@@ -82,7 +86,11 @@ export async function submitAdminTask(ticketText: string): Promise<TaskResult> {
     body: JSON.stringify({ ticketText }),
   });
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
-  return res.json();
+  const raw = await res.json();
+  return {
+    ...raw,
+    toolCalls: raw.toolCalls ?? (raw.supportAgentResults ?? []).flatMap((r: any) => r.toolCalls ?? []),
+  };
 }
 
 export interface AttackMeta {

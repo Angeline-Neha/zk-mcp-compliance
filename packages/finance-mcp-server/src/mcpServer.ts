@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { z } from "zod";
 import { handleIssueRefund, issueRefundInputSchema, lookupOrder } from "./tool";
-app.use(require("cors")());
+
 function buildServer(): McpServer {
   const server = new McpServer(
     { name: "finance-mcp-server", version: "0.0.1" },
@@ -71,7 +71,7 @@ function buildServer(): McpServer {
 }
 
 export const app = createMcpExpressApp();
-
+app.use(require("cors")());
 app.post("/mcp", async (req, res) => {
   try {
     const server = buildServer();

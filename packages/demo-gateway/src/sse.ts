@@ -16,23 +16,32 @@ export function registerSSE(app: Express) {
   });
 
   setInterval(async () => {
-    try {
-      const r = await fetch(`${ISSUER_URL}/audit-log?limit=10`);
-      const { entries } = await r.json();
-      if (entries.length === 0) return;
+  try {
+    const r = await fetch(`${ISSUER_URL}/audit-log?limit=10`);
+    if (!r.ok) throw new Error(`issuer-service returned ${r.status}`);
+    const { entries } = await r.json();
+    if (entries.length === 0) return;
 
-      const fresh = lastSeenId
-        ? entries.filter((e: any) => e.id !== lastSeenId).reverse()
-        : [entries[0]];
-      lastSeenId = entries[0].id;
+    let fresh: any[];
+    if (lastSeenId === null) {
+      fresh = [entries[0]];
+    } else {
+      const idx = entries.findIndex((e: any) => e.id === lastSeenId);
+      fresh = idx === -1 ? entries.slice().reverse() : entries.slice(0, idx).reverse();
+    }
+    lastSeenId = entries[0].id;
 
-      for (const entry of fresh) {
-        for (const client of clients) {
-          client.write(`data: ${JSON.stringify(entry)}\n\n`);
+    for (const entry of fresh) {
+      for (const client of clients) {
+        try {
+            client.write(`data: ${JSON.stringify(entry)}\n\n`);
+        } catch {
+            clients.delete(client);
         }
       }
-    } catch {
-      // issuer-service not reachable yet — skip this tick silently
     }
-  }, 1500);
+  } catch (err) {
+    console.error("SSE poll failed:", err instanceof Error ? err.message : err);
+  }
+}, 1500);
 }

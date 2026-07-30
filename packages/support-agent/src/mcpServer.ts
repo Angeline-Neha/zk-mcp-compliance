@@ -57,7 +57,7 @@ function buildServer(): McpServer {
 }
 
 export const app = createMcpExpressApp();
-
+app.use(require("cors")());
 app.post("/mcp", async (req, res) => {
   try {
     const server = buildServer();

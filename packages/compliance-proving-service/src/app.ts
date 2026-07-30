@@ -11,7 +11,7 @@ import path from "path";
 // ✅ FIX #1: Add explicit type annotation for app
 export const app: Express = express();
 app.use(express.json({ limit: "1mb" }));
-
+app.use(require("cors")());
 // ✅ FIX #3 & #4: Fix input schema to accept only strings (circuit inputs are always strings)
 const proveSchema = z.object({
   circuitId: z.string().min(1),
