@@ -15,6 +15,13 @@ export const issueRefundInputSchema = z.object({
     proof: z.any(),
     publicSignals: z.array(z.string()),
   }),
+  /** Attack 8: session that produced the authenticated intent commitment. */
+  sessionId: z.string().optional(),
+  /**
+   * Attack 8: SHA-256 hex commitment hash from POST /intent-commitment.
+   * Must match what was bound into the Fiat-Shamir challenge for Proof 1.
+   */
+  intentCommitmentHash: z.string().optional(),
 });
 
 export type IssueRefundInput = z.infer<typeof issueRefundInputSchema>;
@@ -69,6 +76,11 @@ export async function handleIssueRefund(input: IssueRefundInput): Promise<IssueR
     complianceProof: input.complianceProof,
     claimedAmount: input.claimedAmount,
     claimedAmountSalt: input.claimedAmountSalt,
+    // Attack 8 intent-binding fields (optional — backward-compatible)
+    sessionId: input.sessionId,
+    intentCommitmentHash: input.intentCommitmentHash,
+    // orderRef is read by gate's verifyIntentBinding via (input as any).orderRef
+    ...(input.orderRef ? { orderRef: input.orderRef } : {}),
   };
 
   const gateResult = await runGate(gateInput);

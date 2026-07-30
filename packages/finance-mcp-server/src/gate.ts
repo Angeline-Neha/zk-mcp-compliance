@@ -26,6 +26,15 @@ export interface GateInput {
   complianceProof: ComplianceProof;
   claimedAmount: number;
   claimedAmountSalt: string;
+  /** Attack 8: the session that produced the authenticated intent commitment. */
+  sessionId?: string;
+  /**
+   * Attack 8: the SHA-256 hex commitment hash returned by POST /intent-commitment.
+   * Must match what was bound into the Fiat-Shamir challenge for Proof 1 — if
+   * the agent used a different hash when generating its sigma proof, the
+   * algebraic check in /verify will fail before we even reach this gate.
+   */
+  intentCommitmentHash?: string;
 }
 
 export interface GateResult {
@@ -33,6 +42,7 @@ export interface GateResult {
   reason?: string;
   proof1Valid: boolean;
   proof2Valid: boolean;
+  intentBindingFail?: boolean;
 }
 
 function hashSigmaProof(proof: SigmaProof): string {
@@ -52,17 +62,135 @@ async function logAudit(entry: {
   pass: boolean;
   reason: string | null;
   policyCommitment: string | null;
+  intentBindingFail?: boolean;
+  sessionId?: string;
 }): Promise<void> {
   await fetch(`${ISSUER_SERVICE_URL}/audit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(entry),
+    body: JSON.stringify({
+      agentId: entry.agentId,
+      scopeAction: entry.scopeAction,
+      toolName: entry.toolName,
+      proof1Hash: entry.proof1Hash,
+      proof2Hash: entry.proof2Hash,
+      pass: entry.pass,
+      reason: entry.reason,
+      policyCommitment: entry.policyCommitment,
+      intentBindingFail: entry.intentBindingFail ?? false,
+      sessionId: entry.sessionId ?? null,
+    }),
   });
 }
 
 /**
- * The two-proof gate. BOTH proofs must independently pass, plus two
- * additional checks that close gaps the raw proofs alone don't cover:
+ * Intent-binding gate check (Attack 8).
+ *
+ * Runs AFTER Proof 1 passes, BEFORE Proof 2 is called.
+ *
+ * Three independent sub-checks — any single failure blocks the action:
+ *   1. orderRef is in the authenticated intent commitment for this session
+ *      (not just "a valid order", but specifically the one the real customer
+ *      authorised pre-LLM)
+ *   2. Action count is below expectedActionCount
+ *      (blocks salami-slicing: one authorised request → multiple actions)
+ *
+ * On pass: atomically increments the session action counter so subsequent
+ * calls within the same session are still counted.
+ *
+ * When sessionId or intentCommitmentHash are absent (e.g. attacks 1–7
+ * scripts, any pre-Phase-8 caller), this function returns { ok: true }
+ * immediately — fully backward-compatible.
+ */
+async function verifyIntentBinding(
+  orderRef: string,
+  sessionId: string | undefined,
+  intentCommitmentHash: string | undefined
+): Promise<{ ok: boolean; reason?: string }> {
+  if (!sessionId || !intentCommitmentHash) {
+    // No intent commitment provided — caller predates Attack 8 extension.
+    // Backward-compatible pass-through; attacks 1–7 are unaffected.
+    return { ok: true };
+  }
+
+  const commitmentRes = await fetch(
+    `${ISSUER_SERVICE_URL}/intent-commitment/${encodeURIComponent(sessionId)}`
+  );
+
+  if (commitmentRes.status === 404) {
+    return {
+      ok: false,
+      reason: "INTENT_BINDING_FAIL: no intent commitment found for this session — cannot verify request provenance",
+    };
+  }
+  if (commitmentRes.status === 410) {
+    return {
+      ok: false,
+      reason: "INTENT_BINDING_FAIL: intent commitment has expired",
+    };
+  }
+  if (!commitmentRes.ok) {
+    return {
+      ok: false,
+      reason: `INTENT_BINDING_FAIL: intent commitment lookup failed (${commitmentRes.status})`,
+    };
+  }
+
+  const commitment = await commitmentRes.json();
+
+  // Sub-check 1: orderRef must be in the authenticated set
+  if (!(commitment.orderRefs as string[]).includes(orderRef)) {
+    return {
+      ok: false,
+      reason: `INTENT_BINDING_FAIL: orderRef "${orderRef}" was not in the authenticated intent ` +
+        `(authenticated: [${commitment.orderRefs.join(", ")}]) — possible injected instruction`,
+    };
+  }
+
+  // Sub-check 2: commitment hash in the proof must match stored hash
+  // (belt-and-suspenders: the Fiat-Shamir algebra already enforces this
+  //  cryptographically, but an explicit equality check here catches any
+  //  inconsistency before Proof 2 runs and produces a clear audit reason)
+  if (intentCommitmentHash !== commitment.commitmentHash) {
+    return {
+      ok: false,
+      reason: "INTENT_BINDING_FAIL: intentCommitmentHash in request does not match stored commitment",
+    };
+  }
+
+  // Sub-check 3: action count cap (salami-slicing prevention)
+  if (commitment.actionCount >= commitment.expectedActionCount) {
+    return {
+      ok: false,
+      reason: `INTENT_BINDING_FAIL: action count (${commitment.actionCount}) has reached the ` +
+        `authorised limit (${commitment.expectedActionCount}) — possible salami-slicing attempt`,
+    };
+  }
+
+  // All checks passed — atomically increment counter before proceeding to Proof 2
+  await fetch(
+    `${ISSUER_SERVICE_URL}/intent-action-increment/${encodeURIComponent(sessionId)}`,
+    { method: "POST" }
+  );
+
+  return { ok: true };
+}
+
+/**
+ * The two-proof gate — now extended with an intent-binding check (Attack 8).
+ *
+ * Full check order:
+ *   Proof 1 (sigma, authorization)
+ *   → Intent Binding (logged as its own event class if it fails)
+ *   → DEMO_DISABLE_PROOF_2 kill-switch
+ *   → Proof 2 (Groth16, compliance)
+ *   → registered-commitment check
+ *   → approved signal check
+ *   → amount-binding check
+ *
+ * BOTH cryptographic proofs must independently pass, plus the intent-binding
+ * check and two additional checks that close gaps the raw proofs alone don't
+ * cover:
  *
  *  - the proof's claimed policyCommitment must match what's ACTUALLY
  *    registered with issuer-service (not just internally self-consistent
@@ -102,12 +230,45 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       pass: false,
       reason: `Proof 1 (authorization) failed: ${proof1Body.reason}`,
       policyCommitment: null,
+      sessionId: input.sessionId,
     });
     return {
       allowed: false,
       reason: `Proof 1 (authorization) failed: ${proof1Body.reason}`,
       proof1Valid: false,
       proof2Valid: false,
+    };
+  }
+
+  // ---- Intent Binding check (Attack 8) ------------------------------------
+  // Runs after Proof 1 so we know the calling agent is legitimately scoped.
+  // Runs before Proof 2 so we don't waste proving-service calls on injected
+  // requests. Failure is logged as its own distinct event class.
+  const orderRef = (input as any).orderRef as string | undefined;
+  const intentCheck = await verifyIntentBinding(
+    orderRef ?? "",
+    input.sessionId,
+    input.intentCommitmentHash
+  );
+  if (!intentCheck.ok) {
+    await logAudit({
+      agentId: input.agentId,
+      scopeAction: input.requestedScope.action,
+      toolName: input.toolName,
+      proof1Hash,
+      proof2Hash: null,
+      pass: false,
+      reason: intentCheck.reason ?? "intent binding failed",
+      policyCommitment: null,
+      intentBindingFail: true,
+      sessionId: input.sessionId,
+    });
+    return {
+      allowed: false,
+      reason: intentCheck.reason,
+      proof1Valid: true,
+      proof2Valid: false,
+      intentBindingFail: true,
     };
   }
 
@@ -131,6 +292,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       pass: true,
       reason: "DEMO MODE: Proof 2 was skipped (DEMO_DISABLE_PROOF_2=true) — identity/scope-only ablation",
       policyCommitment: null,
+      sessionId: input.sessionId,
     });
     return { allowed: true, proof1Valid: true, proof2Valid: false };
   }
@@ -157,6 +319,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       pass: false,
       reason: "Proof 2 (compliance) failed cryptographic verification",
       policyCommitment: null,
+      sessionId: input.sessionId,
     });
     return {
       allowed: false,
@@ -182,6 +345,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       pass: false,
       reason: "no policy commitment registered for this tool — cannot verify compliance proof",
       policyCommitment: null,
+      sessionId: input.sessionId,
     });
     return {
       allowed: false,
@@ -202,6 +366,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       pass: false,
       reason: "policyCommitment mismatch — proof does not use the registered policy",
       policyCommitment: claimedPolicyCommitment,
+      sessionId: input.sessionId,
     });
     return {
       allowed: false,
@@ -222,6 +387,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       pass: false,
       reason: "compliance policy evaluated to APPROVE=false (escalate to human review)",
       policyCommitment: registeredCommitment,
+      sessionId: input.sessionId,
     });
     return {
       allowed: false,
@@ -246,6 +412,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
       pass: false,
       reason: "amount-binding mismatch — the amount about to be executed does not match the amount the proof covers",
       policyCommitment: registeredCommitment,
+      sessionId: input.sessionId,
     });
     return {
       allowed: false,
@@ -255,7 +422,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
     };
   }
 
-  // ---- both proofs pass, commitment matches, amount is bound, approved ----
+  // ---- all checks pass ----
   await logAudit({
     agentId: input.agentId,
     scopeAction: input.requestedScope.action,
@@ -265,6 +432,7 @@ export async function runGate(input: GateInput): Promise<GateResult> {
     pass: true,
     reason: null,
     policyCommitment: registeredCommitment,
+    sessionId: input.sessionId,
   });
 
   return { allowed: true, proof1Valid: true, proof2Valid: true };

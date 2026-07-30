@@ -348,3 +348,143 @@ app.get("/audit-log", async (req: Request, res: Response) => {
   });
 
 });
+
+// ---------------------------------------------------------------------------
+// Attack 8 — Intent-Binding Extension
+//
+// POST /intent-commitment
+//   Called at ticket ingestion, BEFORE any LLM call. Accepts the structured
+//   fields that only the authenticated customer can supply (orderRefs chosen
+//   from their own order history, never parsed from free text). Validates
+//   every orderRef belongs to the given customerId in the real DB. Stores
+//   the commitment hash and initialises the session action counter.
+//   The commitmentHash is what gets bound into the Fiat-Shamir challenge for
+//   Proof 1 — so a sigma proof for orderRef "9102" is algebraically
+//   incapable of authorising "9101".
+//
+// GET /intent-commitment/:sessionId
+//   Used by the gate (finance-mcp-server) to check the stored commitment and
+//   current action count before running Proof 2.
+//
+// POST /intent-action-increment/:sessionId
+//   Atomically bumps the action counter. Called by the gate after intent
+//   binding passes, before Proof 2 runs. Prevents salami-slicing: one
+//   authorised request cannot trigger multiple executed actions.
+// ---------------------------------------------------------------------------
+
+import { createHash } from "crypto";
+
+const intentCommitmentSchema = z.object({
+  sessionId: z.string().min(1),
+  customerId: z.string().min(1),
+  orderRefs: z.array(z.string().min(1)).min(1),
+  nonce: z.string().min(1),
+  expirySeconds: z.number().positive().default(600),
+});
+
+app.post("/intent-commitment", async (req: Request, res: Response) => {
+  const parsed = intentCommitmentSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "invalid request", details: parsed.error.issues });
+  }
+  const { sessionId, customerId, orderRefs, nonce, expirySeconds } = parsed.data;
+
+  // Ownership check: every orderRef must genuinely belong to this customer.
+  // This is checked against the real DB — not the agent's assertion — so an
+  // injected orderRef for a different customer's order is rejected here,
+  // before the LLM ever sees the ticket.
+  for (const ref of orderRefs) {
+    const result = await pool.query(
+      `SELECT 1 FROM orders WHERE order_ref = $1 AND customer_id = $2`,
+      [ref, customerId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(403).json({
+        error: "ownership_check_failed",
+        reason: `orderRef ${ref} does not belong to customer ${customerId}`,
+      });
+    }
+  }
+
+  // Compute commitment hash: SHA-256(customerId || sorted(orderRefs) || nonce || timestamp)
+  // Sorting orderRefs makes the hash deterministic regardless of array order.
+  const timestamp = Date.now().toString();
+  const preimage = [customerId, ...orderRefs.slice().sort(), nonce, timestamp].join("|");
+  const commitmentHash = createHash("sha256").update(preimage).digest("hex");
+
+  const expiresAt = new Date(Date.now() + expirySeconds * 1000).toISOString();
+
+  await pool.query(
+    `INSERT INTO intent_commitments
+       (session_id, customer_id, order_refs, expected_action_count, commitment_hash, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (session_id) DO UPDATE
+       SET customer_id = EXCLUDED.customer_id,
+           order_refs = EXCLUDED.order_refs,
+           expected_action_count = EXCLUDED.expected_action_count,
+           commitment_hash = EXCLUDED.commitment_hash,
+           expires_at = EXCLUDED.expires_at`,
+    [sessionId, customerId, orderRefs, orderRefs.length, commitmentHash, expiresAt]
+  );
+
+  await pool.query(
+    `INSERT INTO session_action_counts (session_id, count)
+     VALUES ($1, 0)
+     ON CONFLICT (session_id) DO UPDATE SET count = 0`,
+    [sessionId]
+  );
+
+  return res.status(201).json({ commitmentHash, expiresAt });
+});
+
+app.get("/intent-commitment/:sessionId", async (req: Request, res: Response) => {
+  const { sessionId } = req.params;
+
+  const result = await pool.query(
+    `SELECT ic.session_id, ic.customer_id, ic.order_refs, ic.expected_action_count,
+            ic.commitment_hash, ic.expires_at,
+            COALESCE(sac.count, 0) AS action_count
+     FROM intent_commitments ic
+     LEFT JOIN session_action_counts sac ON sac.session_id = ic.session_id
+     WHERE ic.session_id = $1`,
+    [sessionId]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "no intent commitment found for this session" });
+  }
+
+  const row = result.rows[0];
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    return res.status(410).json({ error: "intent commitment has expired" });
+  }
+
+  return res.status(200).json({
+    sessionId: row.session_id,
+    customerId: row.customer_id,
+    orderRefs: row.order_refs,
+    expectedActionCount: row.expected_action_count,
+    commitmentHash: row.commitment_hash,
+    actionCount: Number(row.action_count),
+    expiresAt: row.expires_at,
+  });
+});
+
+app.post("/intent-action-increment/:sessionId", async (req: Request, res: Response) => {
+  const { sessionId } = req.params;
+
+  // Atomic increment — returns the NEW count so the caller can verify it
+  // didn't race past the cap.
+  const result = await pool.query(
+    `UPDATE session_action_counts SET count = count + 1
+     WHERE session_id = $1
+     RETURNING count`,
+    [sessionId]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "no action count record for this session" });
+  }
+
+  return res.status(200).json({ newCount: result.rows[0].count });
+});

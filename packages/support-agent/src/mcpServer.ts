@@ -4,6 +4,7 @@ import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js
 import { z } from "zod";
 import { loadOrCreateIdentity } from "./identity";
 import { handleTicket } from "./agent";
+import type { StructuredTicket } from "./agent";
 
 function buildServer(): McpServer {
   const server = new McpServer(
@@ -34,21 +35,41 @@ function buildServer(): McpServer {
       title: "Handle Support Ticket",
       description:
         "Runs a customer support ticket through this agent's real LLM tool-calling loop. " +
-        "If a delegated attestationId + scopeLimit are provided (from a real /delegate call), " +
-        "that credential is used for any refund attempt instead of this agent's own.",
+        "For Attack 8 (intent-binding), pass sessionId + customerId + orderRef + justification. " +
+        "For the legacy path (attacks 1-7, backward-compat), pass ticketText only.",
       inputSchema: {
-        ticketText: z.string().min(1),
+        // --- Legacy path (attacks 1-7, unstructured) ---
+        ticketText: z.string().optional(),
+        // --- Attack 8: structured intent-binding path ---
+        sessionId: z.string().optional(),
+        customerId: z.string().optional(),
+        orderRef: z.string().optional(),
+        justification: z.string().optional(),
+        // --- Delegation (unchanged) ---
         delegatedAttestationId: z.string().uuid().optional(),
         delegatedScopeLimit: z.number().positive().optional(),
       },
     },
-    async ({ ticketText, delegatedAttestationId, delegatedScopeLimit }) => {
+    async ({ ticketText, sessionId, customerId, orderRef, justification, delegatedAttestationId, delegatedScopeLimit }) => {
       const delegation =
         delegatedAttestationId && delegatedScopeLimit
           ? { attestationId: delegatedAttestationId, scopeLimit: delegatedScopeLimit }
           : undefined;
 
-      const result = await handleTicket(ticketText, delegation);
+      // Dispatch: structured (Attack 8) vs. legacy string path
+      let ticket: StructuredTicket | string;
+      if (sessionId && customerId && orderRef && justification) {
+        ticket = { sessionId, customerId, orderRef, justification };
+      } else if (ticketText) {
+        ticket = ticketText;
+      } else {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "Provide either ticketText or all of sessionId/customerId/orderRef/justification" }) }],
+          isError: true,
+        };
+      }
+
+      const result = await handleTicket(ticket, delegation);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
   );

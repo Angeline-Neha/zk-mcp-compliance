@@ -5,6 +5,7 @@ import { attack4_lateralMovement } from "./attacks/attack4_lateralMovement";
 import { attack5_crossServerReuse } from "./attacks/attack5_crossServerReuse";
 import { attack6_toctou } from "./attacks/attack6_toctou";
 import { attack7_fakeComplianceProof } from "./attacks/attack7_fakeComplianceProof";
+import { attack8_intentInjection } from "./attacks/attack8_intentInjection";
 import { AttackResult } from "./common";
 import { realPolicyCommitment, ISSUER_URL } from "./common";
 
@@ -16,6 +17,7 @@ const ATTACKS: (() => Promise<AttackResult>)[] = [
   attack5_crossServerReuse,
   attack6_toctou,
   attack7_fakeComplianceProof,
+  attack8_intentInjection,
 ];
 
 async function ensurePolicyCommitmentRegistered() {
@@ -31,7 +33,7 @@ async function main() {
   console.log("Ensuring policy commitment is registered...");
   await ensurePolicyCommitmentRegistered();
 
-  console.log("\n=== Running all 7 live attacks against the real running stack ===\n");
+  console.log("\n=== Running all 8 live attacks against the real running stack ===\n");
 
   const results: AttackResult[] = [];
   for (const attack of ATTACKS) {

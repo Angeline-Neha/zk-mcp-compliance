@@ -33,10 +33,16 @@ async function realPolicyCommitment(): Promise<string> {
  * infrastructure — the LLM never sees any of this, it only decides
  * WHETHER to attempt a refund; this function does the cryptographic work
  * of actually attempting it.
+ *
+ * Attack 8: when sessionIntentHash is provided, it is bound into the
+ * Fiat-Shamir challenge (Proof 1) so the resulting sigma proof is
+ * structurally incapable of authorising any action outside the
+ * authenticated intent commitment for this session.
  */
 export async function assembleRefundProofs(
   identity: { secretKey: string; publicKey: string; attestationId: string },
-  order: OrderContext
+  order: OrderContext,
+  sessionIntentHash?: string
 ) {
   // Proof 1: fresh nonce + sigma proof
   const nonceRes = await fetch(`${ISSUER_SERVICE_URL}/challenge`, {
@@ -46,11 +52,17 @@ export async function assembleRefundProofs(
   });
   const { nonce } = await nonceRes.json();
 
-  const sigmaProof = generateProof(identity.secretKey, identity.publicKey, {
+  const sigmaCtx: { scope: string; nonce: string; serverId: string; intentCommitmentHash?: string } = {
     scope: "issue_refund",
     nonce,
     serverId: SERVER_ID,
-  });
+  };
+  if (sessionIntentHash) {
+    sigmaCtx.intentCommitmentHash = sessionIntentHash;
+  }
+
+  const sigmaProof = generateProof(identity.secretKey, identity.publicKey, sigmaCtx);
+
 
   // Proof 2: real Groth16 proof from the real order context
   const policyCommitment = await realPolicyCommitment();
@@ -98,5 +110,7 @@ export async function assembleRefundProofs(
     complianceProof: { proof, publicSignals },
     claimedAmount: order.amount,
     claimedAmountSalt: amountSalt,
+    // Attack 8: returned so callers can forward it in the issue_refund args
+    sessionIntentHash,
   };
 }

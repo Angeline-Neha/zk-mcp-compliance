@@ -49,11 +49,12 @@ export async function getNonce(scope: string, serverId: string): Promise<string>
 export async function sigmaProof(
   secretKey: string,
   publicKey: string,
-  ctx: { scope: string; nonce: string; serverId: string }
+  ctx: { scope: string; nonce: string; serverId: string; intentCommitmentHash?: string }
 ) {
   const { generateProof } = await import("@zk-mcp/sigma-core");
   return generateProof(secretKey, publicKey, ctx);
 }
+
 
 export async function verifyProof1(body: Record<string, unknown>) {
   const res = await fetch(`${ISSUER_URL}/verify`, {

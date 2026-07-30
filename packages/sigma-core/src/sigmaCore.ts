@@ -30,6 +30,16 @@ export interface SigmaContext {
   scope: string;
   nonce: string;
   serverId: string;
+  /**
+   * Optional: SHA-256 hex of the authenticated intent commitment for this
+   * session (e.g. H(customerId, orderRefs, nonce, timestamp)). When present,
+   * it is included in the Fiat-Shamir challenge preimage, making a proof
+   * generated for one authenticated intent structurally incapable of
+   * authorising a different action. Omitting this field leaves the challenge
+   * identical to the pre-Attack-8 behaviour — all existing callers are
+   * backward-compatible.
+   */
+  intentCommitmentHash?: string;
 }
 
 export interface SigmaProof {
@@ -61,27 +71,38 @@ function mod(a: bigint, m: bigint = CURVE_ORDER): bigint {
 }
 
 /**
- * Fiat-Shamir challenge: c = H(R, publicKey, scope, nonce, serverId) mod n
+ * Fiat-Shamir challenge:
+ *   c = H(R, publicKey, scope, nonce, serverId[, intentCommitmentHash]) mod n
  *
  * Binding serverId (and nonce, and scope) into the challenge is what makes
  * this proof non-replayable and non-transferable across servers/tools/contexts.
  * This is not optional context — omitting any one of these fields reopens
  * a corresponding attack (see Section 7 of the spec: #1 replay, #2 confused
  * deputy, #5 cross-server reuse).
+ *
+ * When ctx.intentCommitmentHash is provided (Attack 8 / intent-binding
+ * extension), it is appended to the preimage AFTER serverId. This makes a
+ * proof generated for one authenticated customer request (e.g. orderRef 9102)
+ * structurally incapable of authorising a different action (e.g. 9101) —
+ * not "rejected by a list check" but "the algebra doesn't balance."
+ * Callers that omit this field get the identical challenge as before.
  */
 export function computeChallenge(
   R: string,
   publicKey: string,
   ctx: SigmaContext
 ): bigint {
-  const preimage = concatBytes(
+  const parts: Uint8Array[] = [
     hexToBytes(R),
     hexToBytes(publicKey),
     utf8ToBytes(ctx.scope),
     utf8ToBytes(ctx.nonce),
-    utf8ToBytes(ctx.serverId)
-  );
-  const digest = sha256(preimage);
+    utf8ToBytes(ctx.serverId),
+  ];
+  if (ctx.intentCommitmentHash) {
+    parts.push(hexToBytes(ctx.intentCommitmentHash));
+  }
+  const digest = sha256(concatBytes(...parts));
   return mod(bytesToNumberBE(digest));
 }
 
