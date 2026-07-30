@@ -9,7 +9,7 @@ function getGroqClient(): Groq {
   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   return _groq;
 }
-const MODEL = process.env.SUPPORT_AGENT_MODEL ?? "llama-3.3-70b-versatile";
+const MODEL = process.env.SUPPORT_AGENT_MODEL ?? "llama-3.1-8b-instant";
 
 const SYSTEM_PROMPT = `You are a customer support agent for an e-commerce company, handling refund requests.
 

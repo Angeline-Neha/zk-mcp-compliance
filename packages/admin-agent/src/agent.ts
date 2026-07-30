@@ -9,7 +9,7 @@ function getGroqClient(): Groq {
   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   return _groq;
 }
-const MODEL = process.env.ADMIN_AGENT_MODEL ?? "llama-3.3-70b-versatile";
+const MODEL = process.env.ADMIN_AGENT_MODEL ?? "llama-3.1-8b-instant";
 
 const SYSTEM_PROMPT = `You are an admin agent for a customer support system, handling account deletion requests.
 
