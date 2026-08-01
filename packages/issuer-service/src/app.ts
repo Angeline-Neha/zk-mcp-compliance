@@ -462,6 +462,19 @@ app.post("/intent-commitment", async (req: Request, res: Response) => {
 
   const expiresAt = new Date(Date.now() + expirySeconds * 1000).toISOString();
 
+  // Was there a still-valid (unexpired) commitment for this session already?
+  // This is the fork: a resubmission INSIDE the previous commitment's window
+  // is the salami-slicing case (must NOT reset the count). A request arriving
+  // AFTER the previous commitment expired is a genuinely new authorised
+  // request (must reset — otherwise stale counts from a past, unrelated
+  // request would wrongly block a legitimate future one).
+  const existing = await pool.query(
+    `SELECT expires_at FROM intent_commitments WHERE session_id = $1`,
+    [sessionId]
+  );
+  const hadUnexpiredCommitment =
+    existing.rows.length > 0 && new Date(existing.rows[0].expires_at).getTime() > Date.now();
+
   await pool.query(
     `INSERT INTO intent_commitments
        (session_id, customer_id, order_refs, expected_action_count, commitment_hash, expires_at)
@@ -475,12 +488,21 @@ app.post("/intent-commitment", async (req: Request, res: Response) => {
     [sessionId, customerId, orderRefs, orderRefs.length, commitmentHash, expiresAt]
   );
 
-  await pool.query(
-    `INSERT INTO session_action_counts (session_id, count)
-     VALUES ($1, 0)
-     ON CONFLICT (session_id) DO UPDATE SET count = 0`,
-    [sessionId]
-  );
+  if (hadUnexpiredCommitment) {
+    await pool.query(
+      `INSERT INTO session_action_counts (session_id, count)
+       VALUES ($1, 0)
+       ON CONFLICT (session_id) DO NOTHING`,
+      [sessionId]
+    );
+  } else {
+    await pool.query(
+      `INSERT INTO session_action_counts (session_id, count)
+       VALUES ($1, 0)
+       ON CONFLICT (session_id) DO UPDATE SET count = 0`,
+      [sessionId]
+    );
+  }
 
   return res.status(201).json({ commitmentHash, expiresAt });
 });
