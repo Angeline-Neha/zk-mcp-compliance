@@ -6,6 +6,7 @@ function toolCallToProofPanels(call: ToolCall): {
   proof1: ProofPanelData;
   proof2: ProofPanelData;
   intentBinding?: ProofPanelData;
+  injectionRedirect?: { requestedOrderRef: string; effectiveOrderRef: string };
 } | null {
   if (call.tool !== "request_refund" && call.tool !== "request_deletion") return null;
   const result = call.result as { allowed?: boolean; reason?: string; intentBindingFail?: boolean } | undefined;
@@ -15,6 +16,12 @@ function toolCallToProofPanels(call: ToolCall): {
   const intentFailed =
     result.intentBindingFail === true || (result.reason?.includes("INTENT_BINDING_FAIL") ?? false);
   const proof2Failed = !result.allowed && !proof1Failed && !intentFailed;
+
+  const overrideInput = call.input as { overridden?: boolean; requestedOrderRef?: string; orderRef?: string };
+  const injectionRedirect =
+    overrideInput?.overridden === true && overrideInput.requestedOrderRef && overrideInput.orderRef
+        ? { requestedOrderRef: overrideInput.requestedOrderRef, effectiveOrderRef: overrideInput.orderRef }
+        : undefined;
 
   return {
     proof1: {
@@ -39,6 +46,7 @@ function toolCallToProofPanels(call: ToolCall): {
           },
         }
       : {}),
+    ...(injectionRedirect ? { injectionRedirect } : {}),
   };
 }
 
@@ -242,6 +250,20 @@ export function TaskInterface() {
               </div>
               {proofData ? (
                 <div className="space-y-2">
+                    {proofData.injectionRedirect && (
+                    <div className="rounded border border-data/40 bg-data/5 p-2 space-y-1">
+                        <p className="text-[10px] font-display uppercase tracking-wider text-data font-semibold">
+                        ⚠ Prompt Injection Detected — Redirected
+                        </p>
+                        <p className="text-xs font-mono-data text-slate-400 break-words">
+                        LLM requested order "{proofData.injectionRedirect.requestedOrderRef}" (via injected/unauthenticated
+                        text) — structurally redirected to the authenticated order "
+                        {proofData.injectionRedirect.effectiveOrderRef}" before any proof ran. The proofs below reflect
+                        only the authenticated order.
+                        </p>
+                    </div>
+                    )}
+
                   <DualProofStrip proof1={proofData.proof1} proof2={proofData.proof2} />
                   {proofData.intentBinding && (
                     <div className="rounded border border-fail/40 bg-fail/5 p-2 space-y-1">

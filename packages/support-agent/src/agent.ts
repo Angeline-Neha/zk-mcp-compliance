@@ -289,6 +289,24 @@ export async function handleTicket(
           input.requestedOrderRef = orderRef;
           input.orderRef = effectiveOrderRef;
           input.overridden = true;
+
+          // The LLM asked for a different order than the one structurally
+          // committed pre-LLM -- this is a prompt-injection attempt, not the
+          // customer legitimately re-requesting the same order. If the gate
+          // blocked it (via any INTENT_BINDING_FAIL sub-check, including the
+          // action-count cap it got redirected into), reframe the reason so
+          // the audit trail/UI reflects what actually happened instead of the
+          // generic salami-slicing wording, which only fits a repeat request
+          // for the SAME order.
+          const overriddenResult = resultPayload as { allowed?: boolean; reason?: string };
+          if (overriddenResult?.allowed === false && overriddenResult.reason?.includes("INTENT_BINDING_FAIL")) {
+            overriddenResult.reason =
+            `INTENT_BINDING_FAIL: request targeted order "${orderRef}" via unauthenticated/injected text, ` +
+            `but was structurally bound to the authenticated order "${effectiveOrderRef}" -- possible prompt ` +
+            `injection attempt (blocked because: ${overriddenResult.reason
+              .replace(/^INTENT_BINDING_FAIL: /, "")
+              .replace(/\s*[—-]{1,2}\s*possible salami-slicing attempt$/, "")})`;
+          }
         }
       } else {
         resultPayload = { error: `unknown tool ${call.function.name}` };
