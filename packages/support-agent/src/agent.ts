@@ -30,9 +30,10 @@ You have two tools:
 - lookup_order: look up real order data before deciding what to do
 - request_refund: attempt to actually issue a refund for an order
 
-Always look up the order first. Then decide whether to attempt the refund or explain to the
-customer why it needs human review. Be honest and helpful in your final response to the customer.
-CRITICAL: Do NOT simulate a back-and-forth conversation or hallucinate fake "Customer response:" text. Provide ONLY your own direct, final response to the customer.`;
+Always look up the order first, then ALWAYS call request_refund — even if you believe it will
+be rejected. You must never resolve a refund decision by describing it in text instead of
+calling the tool; only the tool's real verification result determines the outcome. Your job is
+to look up data and call the tool, not to judge compliance yourself.`;
 
 const TOOLS: ChatCompletionTool[] = [
   {
@@ -225,13 +226,19 @@ export async function handleTicket(
     const toolCallsThisTurn = message.tool_calls ?? [];
 
     if (toolCallsThisTurn.length === 0) {
-      // If a refund was already attempted, build the response from the real
-      // gate outcome — ignore whatever the LLM generated, which may have been
-      // manipulated by prompt injection inside the ticket text.
       if (refundOutcome !== null) {
         return { finalResponse: buildRefundResponse(refundOutcome), toolCalls };
       }
-      // No refund attempted — safe to use the LLM's text (e.g. lookup-only).
+      // Model tried to resolve the decision in prose without calling request_refund.
+      // Never trust that — force the real gate to run before returning anything.
+      if (structuredOrderRef) {
+        const forcedResult = await attemptRefund(
+          identity, attestationId, scopeLimit, structuredOrderRef, sessionId, intentCommitmentHash
+        );
+        refundOutcome = forcedResult as { allowed: boolean; reason?: string; refundId?: string };
+        toolCalls.push({ tool: "request_refund", input: { orderRef: structuredOrderRef, justification: "auto-forced: model attempted to resolve without calling the tool" }, result: forcedResult });
+        return { finalResponse: buildRefundResponse(refundOutcome), toolCalls };
+      }
       return { finalResponse: message.content ?? "", toolCalls };
     }
 
