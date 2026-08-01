@@ -23,6 +23,10 @@ function toolCallToProofPanels(call: ToolCall) {
   return { result, proof1Failed, intentFailed, proof2Failed };
 }
 
+function freshTag(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 /* ── Main view ── */
 export function IntakeView() {
   const [ticketText, setTicketText] = useState("");
@@ -67,10 +71,7 @@ export function IntakeView() {
         res = await submitStructuredTask({
           customerId,
           ticketText,
-          // Isolates the Prompt Injection demo into its own session so it
-          // doesn't share an action-count budget with the Salami Slicing
-          // demo — both otherwise target the same customer's single order.
-          sessionTag: attackMode === "injection" ? "prompt-injection" : undefined,
+          sessionTag: attackMode === "injection" ? freshTag("prompt-injection") : undefined,
         });
       } else {
         res = await submitAdminTask(ticketText);
@@ -102,6 +103,7 @@ export function IntakeView() {
     setResult(null);
     setRevealedCount(0);
     const total = 3;
+    const sessionTag = freshTag("salami-slicing");
     for (let slice = 1; slice <= total; slice++) {
       setSalamiProgress({ slice, total });
       setLoading(true);
@@ -109,10 +111,7 @@ export function IntakeView() {
         const res = await submitStructuredTask({
           customerId,
           ticketText: autoFillText,
-          // Dedicated session so this demo's action-count budget is never
-          // shared with (or exhausted by) the Prompt Injection demo, which
-          // targets the same customer's single order.
-          sessionTag: "salami-slicing",
+          sessionTag,
         });
         setResult(res);
         res.toolCalls.forEach((_, i) => {
@@ -228,41 +227,14 @@ export function IntakeView() {
               Intent Binding Active
             </p>
             <p className="font-mono-data mt-0.5" style={{ fontSize: 9, color: "rgba(31,27,22,0.5)" }}>
-              The backend extracts your order and binds it cryptographically before any LLM runs.
-              Prompt injection targeting a different order is rejected by the gate.
+              The backend extracted your order and bound it cryptographically before the LLM was invoked.
+              Any LLM prompt injection targeting a different order will be rejected.
             </p>
           </div>
         </div>
 
-        {/* Auto-fill */}
         {target === "refund" && (
-          <div className="flex justify-end mb-2">
-            <button
-              onClick={() => setTicketText(autoFillText)}
-              disabled={customerOrders.length === 0}
-              className="font-mono-data border px-2 py-0.5 transition-colors"
-              style={{
-                fontSize: 9,
-                color: "rgba(31,27,22,0.45)",
-                borderColor: "rgba(31,27,22,0.2)",
-                borderRadius: 2,
-                letterSpacing: "0.05em",
-              }}
-            >
-              Auto-fill →
-            </button>
-          </div>
-        )}
-
-        {/* Attack simulation — runs the SAME real pipeline, no scripting */}
-        {target === "refund" && (
-          <div
-            className="flex items-center gap-2 mb-3 px-3 py-2 border"
-            style={{ borderColor: "rgba(178,58,47,0.3)", backgroundColor: "rgba(178,58,47,0.04)", borderRadius: 2 }}
-          >
-            <span className="font-display text-[9px] uppercase tracking-widest" style={{ color: "#B23A2F" }}>
-              Attack Simulation
-            </span>
+          <div className="flex gap-2 mb-2 items-center flex-wrap">
             <button
               onClick={loadPromptInjection}
               disabled={customerOrders.length === 0 || loading}
