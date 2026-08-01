@@ -207,6 +207,30 @@ export function TaskInterface() {
         )}
 
         {result?.toolCalls.slice(0, revealedCount).map((call, i) => {
+
+            if (call.tool === "intent_binding_check") {
+                const blocked = call.result as { reason?: string };
+                return (
+                    <div key={i} className="panel p-3 border-fail/40 bg-fail/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-mono-data text-fail">lookup_order</span>
+                        <span className="text-xs font-mono-data text-slate-500 truncate">
+                        {JSON.stringify(call.input)}
+                        </span>
+                    </div>
+                    <div className="rounded border border-fail/40 bg-fail/10 p-2 space-y-1">
+                        <p className="text-[10px] font-display uppercase tracking-wider text-fail font-semibold">
+                        ⛔ Intent Binding — order outside authenticated intent
+                        </p>
+                        <p className="text-xs font-mono-data text-slate-400 break-words">
+                        {blocked.reason}
+                        </p>
+                    </div>
+                    </div>
+                );
+                }
+
+
           const proofData = toolCallToProofPanels(call);
           return (
             <div key={i} className="panel p-3">

@@ -300,6 +300,34 @@ export async function handleTicket(
       }
 
       toolCalls.push({ tool: call.function.name, input, result: resultPayload });
+
+      // Attack 8: the model looked up an order that is NOT the one
+      // structurally committed pre-LLM. It can never actually be refunded
+      // (every request_refund call below is forced onto structuredOrderRef,
+      // regardless of what the LLM asks for) -- but that block was previously
+      // silent whenever the LLM never issued a matching request_refund call
+      // itself (e.g. it only mentioned the smuggled order inside the
+      // justification text, as happens with a small/instant model). Surface
+      // it explicitly so the audit trail / UI shows the injected order was
+      // seen and rejected, not just silently ignored.
+      if (
+        call.function.name === "lookup_order" &&
+        structuredOrderRef &&
+        (input as { orderRef: string }).orderRef !== structuredOrderRef
+      ) {
+        const lookedUpRef = (input as { orderRef: string }).orderRef;
+        toolCalls.push({
+          tool: "intent_binding_check",
+          input: { orderRef: lookedUpRef },
+          result: {
+            allowed: false,
+            intentBindingFail: true,
+            reason:
+              `INTENT_BINDING_FAIL: orderRef "${lookedUpRef}" was not in the authenticated intent ` +
+              `(authenticated: ["${structuredOrderRef}"]) -- possible injected instruction`,
+          },
+        });
+      }
       messages.push({
         role: "tool",
         tool_call_id: call.id,
