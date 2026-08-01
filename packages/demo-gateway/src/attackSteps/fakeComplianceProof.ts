@@ -1,4 +1,4 @@
-import { AttackDefinition } from "./types";
+import { AttackDefinition, ParamDef } from "./types";
 import {
   FINANCE_URL,
   registerAgent,
@@ -10,26 +10,57 @@ import {
   POLICY,
 } from "@zk-mcp/attack-scripts";
 import { buildPoseidon } from "circomlibjs";
+import { lookupRealOrder } from "./orderLookup";
+
+interface Config {
+  orderRef?: string;
+  fakeLimit?: number;
+}
 
 interface State {
+  orderRef: string;
+  fakeLimit: number;
+  realAmount?: number;
   agent?: { secretKey: string; publicKey: string; attestationId: string };
   nonce?: string;
   proof?: { R: string; s: string };
   fakeCommitment?: string;
-  fakeLimit?: number;
   amountSalt?: string;
   complianceProof?: { proof: unknown; publicSignals: string[] };
 }
 
-export const fakeComplianceProofAttack: AttackDefinition<State> = {
+export const fakeComplianceProofParams: ParamDef[] = [
+  {
+    key: "orderRef",
+    label: "Target order",
+    type: "orderRef",
+    default: "1005",
+    help: "Any real seeded order — the attack forges a policy commitment, not the order itself.",
+  },
+  {
+    key: "fakeLimit",
+    label: "Forged policy limit ($)",
+    type: "number",
+    default: 999999,
+    min: 1,
+    help: `The real registered limit is $${POLICY.policyLimit}. Try raising or lowering this to see the forged commitment always get caught by the registered-commitment check, regardless of the value chosen.`,
+  },
+];
+
+export const fakeComplianceProofAttack: AttackDefinition<State, Config> = {
   id: "7",
   title: "Fake Compliance Proof",
-  initialState: {},
+  params: fakeComplianceProofParams,
+  initialState: (config) => ({
+    orderRef: config?.orderRef || "1005",
+    fakeLimit: Number(config?.fakeLimit) || 999999,
+  }),
   steps: [
     {
-      label: "Register agent, get nonce, sign valid Proof 1",
+      label: "Look up the real order + register agent, get nonce, sign valid Proof 1",
       run: async (state) => {
-        const agent = await registerAgent("attacker-fake-policy-demo", { action: "issue_refund", limit: 5000 });
+        const order = await lookupRealOrder(state.orderRef);
+        const agent = await registerAgent("attacker-fake-policy-demo", { action: "issue_refund", limit: order.amount });
         const nonce = await getNonce("issue_refund", "finance-mcp-server");
         const proof = await sigmaProof(agent.secretKey, agent.publicKey, {
           scope: "issue_refund",
@@ -38,23 +69,25 @@ export const fakeComplianceProofAttack: AttackDefinition<State> = {
         });
         return {
           result: {
-            label: "Register agent, get nonce, sign valid Proof 1",
-            narration: "Proof 1 (authorization) will be entirely legitimate — this attack targets Proof 2 only.",
-            response: { attestationId: agent.attestationId, nonce, proof },
+            label: "Look up the real order + register agent, get nonce, sign valid Proof 1",
+            narration:
+              `Order ${state.orderRef}'s real amount is $${order.amount}. Proof 1 (authorization) will be entirely ` +
+              `legitimate — this attack targets Proof 2 only.`,
+            response: { orderRef: state.orderRef, realAmount: order.amount, attestationId: agent.attestationId, nonce, proof },
           },
-          newState: { ...state, agent, nonce, proof },
+          newState: { ...state, realAmount: order.amount, agent, nonce, proof },
         };
       },
     },
     {
-      label: "Forge a fake policy: fake $999,999 limit",
+      label: "Forge a fake policy limit",
       run: async (state) => ({
         result: {
-          label: "Forge a fake policy: fake $999,999 limit",
-          narration: "The attacker decides to use a wildly more lenient (fake) refund limit than what's actually registered.",
-          response: { fakeLimit: 999999 },
+          label: "Forge a fake policy limit",
+          narration: `The attacker decides to use a fake refund limit of $${state.fakeLimit} instead of the real registered $${POLICY.policyLimit}.`,
+          response: { fakeLimit: state.fakeLimit },
         },
-        newState: { ...state, fakeLimit: 999999 },
+        newState: state,
       }),
     },
     {
@@ -86,7 +119,7 @@ export const fakeComplianceProofAttack: AttackDefinition<State> = {
         const amountSalt = randomSalt();
         const { status, body } = await proveCompliance(
           circuitInput({
-            amount: 5000,
+            amount: state.realAmount!,
             accountAgeDays: 45,
             pastRefundCount: 0,
             transactionAgeDays: 10,
@@ -138,11 +171,11 @@ export const fakeComplianceProofAttack: AttackDefinition<State> = {
               arguments: {
                 agentId: "attacker-fake-policy-demo",
                 attestationId: state.agent!.attestationId,
-                requestedScope: { action: "issue_refund", limit: 5000 },
+                requestedScope: { action: "issue_refund", limit: state.realAmount },
                 sigmaProof: state.proof,
                 nonce: state.nonce,
-                orderRef: "4522",
-                claimedAmount: 5000,
+                orderRef: state.orderRef,
+                claimedAmount: state.realAmount,
                 claimedAmountSalt: state.amountSalt,
                 complianceProof: state.complianceProof,
               },

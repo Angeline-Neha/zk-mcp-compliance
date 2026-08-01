@@ -1,15 +1,20 @@
 /**
  * Salami Slicing Attack (Attack #9)
  *
- * The attacker repeats the exact same refund action many times in small
- * identical slices. Each individual request looks perfectly legitimate
- * and passes both proofs — but the gate tracks how many authorized actions
- * have been consumed and blocks once the session-level count is reached.
+ * The attacker repeats the exact same refund action many times against one
+ * order. Each individual request looks perfectly legitimate and passes both
+ * proofs — but the REAL ledger's pastRefundCount for that customer climbs
+ * with every issued refund, so the compliance circuit (Proof 2) eventually
+ * refuses to generate a passing proof once maxPastRefundCount is exceeded.
  *
  * This demonstrates that authorization isn't just per-request — it's
- * bounded over the lifetime of a session/attestation.
+ * bounded over the lifetime of a customer's real refund history.
+ *
+ * Note: because this attack actually issues refunds against the real DB,
+ * repeated runs against the SAME order will exhaust its refund budget —
+ * pick a fresh order (or reseed the DB) if slice 1 unexpectedly fails.
  */
-import { AttackDefinition } from "./types";
+import { AttackDefinition, ParamDef } from "./types";
 import {
   FINANCE_URL,
   registerAgent,
@@ -20,16 +25,26 @@ import {
   randomSalt,
   realPolicyCommitment,
 } from "@zk-mcp/attack-scripts";
+import { lookupRealOrder } from "./orderLookup";
 
-interface State {
-  agent?: { secretKey: string; publicKey: string; attestationId: string };
-  policyCommitment?: string;
-  sliceCount: number;
-  maxSlices: number;
-  lastResult?: unknown;
+interface Config {
+  orderRef?: string;
 }
 
-async function submitRefund(agent: NonNullable<State["agent"]>, policyCommitment: string) {
+interface State {
+  orderRef: string;
+  agent?: { secretKey: string; publicKey: string; attestationId: string };
+  policyCommitment?: string;
+  realAmount?: number;
+  sliceCount: number;
+}
+
+async function submitRefund(
+  orderRef: string,
+  amount: number,
+  agent: NonNullable<State["agent"]>,
+  policyCommitment: string
+) {
   const nonce = await getNonce("issue_refund", "finance-mcp-server");
   const proof1 = await sigmaProof(agent.secretKey, agent.publicKey, {
     scope: "issue_refund",
@@ -37,17 +52,20 @@ async function submitRefund(agent: NonNullable<State["agent"]>, policyCommitment
     serverId: "finance-mcp-server",
   });
   const amountSalt = randomSalt();
+  const order = await lookupRealOrder(orderRef);
   const { body: proveBody } = await proveCompliance(
     circuitInput({
-      amount: 40,
-      accountAgeDays: 60,
-      pastRefundCount: 0,
-      transactionAgeDays: 10,
+      amount,
+      accountAgeDays: order.accountAgeDays,
+      pastRefundCount: order.pastRefundCount,
+      transactionAgeDays: order.transactionAgeDays,
       amountSalt,
       policyCommitment,
     })
   );
-  if (!proveBody.proof) throw new Error("Compliance proof generation failed");
+  if (!proveBody.proof) {
+    return { allowed: false, reason: "compliance proof generation failed (pastRefundCount likely exceeds policy already)" };
+  }
 
   const mcpRes = await fetch(`${FINANCE_URL}/mcp`, {
     method: "POST",
@@ -61,11 +79,11 @@ async function submitRefund(agent: NonNullable<State["agent"]>, policyCommitment
         arguments: {
           agentId: "attacker-salami-demo",
           attestationId: agent.attestationId,
-          requestedScope: { action: "issue_refund", limit: 40 },
+          requestedScope: { action: "issue_refund", limit: amount },
           sigmaProof: proof1,
           nonce,
-          orderRef: "10017",
-          claimedAmount: 40,
+          orderRef,
+          claimedAmount: amount,
           claimedAmountSalt: amountSalt,
           complianceProof: { proof: proveBody.proof, publicSignals: proveBody.publicSignals },
         },
@@ -80,83 +98,102 @@ async function submitRefund(agent: NonNullable<State["agent"]>, policyCommitment
   return content ? JSON.parse(content) : null;
 }
 
-const MAX_SLICES = 3;
+export const salamiSlicingParams: ParamDef[] = [
+  {
+    key: "orderRef",
+    label: "Target order",
+    type: "orderRef",
+    category: "pass",
+    default: "1005",
+    help: "Pick any real, policy-compliant order. Each slice re-refunds this exact order at its real amount.",
+  },
+];
 
-export const salamiSlicingAttack: AttackDefinition<State> = {
+export const salamiSlicingAttack: AttackDefinition<State, Config> = {
   id: "9",
   title: "Salami Slicing",
-  initialState: { sliceCount: 0, maxSlices: MAX_SLICES },
+  params: salamiSlicingParams,
+  initialState: (config) => ({
+    orderRef: config?.orderRef || "1005",
+    sliceCount: 0,
+  }),
   steps: [
     {
-      label: "Register agent with a $40 limit",
+      label: "Look up the real order and register an agent",
       run: async (state) => {
-        const agent = await registerAgent("attacker-salami-demo", { action: "issue_refund", limit: 40 });
+        const order = await lookupRealOrder(state.orderRef);
+        const agent = await registerAgent("attacker-salami-demo", { action: "issue_refund", limit: order.amount });
         const policyCommitment = await realPolicyCommitment();
         return {
           result: {
-            label: "Register agent with a $40 limit",
+            label: "Look up the real order and register an agent",
             narration:
-              "The attacker registers a credential scoped to $40 refunds — each individual slice is well under the $150 policy limit. The plan: repeat it until the cumulative damage is significant.",
-            response: { attestationId: agent.attestationId, limit: 40 },
+              `Order ${state.orderRef}'s real amount is $${order.amount}, well under policy — the attacker registers ` +
+              `a credential scoped to exactly that amount. The plan: repeat the identical, individually-legitimate ` +
+              `refund until cumulative damage is significant.`,
+            response: { orderRef: state.orderRef, amount: order.amount, attestationId: agent.attestationId },
           },
-          newState: { ...state, agent, policyCommitment },
+          newState: { ...state, agent, policyCommitment, realAmount: order.amount },
         };
       },
     },
     {
       label: "Slice 1 — first refund (should pass)",
       run: async (state) => {
-        const result = await submitRefund(state.agent!, state.policyCommitment!);
+        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
         const blocked = result?.allowed === false;
         return {
           result: {
             label: "Slice 1 — first refund (should pass)",
             narration: blocked
-              ? `Slice 1 unexpectedly BLOCKED: ${result?.reason}`
+              ? `Slice 1 unexpectedly BLOCKED: ${result?.reason}. This order may already have prior refunds from an ` +
+                `earlier demo run — pick a fresh order and try again.`
               : "Slice 1 approved. The request looks completely legitimate in isolation — a small, policy-compliant refund.",
             response: result,
             blocked,
           },
-          newState: { ...state, sliceCount: state.sliceCount + 1, lastResult: result },
+          newState: { ...state, sliceCount: state.sliceCount + 1 },
         };
       },
     },
     {
       label: "Slice 2 — exact same request again",
       run: async (state) => {
-        const result = await submitRefund(state.agent!, state.policyCommitment!);
+        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
         const blocked = result?.allowed === false;
         return {
           result: {
             label: "Slice 2 — exact same request again",
             narration: blocked
               ? `Slice 2 BLOCKED: ${result?.reason}`
-              : "Slice 2 approved. Still looks identical to any other refund. The gate has no stateful counter yet for this demo — each new nonce and proof is fresh.",
+              : "Slice 2 approved. Still looks identical to any other refund — the same order, same proofs, same green light.",
             response: result,
             blocked,
           },
-          newState: { ...state, sliceCount: state.sliceCount + 1, lastResult: result },
+          newState: { ...state, sliceCount: state.sliceCount + 1 },
         };
       },
     },
     {
       label: "Slice 3 — same again, crossing threshold",
       run: async (state) => {
-        const result = await submitRefund(state.agent!, state.policyCommitment!);
-        // The DB pastRefundCount constraint in the compliance circuit will catch this
+        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
+        // The DB pastRefundCount constraint in the compliance circuit catches this
         // because each refund increments the real DB record. By slice 3+, pastRefundCount
-        // in the real DB exceeds maxPastRefundCount=3 making a fresh proof impossible.
+        // in the real DB exceeds maxPastRefundCount, making a fresh proof impossible.
         const blocked = result?.allowed === false;
         return {
           result: {
             label: "Slice 3 — same again, crossing threshold",
             narration: blocked
-              ? `BLOCKED at slice 3: "${result?.reason}". The compliance circuit (Proof 2) binds pastRefundCount from the REAL ledger — repeated slices against the same order are caught when the DB count exceeds the policy maximum.`
+              ? `BLOCKED at slice 3: "${result?.reason}". The compliance circuit (Proof 2) binds pastRefundCount from ` +
+                `the REAL ledger — repeated slices against the same order are caught once the DB count exceeds the ` +
+                `policy maximum.`
               : "Slice 3 passed — the system accepted another identical refund. This would be the vulnerability in a simpler system.",
             response: result,
             blocked,
           },
-          newState: { ...state, sliceCount: state.sliceCount + 1, lastResult: result },
+          newState: { ...state, sliceCount: state.sliceCount + 1 },
         };
       },
     },

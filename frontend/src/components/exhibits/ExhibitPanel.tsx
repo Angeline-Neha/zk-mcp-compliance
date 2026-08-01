@@ -1,19 +1,34 @@
 /**
  * ExhibitPanel — shared step-through component for all nine attack exhibits.
  *
- * Talks to POST /attack/:id/start then POST /attack/:id/:runId/step/:n
- * Renders step narrations, request/response payloads, and BLOCKED / PASS badges.
+ * Exhibits with a `params` schema show a "configure" panel first — real
+ * seeded orders and numeric knobs the user can change — before "Run".
+ * Talks to POST /attack/:id/start (with the chosen config as JSON body)
+ * then POST /attack/:id/:runId/step/:n. Renders step narrations,
+ * request/response payloads, and BLOCKED / PASS badges.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { GATEWAY_URL, fetchOrders, OrderOption } from "../../lib/api";
 
-const GW = "http://localhost:4006";
+const GW = GATEWAY_URL;
+
+export interface ParamDef {
+  key: string;
+  label: string;
+  type: "orderRef" | "number" | "text";
+  default: string | number;
+  help?: string;
+  min?: number;
+  category?: "pass" | "fail";
+}
 
 export interface ExhibitMeta {
-  id: string;            // "1"–"8"
-  number: string;        // "I"–"VIII" in roman numerals
+  id: string;            // "1"–"9"
+  number: string;        // "I"–"IX" in roman numerals
   title: string;
   tagline: string;
   dangerVerb: string;    // "NONCE BURNED" / "SCOPE MISMATCH" etc.
+  params?: ParamDef[];   // editable inputs shown before "Run", if any
 }
 
 interface StepInfo { index: number; label: string }
@@ -44,13 +59,33 @@ export function ExhibitPanel({ meta }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [orders, setOrders] = useState<OrderOption[]>([]);
+  const [config, setConfig] = useState<Record<string, string | number>>(() => {
+    const init: Record<string, string | number> = {};
+    (meta.params ?? []).forEach((p) => { init[p.key] = p.default; });
+    return init;
+  });
+
+  useEffect(() => {
+    if (meta.params?.some((p) => p.type === "orderRef")) {
+      fetchOrders().then(setOrders).catch(() => setOrders([]));
+    }
+  }, [meta.id]);
+
+  const updateConfig = useCallback((key: string, value: string | number) => {
+    setConfig((c) => ({ ...c, [key]: value }));
+  }, []);
 
   const startRun = useCallback(async () => {
     setLoading(true);
     setError(null);
     setExpanded(null);
     try {
-      const res = await fetch(`${GW}/attack/${meta.id}/start`, { method: "POST" });
+      const res = await fetch(`${GW}/attack/${meta.id}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
       if (!res.ok) throw new Error(await res.text());
       const body = await res.json();
       setRun({
@@ -66,7 +101,7 @@ export function ExhibitPanel({ meta }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [meta.id]);
+  }, [meta.id, config]);
 
   const advanceStep = useCallback(async () => {
     if (!run || run.done) return;
@@ -102,6 +137,9 @@ export function ExhibitPanel({ meta }: Props) {
   const isBlocked = lastResult?.blocked === true;
   const isFinalStep = run?.done;
 
+  const orderOptions = (category?: "pass" | "fail") =>
+    category ? orders.filter((o) => o.category === category) : orders;
+
   return (
     <div className="exhibit-panel">
       {/* ── Header ── */}
@@ -122,6 +160,57 @@ export function ExhibitPanel({ meta }: Props) {
           </div>
         )}
       </div>
+
+      {/* ── Configure panel (only when this exhibit exposes params, and before a run starts) ── */}
+      {!run && meta.params && meta.params.length > 0 && (
+        <div className="exhibit-config">
+          <div className="exhibit-config-header">CONFIGURE THIS RUN</div>
+          <div className="exhibit-config-grid">
+            {meta.params.map((p) => (
+              <div key={p.key} className="exhibit-config-field">
+                <label className="exhibit-config-label" htmlFor={`cfg-${meta.id}-${p.key}`}>
+                  {p.label}
+                </label>
+                {p.type === "orderRef" ? (
+                  <select
+                    id={`cfg-${meta.id}-${p.key}`}
+                    className="exhibit-config-input"
+                    value={config[p.key]}
+                    onChange={(e) => updateConfig(p.key, e.target.value)}
+                  >
+                    {orderOptions(p.category).length === 0 && (
+                      <option value={config[p.key]}>{String(config[p.key])} (loading real orders…)</option>
+                    )}
+                    {orderOptions(p.category).map((o) => (
+                      <option key={o.orderRef} value={o.orderRef}>
+                        {o.orderRef} — ${o.amount} ({o.category === "pass" ? "compliant" : "non-compliant"})
+                      </option>
+                    ))}
+                  </select>
+                ) : p.type === "number" ? (
+                  <input
+                    id={`cfg-${meta.id}-${p.key}`}
+                    className="exhibit-config-input"
+                    type="number"
+                    min={p.min}
+                    value={config[p.key]}
+                    onChange={(e) => updateConfig(p.key, Number(e.target.value))}
+                  />
+                ) : (
+                  <input
+                    id={`cfg-${meta.id}-${p.key}`}
+                    className="exhibit-config-input"
+                    type="text"
+                    value={config[p.key]}
+                    onChange={(e) => updateConfig(p.key, e.target.value)}
+                  />
+                )}
+                {p.help && <p className="exhibit-config-help">{p.help}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Controls ── */}
       <div className="exhibit-controls">
@@ -147,7 +236,7 @@ export function ExhibitPanel({ meta }: Props) {
               </button>
             )}
             <button className="exhibit-btn exhibit-btn--reset" onClick={reset}>
-              ↺ RESET
+              ↺ RESET{meta.params && meta.params.length > 0 ? " & RECONFIGURE" : ""}
             </button>
           </>
         )}

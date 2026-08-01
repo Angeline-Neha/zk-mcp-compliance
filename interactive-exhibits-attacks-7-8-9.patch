@@ -1,0 +1,1558 @@
+diff --git a/frontend/src/components/exhibits/ExhibitPanel.tsx b/frontend/src/components/exhibits/ExhibitPanel.tsx
+index 4733403..2df6ce1 100755
+--- a/frontend/src/components/exhibits/ExhibitPanel.tsx
++++ b/frontend/src/components/exhibits/ExhibitPanel.tsx
+@@ -1,19 +1,34 @@
+ /**
+  * ExhibitPanel — shared step-through component for all nine attack exhibits.
+  *
+- * Talks to POST /attack/:id/start then POST /attack/:id/:runId/step/:n
+- * Renders step narrations, request/response payloads, and BLOCKED / PASS badges.
++ * Exhibits with a `params` schema show a "configure" panel first — real
++ * seeded orders and numeric knobs the user can change — before "Run".
++ * Talks to POST /attack/:id/start (with the chosen config as JSON body)
++ * then POST /attack/:id/:runId/step/:n. Renders step narrations,
++ * request/response payloads, and BLOCKED / PASS badges.
+  */
+-import { useState, useCallback } from "react";
++import { useState, useCallback, useEffect } from "react";
++import { GATEWAY_URL, fetchOrders, OrderOption } from "../../lib/api";
+ 
+-const GW = "http://localhost:4006";
++const GW = GATEWAY_URL;
++
++export interface ParamDef {
++  key: string;
++  label: string;
++  type: "orderRef" | "number" | "text";
++  default: string | number;
++  help?: string;
++  min?: number;
++  category?: "pass" | "fail";
++}
+ 
+ export interface ExhibitMeta {
+-  id: string;            // "1"–"8"
+-  number: string;        // "I"–"VIII" in roman numerals
++  id: string;            // "1"–"9"
++  number: string;        // "I"–"IX" in roman numerals
+   title: string;
+   tagline: string;
+   dangerVerb: string;    // "NONCE BURNED" / "SCOPE MISMATCH" etc.
++  params?: ParamDef[];   // editable inputs shown before "Run", if any
+ }
+ 
+ interface StepInfo { index: number; label: string }
+@@ -44,13 +59,33 @@ export function ExhibitPanel({ meta }: Props) {
+   const [loading, setLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const [expanded, setExpanded] = useState<number | null>(null);
++  const [orders, setOrders] = useState<OrderOption[]>([]);
++  const [config, setConfig] = useState<Record<string, string | number>>(() => {
++    const init: Record<string, string | number> = {};
++    (meta.params ?? []).forEach((p) => { init[p.key] = p.default; });
++    return init;
++  });
++
++  useEffect(() => {
++    if (meta.params?.some((p) => p.type === "orderRef")) {
++      fetchOrders().then(setOrders).catch(() => setOrders([]));
++    }
++  }, [meta.id]);
++
++  const updateConfig = useCallback((key: string, value: string | number) => {
++    setConfig((c) => ({ ...c, [key]: value }));
++  }, []);
+ 
+   const startRun = useCallback(async () => {
+     setLoading(true);
+     setError(null);
+     setExpanded(null);
+     try {
+-      const res = await fetch(`${GW}/attack/${meta.id}/start`, { method: "POST" });
++      const res = await fetch(`${GW}/attack/${meta.id}/start`, {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify(config),
++      });
+       if (!res.ok) throw new Error(await res.text());
+       const body = await res.json();
+       setRun({
+@@ -66,7 +101,7 @@ export function ExhibitPanel({ meta }: Props) {
+     } finally {
+       setLoading(false);
+     }
+-  }, [meta.id]);
++  }, [meta.id, config]);
+ 
+   const advanceStep = useCallback(async () => {
+     if (!run || run.done) return;
+@@ -102,6 +137,9 @@ export function ExhibitPanel({ meta }: Props) {
+   const isBlocked = lastResult?.blocked === true;
+   const isFinalStep = run?.done;
+ 
++  const orderOptions = (category?: "pass" | "fail") =>
++    category ? orders.filter((o) => o.category === category) : orders;
++
+   return (
+     <div className="exhibit-panel">
+       {/* ── Header ── */}
+@@ -123,6 +161,57 @@ export function ExhibitPanel({ meta }: Props) {
+         )}
+       </div>
+ 
++      {/* ── Configure panel (only when this exhibit exposes params, and before a run starts) ── */}
++      {!run && meta.params && meta.params.length > 0 && (
++        <div className="exhibit-config">
++          <div className="exhibit-config-header">CONFIGURE THIS RUN</div>
++          <div className="exhibit-config-grid">
++            {meta.params.map((p) => (
++              <div key={p.key} className="exhibit-config-field">
++                <label className="exhibit-config-label" htmlFor={`cfg-${meta.id}-${p.key}`}>
++                  {p.label}
++                </label>
++                {p.type === "orderRef" ? (
++                  <select
++                    id={`cfg-${meta.id}-${p.key}`}
++                    className="exhibit-config-input"
++                    value={config[p.key]}
++                    onChange={(e) => updateConfig(p.key, e.target.value)}
++                  >
++                    {orderOptions(p.category).length === 0 && (
++                      <option value={config[p.key]}>{String(config[p.key])} (loading real orders…)</option>
++                    )}
++                    {orderOptions(p.category).map((o) => (
++                      <option key={o.orderRef} value={o.orderRef}>
++                        {o.orderRef} — ${o.amount} ({o.category === "pass" ? "compliant" : "non-compliant"})
++                      </option>
++                    ))}
++                  </select>
++                ) : p.type === "number" ? (
++                  <input
++                    id={`cfg-${meta.id}-${p.key}`}
++                    className="exhibit-config-input"
++                    type="number"
++                    min={p.min}
++                    value={config[p.key]}
++                    onChange={(e) => updateConfig(p.key, Number(e.target.value))}
++                  />
++                ) : (
++                  <input
++                    id={`cfg-${meta.id}-${p.key}`}
++                    className="exhibit-config-input"
++                    type="text"
++                    value={config[p.key]}
++                    onChange={(e) => updateConfig(p.key, e.target.value)}
++                  />
++                )}
++                {p.help && <p className="exhibit-config-help">{p.help}</p>}
++              </div>
++            ))}
++          </div>
++        </div>
++      )}
++
+       {/* ── Controls ── */}
+       <div className="exhibit-controls">
+         {!run ? (
+@@ -147,7 +236,7 @@ export function ExhibitPanel({ meta }: Props) {
+               </button>
+             )}
+             <button className="exhibit-btn exhibit-btn--reset" onClick={reset}>
+-              ↺ RESET
++              ↺ RESET{meta.params && meta.params.length > 0 ? " & RECONFIGURE" : ""}
+             </button>
+           </>
+         )}
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+index 889ba0c..2bc4f6d 100755
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -384,6 +384,64 @@
+   background: rgba(47,74,59,0.06);
+ }
+ 
++/* ── Configure panel ── */
++.exhibit-config {
++  border: 1.5px dashed rgba(178,58,47,0.35);
++  border-radius: 2px;
++  padding: 16px 18px 18px;
++  background: rgba(178,58,47,0.03);
++}
++
++.exhibit-config-header {
++  font-family: 'JetBrains Mono', monospace;
++  font-size: 10px;
++  letter-spacing: 0.18em;
++  color: #B23A2F;
++  margin-bottom: 12px;
++}
++
++.exhibit-config-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
++  gap: 16px;
++}
++
++.exhibit-config-field {
++  display: flex;
++  flex-direction: column;
++  gap: 5px;
++}
++
++.exhibit-config-label {
++  font-family: 'Archivo', sans-serif;
++  font-size: 12px;
++  font-weight: 600;
++  color: #1F1B16;
++}
++
++.exhibit-config-input {
++  font-family: 'JetBrains Mono', monospace;
++  font-size: 12px;
++  padding: 7px 9px;
++  border: 1.5px solid rgba(31,27,22,0.3);
++  border-radius: 2px;
++  background: #FBF8F2;
++  color: #1F1B16;
++}
++
++.exhibit-config-input:focus {
++  outline: none;
++  border-color: #B23A2F;
++}
++
++.exhibit-config-help {
++  font-family: 'Archivo', sans-serif;
++  font-size: 11px;
++  color: rgba(31,27,22,0.55);
++  margin: 0;
++  line-height: 1.4;
++}
++
+ /* ── Controls ── */
+ .exhibit-controls {
+   display: flex;
+diff --git a/frontend/src/lib/api.ts b/frontend/src/lib/api.ts
+index f79e7c0..da1424e 100755
+--- a/frontend/src/lib/api.ts
++++ b/frontend/src/lib/api.ts
+@@ -158,6 +158,21 @@ export async function fetchCustomerOrders(customerId: string): Promise<string[]>
+   return body.orders.map((o: any) => o.orderRef);
+ }
+ 
++export interface OrderOption {
++  orderRef: string;
++  customerId: string;
++  amount: number;
++  category: "pass" | "fail";
++}
++
++/** All real seeded orders — used to populate exhibit "configure" dropdowns. */
++export async function fetchOrders(): Promise<OrderOption[]> {
++  const res = await fetch(`${GATEWAY_URL}/task/orders`);
++  if (!res.ok) return [];
++  const body = await res.json();
++  return body.orders;
++}
++
+ export interface AttackMeta {
+   id: string;
+   title: string;
+diff --git a/frontend/src/views/ExhibitsView.tsx b/frontend/src/views/ExhibitsView.tsx
+index fe6d7fb..4afd807 100755
+--- a/frontend/src/views/ExhibitsView.tsx
++++ b/frontend/src/views/ExhibitsView.tsx
+@@ -57,6 +57,23 @@ const EXHIBITS: ExhibitMeta[] = [
+     title: "Fake Compliance Proof",
+     tagline: "Forge a self-consistent policy commitment with a raised limit.",
+     dangerVerb: "COMMITMENT MISMATCH",
++    params: [
++      {
++        key: "orderRef",
++        label: "Target order",
++        type: "orderRef",
++        default: "1005",
++        help: "Any real seeded order — the forgery is in the policy commitment, not the order.",
++      },
++      {
++        key: "fakeLimit",
++        label: "Forged policy limit ($)",
++        type: "number",
++        default: 999999,
++        min: 1,
++        help: "The real registered limit is $150. Any forged value here still gets caught — try changing it.",
++      },
++    ],
+   },
+   {
+     id: "8",
+@@ -64,6 +81,22 @@ const EXHIBITS: ExhibitMeta[] = [
+     title: "Prompt Injection (Intent Binding)",
+     tagline: "Manipulate the LLM to target a different order than was committed.",
+     dangerVerb: "INTENT BINDING FAIL",
++    params: [
++      {
++        key: "legitOrderRef",
++        label: "Really-authorized order",
++        type: "orderRef",
++        default: "1001",
++        help: "The order the authenticated customer actually asked to refund.",
++      },
++      {
++        key: "injectedOrderRef",
++        label: "Injected (smuggled) order",
++        type: "orderRef",
++        default: "2001",
++        help: "Pick a \"non-compliant\" order to see it caught twice over, or a \"compliant\" one to see intent-binding as the ONLY thing that stops it.",
++      },
++    ],
+   },
+   {
+     id: "9",
+@@ -71,6 +104,16 @@ const EXHIBITS: ExhibitMeta[] = [
+     title: "Salami Slicing",
+     tagline: "Repeat identical sub-limit refunds until cumulative damage exceeds the policy.",
+     dangerVerb: "COUNT EXCEEDED",
++    params: [
++      {
++        key: "orderRef",
++        label: "Target order",
++        type: "orderRef",
++        category: "pass",
++        default: "1005",
++        help: "Pick a fresh compliant order — reusing one from an earlier run may already be out of refund budget.",
++      },
++    ],
+   },
+ ];
+ 
+diff --git a/packages/demo-gateway/src/attackSteps/fakeComplianceProof.ts b/packages/demo-gateway/src/attackSteps/fakeComplianceProof.ts
+index 6e82d33..fdf6555 100755
+--- a/packages/demo-gateway/src/attackSteps/fakeComplianceProof.ts
++++ b/packages/demo-gateway/src/attackSteps/fakeComplianceProof.ts
+@@ -1,172 +1,205 @@
+-import { AttackDefinition } from "./types";
+-import {
+-  FINANCE_URL,
+-  registerAgent,
+-  getNonce,
+-  sigmaProof,
+-  proveCompliance,
+-  circuitInput,
+-  randomSalt,
+-  POLICY,
+-} from "@zk-mcp/attack-scripts";
+-import { buildPoseidon } from "circomlibjs";
+-
+-interface State {
+-  agent?: { secretKey: string; publicKey: string; attestationId: string };
+-  nonce?: string;
+-  proof?: { R: string; s: string };
+-  fakeCommitment?: string;
+-  fakeLimit?: number;
+-  amountSalt?: string;
+-  complianceProof?: { proof: unknown; publicSignals: string[] };
+-}
+-
+-export const fakeComplianceProofAttack: AttackDefinition<State> = {
+-  id: "7",
+-  title: "Fake Compliance Proof",
+-  initialState: {},
+-  steps: [
+-    {
+-      label: "Register agent, get nonce, sign valid Proof 1",
+-      run: async (state) => {
+-        const agent = await registerAgent("attacker-fake-policy-demo", { action: "issue_refund", limit: 5000 });
+-        const nonce = await getNonce("issue_refund", "finance-mcp-server");
+-        const proof = await sigmaProof(agent.secretKey, agent.publicKey, {
+-          scope: "issue_refund",
+-          nonce,
+-          serverId: "finance-mcp-server",
+-        });
+-        return {
+-          result: {
+-            label: "Register agent, get nonce, sign valid Proof 1",
+-            narration: "Proof 1 (authorization) will be entirely legitimate — this attack targets Proof 2 only.",
+-            response: { attestationId: agent.attestationId, nonce, proof },
+-          },
+-          newState: { ...state, agent, nonce, proof },
+-        };
+-      },
+-    },
+-    {
+-      label: "Forge a fake policy: fake $999,999 limit",
+-      run: async (state) => ({
+-        result: {
+-          label: "Forge a fake policy: fake $999,999 limit",
+-          narration: "The attacker decides to use a wildly more lenient (fake) refund limit than what's actually registered.",
+-          response: { fakeLimit: 999999 },
+-        },
+-        newState: { ...state, fakeLimit: 999999 },
+-      }),
+-    },
+-    {
+-      label: "Compute a matching fake commitment (self-consistent)",
+-      run: async (state) => {
+-        const poseidon = await buildPoseidon();
+-        const fakeHash = poseidon([
+-          state.fakeLimit,
+-          POLICY.minAccountAgeDays,
+-          POLICY.maxPastRefundCount,
+-          POLICY.maxTransactionAgeDays,
+-          POLICY.policyLimitSalt,
+-        ]);
+-        const fakeCommitment = poseidon.F.toObject(fakeHash).toString();
+-        return {
+-          result: {
+-            label: "Compute a matching fake commitment (self-consistent)",
+-            narration:
+-              "The circuit's own internal check only verifies self-consistency — it can't tell this commitment wasn't actually registered anywhere.",
+-            response: { fakeCommitment },
+-          },
+-          newState: { ...state, fakeCommitment },
+-        };
+-      },
+-    },
+-    {
+-      label: "Generate the Groth16 proof with forged params",
+-      run: async (state) => {
+-        const amountSalt = randomSalt();
+-        const { status, body } = await proveCompliance(
+-          circuitInput({
+-            amount: 5000,
+-            accountAgeDays: 45,
+-            pastRefundCount: 0,
+-            transactionAgeDays: 10,
+-            amountSalt,
+-            policyCommitment: state.fakeCommitment!,
+-            policyLimit: state.fakeLimit,
+-          })
+-        );
+-        return {
+-          result: {
+-            label: "Generate the Groth16 proof with forged params",
+-            narration:
+-              status === 200
+-                ? "The circuit accepts it — internally consistent, so a real, valid-looking Groth16 proof comes out."
+-                : "Circuit rejected it outright — attack blocked even earlier than expected.",
+-            response: { status, publicSignals: body.publicSignals },
+-            blocked: status !== 200,
+-          },
+-          newState: {
+-            ...state,
+-            amountSalt,
+-            complianceProof: status === 200 ? { proof: body.proof, publicSignals: body.publicSignals } : undefined,
+-          },
+-        };
+-      },
+-    },
+-    {
+-      label: "Submit both proofs to the real finance-mcp-server",
+-      run: async (state) => {
+-        if (!state.complianceProof) {
+-          return {
+-            result: {
+-              label: "Submit both proofs to the real finance-mcp-server",
+-              narration: "Skipped — already blocked at proof generation.",
+-              blocked: true,
+-            },
+-            newState: state,
+-          };
+-        }
+-        const mcpRes = await fetch(`${FINANCE_URL}/mcp`, {
+-          method: "POST",
+-          headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+-          body: JSON.stringify({
+-            jsonrpc: "2.0",
+-            id: 1,
+-            method: "tools/call",
+-            params: {
+-              name: "issue_refund",
+-              arguments: {
+-                agentId: "attacker-fake-policy-demo",
+-                attestationId: state.agent!.attestationId,
+-                requestedScope: { action: "issue_refund", limit: 5000 },
+-                sigmaProof: state.proof,
+-                nonce: state.nonce,
+-                orderRef: "4522",
+-                claimedAmount: 5000,
+-                claimedAmountSalt: state.amountSalt,
+-                complianceProof: state.complianceProof,
+-              },
+-            },
+-          }),
+-        });
+-        const text = await mcpRes.text();
+-        const dataLine = text.split("\n").find((l) => l.startsWith("data:"));
+-        const parsed = dataLine ? JSON.parse(dataLine.slice(5).trim()) : null;
+-        const content = parsed?.result?.content?.[0]?.text;
+-        const resultBody = content ? JSON.parse(content) : null;
+-        const blocked = resultBody?.allowed === false;
+-        return {
+-          result: {
+-            label: "Submit both proofs to the real finance-mcp-server",
+-            narration: blocked
+-              ? `REJECTED — ${resultBody.reason}. The gate checks against the ACTUALLY registered commitment, not just circuit self-consistency.`
+-              : "VULNERABLE — should never happen",
+-            response: resultBody,
+-            blocked,
+-          },
+-          newState: state,
+-        };
+-      },
+-    },
+-  ],
+-};
+\ No newline at end of file
++import { AttackDefinition, ParamDef } from "./types";
++import {
++  FINANCE_URL,
++  registerAgent,
++  getNonce,
++  sigmaProof,
++  proveCompliance,
++  circuitInput,
++  randomSalt,
++  POLICY,
++} from "@zk-mcp/attack-scripts";
++import { buildPoseidon } from "circomlibjs";
++import { lookupRealOrder } from "./orderLookup";
++
++interface Config {
++  orderRef?: string;
++  fakeLimit?: number;
++}
++
++interface State {
++  orderRef: string;
++  fakeLimit: number;
++  realAmount?: number;
++  agent?: { secretKey: string; publicKey: string; attestationId: string };
++  nonce?: string;
++  proof?: { R: string; s: string };
++  fakeCommitment?: string;
++  amountSalt?: string;
++  complianceProof?: { proof: unknown; publicSignals: string[] };
++}
++
++export const fakeComplianceProofParams: ParamDef[] = [
++  {
++    key: "orderRef",
++    label: "Target order",
++    type: "orderRef",
++    default: "1005",
++    help: "Any real seeded order — the attack forges a policy commitment, not the order itself.",
++  },
++  {
++    key: "fakeLimit",
++    label: "Forged policy limit ($)",
++    type: "number",
++    default: 999999,
++    min: 1,
++    help: `The real registered limit is $${POLICY.policyLimit}. Try raising or lowering this to see the forged commitment always get caught by the registered-commitment check, regardless of the value chosen.`,
++  },
++];
++
++export const fakeComplianceProofAttack: AttackDefinition<State, Config> = {
++  id: "7",
++  title: "Fake Compliance Proof",
++  params: fakeComplianceProofParams,
++  initialState: (config) => ({
++    orderRef: config?.orderRef || "1005",
++    fakeLimit: Number(config?.fakeLimit) || 999999,
++  }),
++  steps: [
++    {
++      label: "Look up the real order + register agent, get nonce, sign valid Proof 1",
++      run: async (state) => {
++        const order = await lookupRealOrder(state.orderRef);
++        const agent = await registerAgent("attacker-fake-policy-demo", { action: "issue_refund", limit: order.amount });
++        const nonce = await getNonce("issue_refund", "finance-mcp-server");
++        const proof = await sigmaProof(agent.secretKey, agent.publicKey, {
++          scope: "issue_refund",
++          nonce,
++          serverId: "finance-mcp-server",
++        });
++        return {
++          result: {
++            label: "Look up the real order + register agent, get nonce, sign valid Proof 1",
++            narration:
++              `Order ${state.orderRef}'s real amount is $${order.amount}. Proof 1 (authorization) will be entirely ` +
++              `legitimate — this attack targets Proof 2 only.`,
++            response: { orderRef: state.orderRef, realAmount: order.amount, attestationId: agent.attestationId, nonce, proof },
++          },
++          newState: { ...state, realAmount: order.amount, agent, nonce, proof },
++        };
++      },
++    },
++    {
++      label: "Forge a fake policy limit",
++      run: async (state) => ({
++        result: {
++          label: "Forge a fake policy limit",
++          narration: `The attacker decides to use a fake refund limit of $${state.fakeLimit} instead of the real registered $${POLICY.policyLimit}.`,
++          response: { fakeLimit: state.fakeLimit },
++        },
++        newState: state,
++      }),
++    },
++    {
++      label: "Compute a matching fake commitment (self-consistent)",
++      run: async (state) => {
++        const poseidon = await buildPoseidon();
++        const fakeHash = poseidon([
++          state.fakeLimit,
++          POLICY.minAccountAgeDays,
++          POLICY.maxPastRefundCount,
++          POLICY.maxTransactionAgeDays,
++          POLICY.policyLimitSalt,
++        ]);
++        const fakeCommitment = poseidon.F.toObject(fakeHash).toString();
++        return {
++          result: {
++            label: "Compute a matching fake commitment (self-consistent)",
++            narration:
++              "The circuit's own internal check only verifies self-consistency — it can't tell this commitment wasn't actually registered anywhere.",
++            response: { fakeCommitment },
++          },
++          newState: { ...state, fakeCommitment },
++        };
++      },
++    },
++    {
++      label: "Generate the Groth16 proof with forged params",
++      run: async (state) => {
++        const amountSalt = randomSalt();
++        const { status, body } = await proveCompliance(
++          circuitInput({
++            amount: state.realAmount!,
++            accountAgeDays: 45,
++            pastRefundCount: 0,
++            transactionAgeDays: 10,
++            amountSalt,
++            policyCommitment: state.fakeCommitment!,
++            policyLimit: state.fakeLimit,
++          })
++        );
++        return {
++          result: {
++            label: "Generate the Groth16 proof with forged params",
++            narration:
++              status === 200
++                ? "The circuit accepts it — internally consistent, so a real, valid-looking Groth16 proof comes out."
++                : "Circuit rejected it outright — attack blocked even earlier than expected.",
++            response: { status, publicSignals: body.publicSignals },
++            blocked: status !== 200,
++          },
++          newState: {
++            ...state,
++            amountSalt,
++            complianceProof: status === 200 ? { proof: body.proof, publicSignals: body.publicSignals } : undefined,
++          },
++        };
++      },
++    },
++    {
++      label: "Submit both proofs to the real finance-mcp-server",
++      run: async (state) => {
++        if (!state.complianceProof) {
++          return {
++            result: {
++              label: "Submit both proofs to the real finance-mcp-server",
++              narration: "Skipped — already blocked at proof generation.",
++              blocked: true,
++            },
++            newState: state,
++          };
++        }
++        const mcpRes = await fetch(`${FINANCE_URL}/mcp`, {
++          method: "POST",
++          headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
++          body: JSON.stringify({
++            jsonrpc: "2.0",
++            id: 1,
++            method: "tools/call",
++            params: {
++              name: "issue_refund",
++              arguments: {
++                agentId: "attacker-fake-policy-demo",
++                attestationId: state.agent!.attestationId,
++                requestedScope: { action: "issue_refund", limit: state.realAmount },
++                sigmaProof: state.proof,
++                nonce: state.nonce,
++                orderRef: state.orderRef,
++                claimedAmount: state.realAmount,
++                claimedAmountSalt: state.amountSalt,
++                complianceProof: state.complianceProof,
++              },
++            },
++          }),
++        });
++        const text = await mcpRes.text();
++        const dataLine = text.split("\n").find((l) => l.startsWith("data:"));
++        const parsed = dataLine ? JSON.parse(dataLine.slice(5).trim()) : null;
++        const content = parsed?.result?.content?.[0]?.text;
++        const resultBody = content ? JSON.parse(content) : null;
++        const blocked = resultBody?.allowed === false;
++        return {
++          result: {
++            label: "Submit both proofs to the real finance-mcp-server",
++            narration: blocked
++              ? `REJECTED — ${resultBody.reason}. The gate checks against the ACTUALLY registered commitment, not just circuit self-consistency.`
++              : "VULNERABLE — should never happen",
++            response: resultBody,
++            blocked,
++          },
++          newState: state,
++        };
++      },
++    },
++  ],
++};
+diff --git a/packages/demo-gateway/src/attackSteps/intentInjection.ts b/packages/demo-gateway/src/attackSteps/intentInjection.ts
+index 8bed5c0..c4debc5 100755
+--- a/packages/demo-gateway/src/attackSteps/intentInjection.ts
++++ b/packages/demo-gateway/src/attackSteps/intentInjection.ts
+@@ -1,182 +1,256 @@
+-import { AttackDefinition } from "./types";
+-import {
+-  registerAgent,
+-  getNonce,
+-  sigmaProof,
+-  proveCompliance,
+-  circuitInput,
+-  randomSalt,
+-  realPolicyCommitment,
+-} from "@zk-mcp/attack-scripts";
+-import { randomUUID, createHash } from "crypto";
+-
+-const ISSUER_URL = process.env.ISSUER_URL ?? "http://localhost:4001";
+-const FINANCE_URL = process.env.FINANCE_URL ?? "http://localhost:4003";
+-
+-interface State {
+-  agent?: { secretKey: string; publicKey: string; attestationId: string };
+-  sessionId?: string;
+-  intentNonce?: string;
+-  storedHash?: string;
+-  proof1?: { R: string; s: string };
+-  proof1Nonce?: string;
+-  proof2?: { proof: any; publicSignals: string[] };
+-  injectedAmountSalt?: string;
+-}
+-
+-export const intentInjectionAttack: AttackDefinition<State> = {
+-  id: "8",
+-  title: "Intent Injection (Confused Deputy prompt injection)",
+-  initialState: {},
+-  steps: [
+-    {
+-      label: "Register agent & get intent nonce",
+-      run: async (state) => {
+-        const agent = await registerAgent("attacker-intent-injection", { action: "issue_refund", limit: 500 });
+-        const sessionId = randomUUID();
+-        const intentNonce = await getNonce("intent_commit", "support-agent").catch(() => randomUUID());
+-        return {
+-          result: {
+-            label: "Register agent & get intent nonce",
+-            narration: "The attacker sets up a legitimate session and requests a freshness nonce to commit their intent.",
+-            response: { agentId: "attacker-intent-injection", sessionId, intentNonce },
+-          },
+-          newState: { ...state, agent, sessionId, intentNonce },
+-        };
+-      },
+-    },
+-    {
+-      label: "Commit to authorized intent (Order 9102)",
+-      run: async (state) => {
+-        const commitmentPreimage = ["cust-ok-2", "9102", state.intentNonce!, Date.now().toString()].join("|");
+-        const commitmentHash = createHash("sha256").update(commitmentPreimage).digest("hex");
+-
+-        const commitRes = await fetch(`${ISSUER_URL}/intent-commitment`, {
+-          method: "POST",
+-          headers: { "Content-Type": "application/json" },
+-          body: JSON.stringify({
+-            sessionId: state.sessionId!,
+-            customerId: "cust-ok-2",
+-            orderRefs: ["9102"],
+-            nonce: state.intentNonce!,
+-          }),
+-        });
+-
+-        if (!commitRes.ok) {
+-          throw new Error("Failed to register intent commitment (missing DB fixture for cust-ok-2 / 9102)");
+-        }
+-        
+-        const { commitmentHash: storedHash } = await commitRes.json();
+-        
+-        return {
+-          result: {
+-            label: "Commit to authorized intent (Order 9102)",
+-            narration: "The user's real selection (order 9102) is structurally validated against the DB and locked into a cryptographic commitment BEFORE the LLM is ever invoked.",
+-            request: { customerId: "cust-ok-2", orderRefs: ["9102"] },
+-            response: { storedHash },
+-          },
+-          newState: { ...state, storedHash },
+-        };
+-      },
+-    },
+-    {
+-      label: "Sign Proof 1 bound to the intent hash",
+-      run: async (state) => {
+-        const proof1Nonce = await getNonce("issue_refund", "finance-mcp-server");
+-        const proof1 = await sigmaProof(state.agent!.secretKey, state.agent!.publicKey, {
+-          scope: "issue_refund",
+-          nonce: proof1Nonce,
+-          serverId: "finance-mcp-server",
+-          intentCommitmentHash: state.storedHash,
+-        });
+-
+-        return {
+-          result: {
+-            label: "Sign Proof 1 bound to the intent hash",
+-            narration: "A standard authorization proof (Sigma protocol) is generated, but now the intent hash is mathematically woven into the Fiat-Shamir challenge.",
+-            response: { proof: proof1, intentCommitmentHash: state.storedHash },
+-          },
+-          newState: { ...state, proof1, proof1Nonce },
+-        };
+-      },
+-    },
+-    {
+-      label: "Forge an injected target (Order 9101)",
+-      run: async (state) => {
+-        const policyCommitment = await realPolicyCommitment();
+-        const injectedAmountSalt = randomSalt();
+-        const { body: proveBody } = await proveCompliance(
+-          circuitInput({
+-            amount: 50, // perfectly compliant amount
+-            accountAgeDays: 60, 
+-            pastRefundCount: 0,
+-            transactionAgeDays: 30,
+-            amountSalt: injectedAmountSalt,
+-            policyCommitment,
+-          })
+-        );
+-
+-        if (!proveBody.proof) throw new Error("Failed to generate Proof 2 for injected order");
+-
+-        return {
+-          result: {
+-            label: "Forge an injected target (Order 9101)",
+-            narration: "The attacker manipulates the LLM into targeting a completely different order (9101). Because the order profile is compliant, Proof 2 (Groth16) generates perfectly! Without intent-binding, the system would execute this.",
+-            response: { targetedOrder: "9101", amount: 50, proof2Valid: true },
+-          },
+-          newState: { ...state, proof2: proveBody, injectedAmountSalt },
+-        };
+-      },
+-    },
+-    {
+-      label: "Gate check intercepts injection",
+-      run: async (state) => {
+-        const mcpRes = await fetch(`${FINANCE_URL}/mcp`, {
+-          method: "POST",
+-          headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+-          body: JSON.stringify({
+-            jsonrpc: "2.0",
+-            id: 1,
+-            method: "tools/call",
+-            params: {
+-              name: "issue_refund",
+-              arguments: {
+-                agentId: state.agent!.attestationId,
+-                attestationId: state.agent!.attestationId,
+-                requestedScope: { action: "issue_refund", limit: 500 },
+-                sigmaProof: state.proof1!,
+-                nonce: state.proof1Nonce!,
+-                orderRef: "9101", // The injected target
+-                claimedAmount: 50,
+-                claimedAmountSalt: state.injectedAmountSalt!,
+-                complianceProof: { proof: state.proof2!.proof, publicSignals: state.proof2!.publicSignals },
+-                sessionId: state.sessionId,
+-                intentCommitmentHash: state.storedHash, 
+-              },
+-            },
+-          }),
+-        });
+-
+-        const text = await mcpRes.text();
+-        const dataLine = text.split("\n").find((l) => l.startsWith("data:"));
+-        const parsed = dataLine ? JSON.parse(dataLine.slice("data:".length).trim()) : null;
+-        const content = parsed?.result?.content?.[0]?.text;
+-        const resultBody = content ? JSON.parse(content) : null;
+-
+-        const blocked = resultBody?.allowed === false && resultBody?.reason?.includes("INTENT_BINDING_FAIL");
+-
+-        return {
+-          result: {
+-            label: "Gate check intercepts injection",
+-            narration: blocked 
+-              ? `The finance gate blocks the attempt before Proof 2 even runs. "9101" is not in the authenticated commitment [9102].`
+-              : "VULNERABLE — should be blocked.",
+-            response: resultBody,
+-            blocked,
+-          },
+-          newState: state,
+-        };
+-      },
+-    }
+-  ],
+-};
++/**
++ * Prompt Injection / Intent Binding Attack (Attack #8)
++ *
++ * The authenticated customer really only authorized a refund for
++ * `legitOrderRef`. A prompt-injected agent tries to also (or instead)
++ * refund `injectedOrderRef` — an order that was never part of the
++ * authenticated intent commitment.
++ *
++ * Pick the injected order's profile to explore both halves of the gap
++ * this exhibit demonstrates:
++ *   - a "fail" category order: Proof 2 alone would have caught it anyway
++ *     (attack 8a from the write-up — blocked, but only by luck)
++ *   - a "pass" category order: Proof 2 would go green — intent-binding is
++ *     the ONLY thing standing between the injection and execution (attack
++ *     8b — the case that actually motivates this whole exhibit)
++ */
++import { AttackDefinition, ParamDef } from "./types";
++import {
++  registerAgent,
++  getNonce,
++  sigmaProof,
++  proveCompliance,
++  circuitInput,
++  randomSalt,
++  realPolicyCommitment,
++} from "@zk-mcp/attack-scripts";
++import { randomUUID, createHash } from "crypto";
++import { Pool } from "pg";
++import { lookupRealOrder } from "./orderLookup";
++
++const ISSUER_URL = process.env.ISSUER_URL ?? "http://localhost:4001";
++const FINANCE_URL = process.env.FINANCE_URL ?? "http://localhost:4003";
++
++const pool = new Pool({
++  connectionString: process.env.DATABASE_URL ?? "postgresql://zkmcp:zkmcp@localhost:5432/zkmcp",
++});
++
++async function customerIdForOrder(orderRef: string): Promise<string> {
++  const res = await pool.query("SELECT customer_id FROM orders WHERE order_ref = $1", [orderRef]);
++  if (res.rows.length === 0) throw new Error(`Order "${orderRef}" not found — pick a real seeded order.`);
++  return res.rows[0].customer_id as string;
++}
++
++interface Config {
++  legitOrderRef?: string;
++  injectedOrderRef?: string;
++}
++
++interface State {
++  legitOrderRef: string;
++  injectedOrderRef: string;
++  legitCustomerId?: string;
++  agent?: { secretKey: string; publicKey: string; attestationId: string };
++  sessionId?: string;
++  intentNonce?: string;
++  storedHash?: string;
++  proof1?: { R: string; s: string };
++  proof1Nonce?: string;
++  proof2?: { proof: any; publicSignals: string[] };
++  injectedAmountSalt?: string;
++  injectedOrder?: { amount: number };
++}
++
++export const intentInjectionParams: ParamDef[] = [
++  {
++    key: "legitOrderRef",
++    label: "Really-authorized order",
++    type: "orderRef",
++    default: "1001",
++    help: "The order the authenticated customer actually asked to refund.",
++  },
++  {
++    key: "injectedOrderRef",
++    label: "Injected (smuggled) order",
++    type: "orderRef",
++    default: "2001",
++    help: "Try a \"fail\" order (Proof 2 alone would've caught it) vs. a \"pass\" order (only intent-binding catches it).",
++  },
++];
++
++export const intentInjectionAttack: AttackDefinition<State, Config> = {
++  id: "8",
++  title: "Intent Injection (Confused Deputy prompt injection)",
++  params: intentInjectionParams,
++  initialState: (config) => ({
++    legitOrderRef: config?.legitOrderRef || "1001",
++    injectedOrderRef: config?.injectedOrderRef || "2001",
++  }),
++  steps: [
++    {
++      label: "Register agent & get intent nonce",
++      run: async (state) => {
++        const legitCustomerId = await customerIdForOrder(state.legitOrderRef);
++        const agent = await registerAgent("attacker-intent-injection", { action: "issue_refund", limit: 500 });
++        const sessionId = randomUUID();
++        const intentNonce = await getNonce("intent_commit", "support-agent").catch(() => randomUUID());
++        return {
++          result: {
++            label: "Register agent & get intent nonce",
++            narration: "The attacker sets up a legitimate session and requests a freshness nonce to commit their intent.",
++            response: { agentId: "attacker-intent-injection", sessionId, intentNonce },
++          },
++          newState: { ...state, agent, sessionId, intentNonce, legitCustomerId },
++        };
++      },
++    },
++    {
++      label: "Commit to authorized intent",
++      run: async (state) => {
++        const commitRes = await fetch(`${ISSUER_URL}/intent-commitment`, {
++          method: "POST",
++          headers: { "Content-Type": "application/json" },
++          body: JSON.stringify({
++            sessionId: state.sessionId!,
++            customerId: state.legitCustomerId!,
++            orderRefs: [state.legitOrderRef],
++            nonce: state.intentNonce!,
++          }),
++        });
++
++        if (!commitRes.ok) {
++          throw new Error(`Failed to register intent commitment for real order ${state.legitOrderRef}: ${await commitRes.text()}`);
++        }
++
++        const { commitmentHash: storedHash } = await commitRes.json();
++
++        return {
++          result: {
++            label: "Commit to authorized intent",
++            narration: `The user's real selection (order ${state.legitOrderRef}) is structurally validated against the DB and locked into a cryptographic commitment BEFORE the LLM is ever invoked.`,
++            request: { customerId: state.legitCustomerId, orderRefs: [state.legitOrderRef] },
++            response: { storedHash },
++          },
++          newState: { ...state, storedHash },
++        };
++      },
++    },
++    {
++      label: "Sign Proof 1 bound to the intent hash",
++      run: async (state) => {
++        const proof1Nonce = await getNonce("issue_refund", "finance-mcp-server");
++        const proof1 = await sigmaProof(state.agent!.secretKey, state.agent!.publicKey, {
++          scope: "issue_refund",
++          nonce: proof1Nonce,
++          serverId: "finance-mcp-server",
++          intentCommitmentHash: state.storedHash,
++        });
++
++        return {
++          result: {
++            label: "Sign Proof 1 bound to the intent hash",
++            narration: "A standard authorization proof (Sigma protocol) is generated, but now the intent hash is mathematically woven into the Fiat-Shamir challenge.",
++            response: { proof: proof1, intentCommitmentHash: state.storedHash },
++          },
++          newState: { ...state, proof1, proof1Nonce },
++        };
++      },
++    },
++    {
++      label: "Forge an injected target using its REAL profile",
++      run: async (state) => {
++        const injectedOrder = await lookupRealOrder(state.injectedOrderRef);
++        const policyCommitment = await realPolicyCommitment();
++        const injectedAmountSalt = randomSalt();
++        const { body: proveBody } = await proveCompliance(
++          circuitInput({
++            amount: injectedOrder.amount,
++            accountAgeDays: injectedOrder.accountAgeDays,
++            pastRefundCount: injectedOrder.pastRefundCount,
++            transactionAgeDays: injectedOrder.transactionAgeDays,
++            amountSalt: injectedAmountSalt,
++            policyCommitment,
++          })
++        );
++
++        const proof2Valid = !!proveBody.proof;
++
++        return {
++          result: {
++            label: "Forge an injected target using its REAL profile",
++            narration: proof2Valid
++              ? `The attacker manipulates the LLM into targeting order ${state.injectedOrderRef} — never part of the authenticated intent. Its real profile is policy-compliant, so Proof 2 (Groth16) generates perfectly! Without intent-binding, this would execute.`
++              : `The attacker manipulates the LLM into targeting order ${state.injectedOrderRef}. Its real profile actually fails policy on its own — Proof 2 will reject it regardless of intent-binding (this is the "caught by luck" case).`,
++            response: { targetedOrder: state.injectedOrderRef, amount: injectedOrder.amount, proof2Valid },
++            blocked: !proof2Valid,
++          },
++          newState: proof2Valid
++            ? { ...state, proof2: proveBody, injectedAmountSalt, injectedOrder: { amount: injectedOrder.amount } }
++            : { ...state, injectedOrder: { amount: injectedOrder.amount } },
++        };
++      },
++    },
++    {
++      label: "Gate check intercepts injection",
++      run: async (state) => {
++        if (!state.proof2) {
++          return {
++            result: {
++              label: "Gate check intercepts injection",
++              narration: "Skipped — Proof 2 already failed on the injected order's own (non-compliant) data.",
++              blocked: true,
++            },
++            newState: state,
++          };
++        }
++        const mcpRes = await fetch(`${FINANCE_URL}/mcp`, {
++          method: "POST",
++          headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
++          body: JSON.stringify({
++            jsonrpc: "2.0",
++            id: 1,
++            method: "tools/call",
++            params: {
++              name: "issue_refund",
++              arguments: {
++                agentId: state.agent!.attestationId,
++                attestationId: state.agent!.attestationId,
++                requestedScope: { action: "issue_refund", limit: 500 },
++                sigmaProof: state.proof1!,
++                nonce: state.proof1Nonce!,
++                orderRef: state.injectedOrderRef,
++                claimedAmount: state.injectedOrder!.amount,
++                claimedAmountSalt: state.injectedAmountSalt!,
++                complianceProof: { proof: state.proof2!.proof, publicSignals: state.proof2!.publicSignals },
++                sessionId: state.sessionId,
++                intentCommitmentHash: state.storedHash,
++              },
++            },
++          }),
++        });
++
++        const text = await mcpRes.text();
++        const dataLine = text.split("\n").find((l) => l.startsWith("data:"));
++        const parsed = dataLine ? JSON.parse(dataLine.slice("data:".length).trim()) : null;
++        const content = parsed?.result?.content?.[0]?.text;
++        const resultBody = content ? JSON.parse(content) : null;
++
++        const blocked = resultBody?.allowed === false && resultBody?.reason?.includes("INTENT_BINDING_FAIL");
++
++        return {
++          result: {
++            label: "Gate check intercepts injection",
++            narration: blocked
++              ? `The finance gate blocks the attempt before Proof 2's result even matters. "${state.injectedOrderRef}" is not in the authenticated commitment [${state.legitOrderRef}].`
++              : resultBody?.allowed
++              ? "VULNERABLE — should be blocked."
++              : `Blocked, but not by intent-binding: ${resultBody?.reason}`,
++            response: resultBody,
++            blocked: resultBody?.allowed !== true,
++          },
++          newState: state,
++        };
++      },
++    },
++  ],
++};
+diff --git a/packages/demo-gateway/src/attackSteps/orderLookup.ts b/packages/demo-gateway/src/attackSteps/orderLookup.ts
+new file mode 100644
+index 0000000..97dfcc3
+--- /dev/null
++++ b/packages/demo-gateway/src/attackSteps/orderLookup.ts
+@@ -0,0 +1,38 @@
++const FINANCE_URL = process.env.FINANCE_URL ?? "http://localhost:4003";
++
++export interface RealOrderProfile {
++  orderRef: string;
++  amount: number;
++  accountAgeDays: number;
++  pastRefundCount: number;
++  transactionAgeDays: number;
++}
++
++/**
++ * Looks up an order's REAL profile (amount, account age, past refund count,
++ * transaction age) via finance-mcp-server's read-only lookup_order tool —
++ * the same data the compliance circuit would be evaluated against. Used by
++ * the exhibit scripts so a user-chosen orderRef always drives every value
++ * downstream (circuit input, claimedAmount, etc.) instead of a hardcoded
++ * number that may not match what's actually in the DB.
++ */
++export async function lookupRealOrder(orderRef: string): Promise<RealOrderProfile> {
++  const res = await fetch(`${FINANCE_URL}/mcp`, {
++    method: "POST",
++    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
++    body: JSON.stringify({
++      jsonrpc: "2.0",
++      id: 1,
++      method: "tools/call",
++      params: { name: "lookup_order", arguments: { orderRef } },
++    }),
++  });
++  const text = await res.text();
++  const dataLine = text.split("\n").find((l) => l.startsWith("data:"));
++  const parsed = dataLine ? JSON.parse(dataLine.slice("data:".length).trim()) : null;
++  const content = parsed?.result?.content?.[0]?.text;
++  if (parsed?.result?.isError || !content) {
++    throw new Error(`Order "${orderRef}" not found — pick a real seeded order from the dropdown.`);
++  }
++  return JSON.parse(content) as RealOrderProfile;
++}
+diff --git a/packages/demo-gateway/src/attackSteps/salamiSlicing.ts b/packages/demo-gateway/src/attackSteps/salamiSlicing.ts
+index 802f88f..c2a15a4 100755
+--- a/packages/demo-gateway/src/attackSteps/salamiSlicing.ts
++++ b/packages/demo-gateway/src/attackSteps/salamiSlicing.ts
+@@ -1,15 +1,20 @@
+ /**
+  * Salami Slicing Attack (Attack #9)
+  *
+- * The attacker repeats the exact same refund action many times in small
+- * identical slices. Each individual request looks perfectly legitimate
+- * and passes both proofs — but the gate tracks how many authorized actions
+- * have been consumed and blocks once the session-level count is reached.
++ * The attacker repeats the exact same refund action many times against one
++ * order. Each individual request looks perfectly legitimate and passes both
++ * proofs — but the REAL ledger's pastRefundCount for that customer climbs
++ * with every issued refund, so the compliance circuit (Proof 2) eventually
++ * refuses to generate a passing proof once maxPastRefundCount is exceeded.
+  *
+  * This demonstrates that authorization isn't just per-request — it's
+- * bounded over the lifetime of a session/attestation.
++ * bounded over the lifetime of a customer's real refund history.
++ *
++ * Note: because this attack actually issues refunds against the real DB,
++ * repeated runs against the SAME order will exhaust its refund budget —
++ * pick a fresh order (or reseed the DB) if slice 1 unexpectedly fails.
+  */
+-import { AttackDefinition } from "./types";
++import { AttackDefinition, ParamDef } from "./types";
+ import {
+   FINANCE_URL,
+   registerAgent,
+@@ -20,16 +25,26 @@ import {
+   randomSalt,
+   realPolicyCommitment,
+ } from "@zk-mcp/attack-scripts";
++import { lookupRealOrder } from "./orderLookup";
++
++interface Config {
++  orderRef?: string;
++}
+ 
+ interface State {
++  orderRef: string;
+   agent?: { secretKey: string; publicKey: string; attestationId: string };
+   policyCommitment?: string;
++  realAmount?: number;
+   sliceCount: number;
+-  maxSlices: number;
+-  lastResult?: unknown;
+ }
+ 
+-async function submitRefund(agent: NonNullable<State["agent"]>, policyCommitment: string) {
++async function submitRefund(
++  orderRef: string,
++  amount: number,
++  agent: NonNullable<State["agent"]>,
++  policyCommitment: string
++) {
+   const nonce = await getNonce("issue_refund", "finance-mcp-server");
+   const proof1 = await sigmaProof(agent.secretKey, agent.publicKey, {
+     scope: "issue_refund",
+@@ -37,17 +52,20 @@ async function submitRefund(agent: NonNullable<State["agent"]>, policyCommitment
+     serverId: "finance-mcp-server",
+   });
+   const amountSalt = randomSalt();
++  const order = await lookupRealOrder(orderRef);
+   const { body: proveBody } = await proveCompliance(
+     circuitInput({
+-      amount: 40,
+-      accountAgeDays: 60,
+-      pastRefundCount: 0,
+-      transactionAgeDays: 10,
++      amount,
++      accountAgeDays: order.accountAgeDays,
++      pastRefundCount: order.pastRefundCount,
++      transactionAgeDays: order.transactionAgeDays,
+       amountSalt,
+       policyCommitment,
+     })
+   );
+-  if (!proveBody.proof) throw new Error("Compliance proof generation failed");
++  if (!proveBody.proof) {
++    return { allowed: false, reason: "compliance proof generation failed (pastRefundCount likely exceeds policy already)" };
++  }
+ 
+   const mcpRes = await fetch(`${FINANCE_URL}/mcp`, {
+     method: "POST",
+@@ -61,11 +79,11 @@ async function submitRefund(agent: NonNullable<State["agent"]>, policyCommitment
+         arguments: {
+           agentId: "attacker-salami-demo",
+           attestationId: agent.attestationId,
+-          requestedScope: { action: "issue_refund", limit: 40 },
++          requestedScope: { action: "issue_refund", limit: amount },
+           sigmaProof: proof1,
+           nonce,
+-          orderRef: "10017",
+-          claimedAmount: 40,
++          orderRef,
++          claimedAmount: amount,
+           claimedAmountSalt: amountSalt,
+           complianceProof: { proof: proveBody.proof, publicSignals: proveBody.publicSignals },
+         },
+@@ -80,83 +98,102 @@ async function submitRefund(agent: NonNullable<State["agent"]>, policyCommitment
+   return content ? JSON.parse(content) : null;
+ }
+ 
+-const MAX_SLICES = 3;
++export const salamiSlicingParams: ParamDef[] = [
++  {
++    key: "orderRef",
++    label: "Target order",
++    type: "orderRef",
++    category: "pass",
++    default: "1005",
++    help: "Pick any real, policy-compliant order. Each slice re-refunds this exact order at its real amount.",
++  },
++];
+ 
+-export const salamiSlicingAttack: AttackDefinition<State> = {
++export const salamiSlicingAttack: AttackDefinition<State, Config> = {
+   id: "9",
+   title: "Salami Slicing",
+-  initialState: { sliceCount: 0, maxSlices: MAX_SLICES },
++  params: salamiSlicingParams,
++  initialState: (config) => ({
++    orderRef: config?.orderRef || "1005",
++    sliceCount: 0,
++  }),
+   steps: [
+     {
+-      label: "Register agent with a $40 limit",
++      label: "Look up the real order and register an agent",
+       run: async (state) => {
+-        const agent = await registerAgent("attacker-salami-demo", { action: "issue_refund", limit: 40 });
++        const order = await lookupRealOrder(state.orderRef);
++        const agent = await registerAgent("attacker-salami-demo", { action: "issue_refund", limit: order.amount });
+         const policyCommitment = await realPolicyCommitment();
+         return {
+           result: {
+-            label: "Register agent with a $40 limit",
++            label: "Look up the real order and register an agent",
+             narration:
+-              "The attacker registers a credential scoped to $40 refunds — each individual slice is well under the $150 policy limit. The plan: repeat it until the cumulative damage is significant.",
+-            response: { attestationId: agent.attestationId, limit: 40 },
++              `Order ${state.orderRef}'s real amount is $${order.amount}, well under policy — the attacker registers ` +
++              `a credential scoped to exactly that amount. The plan: repeat the identical, individually-legitimate ` +
++              `refund until cumulative damage is significant.`,
++            response: { orderRef: state.orderRef, amount: order.amount, attestationId: agent.attestationId },
+           },
+-          newState: { ...state, agent, policyCommitment },
++          newState: { ...state, agent, policyCommitment, realAmount: order.amount },
+         };
+       },
+     },
+     {
+       label: "Slice 1 — first refund (should pass)",
+       run: async (state) => {
+-        const result = await submitRefund(state.agent!, state.policyCommitment!);
++        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
+         const blocked = result?.allowed === false;
+         return {
+           result: {
+             label: "Slice 1 — first refund (should pass)",
+             narration: blocked
+-              ? `Slice 1 unexpectedly BLOCKED: ${result?.reason}`
++              ? `Slice 1 unexpectedly BLOCKED: ${result?.reason}. This order may already have prior refunds from an ` +
++                `earlier demo run — pick a fresh order and try again.`
+               : "Slice 1 approved. The request looks completely legitimate in isolation — a small, policy-compliant refund.",
+             response: result,
+             blocked,
+           },
+-          newState: { ...state, sliceCount: state.sliceCount + 1, lastResult: result },
++          newState: { ...state, sliceCount: state.sliceCount + 1 },
+         };
+       },
+     },
+     {
+       label: "Slice 2 — exact same request again",
+       run: async (state) => {
+-        const result = await submitRefund(state.agent!, state.policyCommitment!);
++        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
+         const blocked = result?.allowed === false;
+         return {
+           result: {
+             label: "Slice 2 — exact same request again",
+             narration: blocked
+               ? `Slice 2 BLOCKED: ${result?.reason}`
+-              : "Slice 2 approved. Still looks identical to any other refund. The gate has no stateful counter yet for this demo — each new nonce and proof is fresh.",
++              : "Slice 2 approved. Still looks identical to any other refund — the same order, same proofs, same green light.",
+             response: result,
+             blocked,
+           },
+-          newState: { ...state, sliceCount: state.sliceCount + 1, lastResult: result },
++          newState: { ...state, sliceCount: state.sliceCount + 1 },
+         };
+       },
+     },
+     {
+       label: "Slice 3 — same again, crossing threshold",
+       run: async (state) => {
+-        const result = await submitRefund(state.agent!, state.policyCommitment!);
+-        // The DB pastRefundCount constraint in the compliance circuit will catch this
++        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
++        // The DB pastRefundCount constraint in the compliance circuit catches this
+         // because each refund increments the real DB record. By slice 3+, pastRefundCount
+-        // in the real DB exceeds maxPastRefundCount=3 making a fresh proof impossible.
++        // in the real DB exceeds maxPastRefundCount, making a fresh proof impossible.
+         const blocked = result?.allowed === false;
+         return {
+           result: {
+             label: "Slice 3 — same again, crossing threshold",
+             narration: blocked
+-              ? `BLOCKED at slice 3: "${result?.reason}". The compliance circuit (Proof 2) binds pastRefundCount from the REAL ledger — repeated slices against the same order are caught when the DB count exceeds the policy maximum.`
++              ? `BLOCKED at slice 3: "${result?.reason}". The compliance circuit (Proof 2) binds pastRefundCount from ` +
++                `the REAL ledger — repeated slices against the same order are caught once the DB count exceeds the ` +
++                `policy maximum.`
+               : "Slice 3 passed — the system accepted another identical refund. This would be the vulnerability in a simpler system.",
+             response: result,
+             blocked,
+           },
+-          newState: { ...state, sliceCount: state.sliceCount + 1, lastResult: result },
++          newState: { ...state, sliceCount: state.sliceCount + 1 },
+         };
+       },
+     },
+diff --git a/packages/demo-gateway/src/attackSteps/types.ts b/packages/demo-gateway/src/attackSteps/types.ts
+index c6ed871..286a6cc 100755
+--- a/packages/demo-gateway/src/attackSteps/types.ts
++++ b/packages/demo-gateway/src/attackSteps/types.ts
+@@ -1,19 +1,53 @@
+-export interface StepResult {
+-  label: string;
+-  narration: string;
+-  request?: unknown;
+-  response?: unknown;
+-  blocked?: boolean;
+-}
+-
+-export interface Step<TState> {
+-  label: string;
+-  run: (state: TState) => Promise<{ result: StepResult; newState: TState }>;
+-}
+-
+-export interface AttackDefinition<TState = any> {
+-  id: string;
+-  title: string;
+-  initialState: TState;
+-  steps: Step<TState>[];
+-}
+\ No newline at end of file
++export interface StepResult {
++  label: string;
++  narration: string;
++  request?: unknown;
++  response?: unknown;
++  blocked?: boolean;
++}
++
++export interface Step<TState> {
++  label: string;
++  run: (state: TState) => Promise<{ result: StepResult; newState: TState }>;
++}
++
++/**
++ * Describes one user-editable input for an exhibit's "configure" panel.
++ * Purely descriptive — the frontend renders a control per ParamDef and
++ * sends the chosen values back as the JSON body of POST /attack/:id/start.
++ */
++export interface ParamDef {
++  key: string;
++  label: string;
++  type: "orderRef" | "number" | "text";
++  default: string | number;
++  help?: string;
++  min?: number;
++  max?: number;
++  /** For type "orderRef": restrict the dropdown to only "pass" or "fail" seeded orders. Omit for no restriction. */
++  category?: "pass" | "fail";
++}
++
++export interface AttackDefinition<TState = any, TConfig = any> {
++  id: string;
++  title: string;
++  /** Editable inputs shown in the exhibit's configure panel before "Run". */
++  params?: ParamDef[];
++  /**
++   * Either a fixed initial state (legacy, no configurability) or a builder
++   * function that turns the user's submitted config (raw JSON body from
++   * POST /attack/:id/start, defaults already applied by the frontend) into
++   * the attack's starting state.
++   */
++  initialState: TState | ((config: TConfig) => TState);
++  steps: Step<TState>[];
++}
++
++export function buildInitialState<TState, TConfig>(
++  attack: AttackDefinition<TState, TConfig>,
++  config: TConfig
++): TState {
++  return typeof attack.initialState === "function"
++    ? (attack.initialState as (c: TConfig) => TState)(config)
++    : attack.initialState;
++}
+diff --git a/packages/demo-gateway/src/routes/attacks.ts b/packages/demo-gateway/src/routes/attacks.ts
+index 962b882..942b455 100755
+--- a/packages/demo-gateway/src/routes/attacks.ts
++++ b/packages/demo-gateway/src/routes/attacks.ts
+@@ -9,7 +9,7 @@ import { toctouAttack } from "../attackSteps/toctou";
+ import { fakeComplianceProofAttack } from "../attackSteps/fakeComplianceProof";
+ import { intentInjectionAttack } from "../attackSteps/intentInjection";
+ import { salamiSlicingAttack } from "../attackSteps/salamiSlicing";
+-import { AttackDefinition } from "../attackSteps/types";
++import { AttackDefinition, buildInitialState } from "../attackSteps/types";
+ import { emitStateSequence } from "../lib/requestEvents";
+ 
+ const ATTACKS: Record<string, AttackDefinition> = {
+@@ -38,7 +38,9 @@ export const attacksRouter: Router = express.Router();
+ attacksRouter.post("/:id/start", (req, res) => {
+   const attack = ATTACKS[req.params.id];
+   if (!attack) return res.status(404).json({ error: "unknown attack id" });
+-  const runId = createRun(attack.id, attack.initialState);
++  const config = req.body ?? {};
++  const initialState = buildInitialState(attack, config);
++  const runId = createRun(attack.id, initialState);
+   res.status(201).json({
+     runId,
+     title: attack.title,
+diff --git a/packages/demo-gateway/src/routes/task.ts b/packages/demo-gateway/src/routes/task.ts
+index cf1c219..6f49681 100755
+--- a/packages/demo-gateway/src/routes/task.ts
++++ b/packages/demo-gateway/src/routes/task.ts
+@@ -37,6 +37,27 @@ taskRouter.get("/customers", async (req, res) => {
+   }
+ });
+ 
++// Used by the Exhibits UI to populate "pick a real order" dropdowns so
++// attack demos can be configured against actual seeded data instead of
++// hardcoded/phantom order refs. category is derived from the seed.js
++// naming convention (cust-pass-* / cust-fail-*) purely for display —
++// it's not used for any authorization decision.
++taskRouter.get("/orders", async (_req, res) => {
++  try {
++    const result = await pool.query(
++      `SELECT o.order_ref AS "orderRef",
++              o.customer_id AS "customerId",
++              o.amount::float AS amount,
++              CASE WHEN o.customer_id LIKE 'cust-pass-%' THEN 'pass' ELSE 'fail' END AS category
++       FROM orders o
++       ORDER BY o.customer_id`
++    );
++    res.status(200).json({ orders: result.rows });
++  } catch (err: any) {
++    res.status(500).json({ error: err.message });
++  }
++});
++
+ taskRouter.get("/customers/:id/orders", async (req, res) => {
+   try {
+     const result = await pool.query(

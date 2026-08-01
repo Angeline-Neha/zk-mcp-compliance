@@ -57,6 +57,23 @@ const EXHIBITS: ExhibitMeta[] = [
     title: "Fake Compliance Proof",
     tagline: "Forge a self-consistent policy commitment with a raised limit.",
     dangerVerb: "COMMITMENT MISMATCH",
+    params: [
+      {
+        key: "orderRef",
+        label: "Target order",
+        type: "orderRef",
+        default: "1005",
+        help: "Any real seeded order — the forgery is in the policy commitment, not the order.",
+      },
+      {
+        key: "fakeLimit",
+        label: "Forged policy limit ($)",
+        type: "number",
+        default: 999999,
+        min: 1,
+        help: "The real registered limit is $150. Any forged value here still gets caught — try changing it.",
+      },
+    ],
   },
   {
     id: "8",
@@ -64,6 +81,22 @@ const EXHIBITS: ExhibitMeta[] = [
     title: "Prompt Injection (Intent Binding)",
     tagline: "Manipulate the LLM to target a different order than was committed.",
     dangerVerb: "INTENT BINDING FAIL",
+    params: [
+      {
+        key: "legitOrderRef",
+        label: "Really-authorized order",
+        type: "orderRef",
+        default: "1001",
+        help: "The order the authenticated customer actually asked to refund.",
+      },
+      {
+        key: "injectedOrderRef",
+        label: "Injected (smuggled) order",
+        type: "orderRef",
+        default: "2001",
+        help: "Pick a \"non-compliant\" order to see it caught twice over, or a \"compliant\" one to see intent-binding as the ONLY thing that stops it.",
+      },
+    ],
   },
   {
     id: "9",
@@ -71,6 +104,16 @@ const EXHIBITS: ExhibitMeta[] = [
     title: "Salami Slicing",
     tagline: "Repeat identical sub-limit refunds until cumulative damage exceeds the policy.",
     dangerVerb: "COUNT EXCEEDED",
+    params: [
+      {
+        key: "orderRef",
+        label: "Target order",
+        type: "orderRef",
+        category: "pass",
+        default: "1005",
+        help: "Pick a fresh compliant order — reusing one from an earlier run may already be out of refund budget.",
+      },
+    ],
   },
 ];
 

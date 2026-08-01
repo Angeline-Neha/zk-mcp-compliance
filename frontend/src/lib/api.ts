@@ -158,6 +158,21 @@ export async function fetchCustomerOrders(customerId: string): Promise<string[]>
   return body.orders.map((o: any) => o.orderRef);
 }
 
+export interface OrderOption {
+  orderRef: string;
+  customerId: string;
+  amount: number;
+  category: "pass" | "fail";
+}
+
+/** All real seeded orders — used to populate exhibit "configure" dropdowns. */
+export async function fetchOrders(): Promise<OrderOption[]> {
+  const res = await fetch(`${GATEWAY_URL}/task/orders`);
+  if (!res.ok) return [];
+  const body = await res.json();
+  return body.orders;
+}
+
 export interface AttackMeta {
   id: string;
   title: string;

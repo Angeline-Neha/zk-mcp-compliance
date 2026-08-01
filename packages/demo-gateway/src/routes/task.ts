@@ -37,6 +37,27 @@ taskRouter.get("/customers", async (req, res) => {
   }
 });
 
+// Used by the Exhibits UI to populate "pick a real order" dropdowns so
+// attack demos can be configured against actual seeded data instead of
+// hardcoded/phantom order refs. category is derived from the seed.js
+// naming convention (cust-pass-* / cust-fail-*) purely for display —
+// it's not used for any authorization decision.
+taskRouter.get("/orders", async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT o.order_ref AS "orderRef",
+              o.customer_id AS "customerId",
+              o.amount::float AS amount,
+              CASE WHEN o.customer_id LIKE 'cust-pass-%' THEN 'pass' ELSE 'fail' END AS category
+       FROM orders o
+       ORDER BY o.customer_id`
+    );
+    res.status(200).json({ orders: result.rows });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 taskRouter.get("/customers/:id/orders", async (req, res) => {
   try {
     const result = await pool.query(

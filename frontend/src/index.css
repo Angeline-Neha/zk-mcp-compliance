@@ -384,6 +384,64 @@
   background: rgba(47,74,59,0.06);
 }
 
+/* ── Configure panel ── */
+.exhibit-config {
+  border: 1.5px dashed rgba(178,58,47,0.35);
+  border-radius: 2px;
+  padding: 16px 18px 18px;
+  background: rgba(178,58,47,0.03);
+}
+
+.exhibit-config-header {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: #B23A2F;
+  margin-bottom: 12px;
+}
+
+.exhibit-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.exhibit-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.exhibit-config-label {
+  font-family: 'Archivo', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1F1B16;
+}
+
+.exhibit-config-input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 7px 9px;
+  border: 1.5px solid rgba(31,27,22,0.3);
+  border-radius: 2px;
+  background: #FBF8F2;
+  color: #1F1B16;
+}
+
+.exhibit-config-input:focus {
+  outline: none;
+  border-color: #B23A2F;
+}
+
+.exhibit-config-help {
+  font-family: 'Archivo', sans-serif;
+  font-size: 11px;
+  color: rgba(31,27,22,0.55);
+  margin: 0;
+  line-height: 1.4;
+}
+
 /* ── Controls ── */
 .exhibit-controls {
   display: flex;

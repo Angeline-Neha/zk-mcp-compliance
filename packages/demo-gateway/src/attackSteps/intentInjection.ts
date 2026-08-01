@@ -1,4 +1,20 @@
-import { AttackDefinition } from "./types";
+/**
+ * Prompt Injection / Intent Binding Attack (Attack #8)
+ *
+ * The authenticated customer really only authorized a refund for
+ * `legitOrderRef`. A prompt-injected agent tries to also (or instead)
+ * refund `injectedOrderRef` — an order that was never part of the
+ * authenticated intent commitment.
+ *
+ * Pick the injected order's profile to explore both halves of the gap
+ * this exhibit demonstrates:
+ *   - a "fail" category order: Proof 2 alone would have caught it anyway
+ *     (attack 8a from the write-up — blocked, but only by luck)
+ *   - a "pass" category order: Proof 2 would go green — intent-binding is
+ *     the ONLY thing standing between the injection and execution (attack
+ *     8b — the case that actually motivates this whole exhibit)
+ */
+import { AttackDefinition, ParamDef } from "./types";
 import {
   registerAgent,
   getNonce,
@@ -9,11 +25,31 @@ import {
   realPolicyCommitment,
 } from "@zk-mcp/attack-scripts";
 import { randomUUID, createHash } from "crypto";
+import { Pool } from "pg";
+import { lookupRealOrder } from "./orderLookup";
 
 const ISSUER_URL = process.env.ISSUER_URL ?? "http://localhost:4001";
 const FINANCE_URL = process.env.FINANCE_URL ?? "http://localhost:4003";
 
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL ?? "postgresql://zkmcp:zkmcp@localhost:5432/zkmcp",
+});
+
+async function customerIdForOrder(orderRef: string): Promise<string> {
+  const res = await pool.query("SELECT customer_id FROM orders WHERE order_ref = $1", [orderRef]);
+  if (res.rows.length === 0) throw new Error(`Order "${orderRef}" not found — pick a real seeded order.`);
+  return res.rows[0].customer_id as string;
+}
+
+interface Config {
+  legitOrderRef?: string;
+  injectedOrderRef?: string;
+}
+
 interface State {
+  legitOrderRef: string;
+  injectedOrderRef: string;
+  legitCustomerId?: string;
   agent?: { secretKey: string; publicKey: string; attestationId: string };
   sessionId?: string;
   intentNonce?: string;
@@ -22,16 +58,39 @@ interface State {
   proof1Nonce?: string;
   proof2?: { proof: any; publicSignals: string[] };
   injectedAmountSalt?: string;
+  injectedOrder?: { amount: number };
 }
 
-export const intentInjectionAttack: AttackDefinition<State> = {
+export const intentInjectionParams: ParamDef[] = [
+  {
+    key: "legitOrderRef",
+    label: "Really-authorized order",
+    type: "orderRef",
+    default: "1001",
+    help: "The order the authenticated customer actually asked to refund.",
+  },
+  {
+    key: "injectedOrderRef",
+    label: "Injected (smuggled) order",
+    type: "orderRef",
+    default: "2001",
+    help: "Try a \"fail\" order (Proof 2 alone would've caught it) vs. a \"pass\" order (only intent-binding catches it).",
+  },
+];
+
+export const intentInjectionAttack: AttackDefinition<State, Config> = {
   id: "8",
   title: "Intent Injection (Confused Deputy prompt injection)",
-  initialState: {},
+  params: intentInjectionParams,
+  initialState: (config) => ({
+    legitOrderRef: config?.legitOrderRef || "1001",
+    injectedOrderRef: config?.injectedOrderRef || "2001",
+  }),
   steps: [
     {
       label: "Register agent & get intent nonce",
       run: async (state) => {
+        const legitCustomerId = await customerIdForOrder(state.legitOrderRef);
         const agent = await registerAgent("attacker-intent-injection", { action: "issue_refund", limit: 500 });
         const sessionId = randomUUID();
         const intentNonce = await getNonce("intent_commit", "support-agent").catch(() => randomUUID());
@@ -41,38 +100,35 @@ export const intentInjectionAttack: AttackDefinition<State> = {
             narration: "The attacker sets up a legitimate session and requests a freshness nonce to commit their intent.",
             response: { agentId: "attacker-intent-injection", sessionId, intentNonce },
           },
-          newState: { ...state, agent, sessionId, intentNonce },
+          newState: { ...state, agent, sessionId, intentNonce, legitCustomerId },
         };
       },
     },
     {
-      label: "Commit to authorized intent (Order 9102)",
+      label: "Commit to authorized intent",
       run: async (state) => {
-        const commitmentPreimage = ["cust-ok-2", "9102", state.intentNonce!, Date.now().toString()].join("|");
-        const commitmentHash = createHash("sha256").update(commitmentPreimage).digest("hex");
-
         const commitRes = await fetch(`${ISSUER_URL}/intent-commitment`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sessionId: state.sessionId!,
-            customerId: "cust-ok-2",
-            orderRefs: ["9102"],
+            customerId: state.legitCustomerId!,
+            orderRefs: [state.legitOrderRef],
             nonce: state.intentNonce!,
           }),
         });
 
         if (!commitRes.ok) {
-          throw new Error("Failed to register intent commitment (missing DB fixture for cust-ok-2 / 9102)");
+          throw new Error(`Failed to register intent commitment for real order ${state.legitOrderRef}: ${await commitRes.text()}`);
         }
-        
+
         const { commitmentHash: storedHash } = await commitRes.json();
-        
+
         return {
           result: {
-            label: "Commit to authorized intent (Order 9102)",
-            narration: "The user's real selection (order 9102) is structurally validated against the DB and locked into a cryptographic commitment BEFORE the LLM is ever invoked.",
-            request: { customerId: "cust-ok-2", orderRefs: ["9102"] },
+            label: "Commit to authorized intent",
+            narration: `The user's real selection (order ${state.legitOrderRef}) is structurally validated against the DB and locked into a cryptographic commitment BEFORE the LLM is ever invoked.`,
+            request: { customerId: state.legitCustomerId, orderRefs: [state.legitOrderRef] },
             response: { storedHash },
           },
           newState: { ...state, storedHash },
@@ -101,36 +157,52 @@ export const intentInjectionAttack: AttackDefinition<State> = {
       },
     },
     {
-      label: "Forge an injected target (Order 9101)",
+      label: "Forge an injected target using its REAL profile",
       run: async (state) => {
+        const injectedOrder = await lookupRealOrder(state.injectedOrderRef);
         const policyCommitment = await realPolicyCommitment();
         const injectedAmountSalt = randomSalt();
         const { body: proveBody } = await proveCompliance(
           circuitInput({
-            amount: 50, // perfectly compliant amount
-            accountAgeDays: 60, 
-            pastRefundCount: 0,
-            transactionAgeDays: 30,
+            amount: injectedOrder.amount,
+            accountAgeDays: injectedOrder.accountAgeDays,
+            pastRefundCount: injectedOrder.pastRefundCount,
+            transactionAgeDays: injectedOrder.transactionAgeDays,
             amountSalt: injectedAmountSalt,
             policyCommitment,
           })
         );
 
-        if (!proveBody.proof) throw new Error("Failed to generate Proof 2 for injected order");
+        const proof2Valid = !!proveBody.proof;
 
         return {
           result: {
-            label: "Forge an injected target (Order 9101)",
-            narration: "The attacker manipulates the LLM into targeting a completely different order (9101). Because the order profile is compliant, Proof 2 (Groth16) generates perfectly! Without intent-binding, the system would execute this.",
-            response: { targetedOrder: "9101", amount: 50, proof2Valid: true },
+            label: "Forge an injected target using its REAL profile",
+            narration: proof2Valid
+              ? `The attacker manipulates the LLM into targeting order ${state.injectedOrderRef} — never part of the authenticated intent. Its real profile is policy-compliant, so Proof 2 (Groth16) generates perfectly! Without intent-binding, this would execute.`
+              : `The attacker manipulates the LLM into targeting order ${state.injectedOrderRef}. Its real profile actually fails policy on its own — Proof 2 will reject it regardless of intent-binding (this is the "caught by luck" case).`,
+            response: { targetedOrder: state.injectedOrderRef, amount: injectedOrder.amount, proof2Valid },
+            blocked: !proof2Valid,
           },
-          newState: { ...state, proof2: proveBody, injectedAmountSalt },
+          newState: proof2Valid
+            ? { ...state, proof2: proveBody, injectedAmountSalt, injectedOrder: { amount: injectedOrder.amount } }
+            : { ...state, injectedOrder: { amount: injectedOrder.amount } },
         };
       },
     },
     {
       label: "Gate check intercepts injection",
       run: async (state) => {
+        if (!state.proof2) {
+          return {
+            result: {
+              label: "Gate check intercepts injection",
+              narration: "Skipped — Proof 2 already failed on the injected order's own (non-compliant) data.",
+              blocked: true,
+            },
+            newState: state,
+          };
+        }
         const mcpRes = await fetch(`${FINANCE_URL}/mcp`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
@@ -146,12 +218,12 @@ export const intentInjectionAttack: AttackDefinition<State> = {
                 requestedScope: { action: "issue_refund", limit: 500 },
                 sigmaProof: state.proof1!,
                 nonce: state.proof1Nonce!,
-                orderRef: "9101", // The injected target
-                claimedAmount: 50,
+                orderRef: state.injectedOrderRef,
+                claimedAmount: state.injectedOrder!.amount,
                 claimedAmountSalt: state.injectedAmountSalt!,
                 complianceProof: { proof: state.proof2!.proof, publicSignals: state.proof2!.publicSignals },
                 sessionId: state.sessionId,
-                intentCommitmentHash: state.storedHash, 
+                intentCommitmentHash: state.storedHash,
               },
             },
           }),
@@ -168,15 +240,17 @@ export const intentInjectionAttack: AttackDefinition<State> = {
         return {
           result: {
             label: "Gate check intercepts injection",
-            narration: blocked 
-              ? `The finance gate blocks the attempt before Proof 2 even runs. "9101" is not in the authenticated commitment [9102].`
-              : "VULNERABLE — should be blocked.",
+            narration: blocked
+              ? `The finance gate blocks the attempt before Proof 2's result even matters. "${state.injectedOrderRef}" is not in the authenticated commitment [${state.legitOrderRef}].`
+              : resultBody?.allowed
+              ? "VULNERABLE — should be blocked."
+              : `Blocked, but not by intent-binding: ${resultBody?.reason}`,
             response: resultBody,
-            blocked,
+            blocked: resultBody?.allowed !== true,
           },
           newState: state,
         };
       },
-    }
+    },
   ],
 };

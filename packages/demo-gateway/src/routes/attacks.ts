@@ -9,7 +9,7 @@ import { toctouAttack } from "../attackSteps/toctou";
 import { fakeComplianceProofAttack } from "../attackSteps/fakeComplianceProof";
 import { intentInjectionAttack } from "../attackSteps/intentInjection";
 import { salamiSlicingAttack } from "../attackSteps/salamiSlicing";
-import { AttackDefinition } from "../attackSteps/types";
+import { AttackDefinition, buildInitialState } from "../attackSteps/types";
 import { emitStateSequence } from "../lib/requestEvents";
 
 const ATTACKS: Record<string, AttackDefinition> = {
@@ -38,7 +38,9 @@ export const attacksRouter: Router = express.Router();
 attacksRouter.post("/:id/start", (req, res) => {
   const attack = ATTACKS[req.params.id];
   if (!attack) return res.status(404).json({ error: "unknown attack id" });
-  const runId = createRun(attack.id, attack.initialState);
+  const config = req.body ?? {};
+  const initialState = buildInitialState(attack, config);
+  const runId = createRun(attack.id, initialState);
   res.status(201).json({
     runId,
     title: attack.title,
