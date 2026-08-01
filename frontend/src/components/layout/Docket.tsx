@@ -1,3 +1,5 @@
+import { useState, useRef, useEffect } from "react";
+
 export interface DocketEntry {
   id: string;
   timestamp: string;
@@ -12,7 +14,32 @@ interface Props {
   selectedId?: string;
 }
 
+const ROW_HEIGHT = 44; // Matches the height of DocketRow
+const OVERSCAN = 10;
+
 export function Docket({ entries = [], onSelect, selectedId }: Props) {
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      setContainerHeight(entries[0].contentRect.height);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const totalHeight = entries.length * ROW_HEIGHT;
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const endIndex = Math.min(
+    entries.length,
+    Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + OVERSCAN
+  );
+
+  const visibleEntries = entries.slice(startIndex, endIndex);
+
   return (
     <aside
       className="flex flex-col border-l overflow-hidden"
@@ -61,7 +88,11 @@ export function Docket({ entries = [], onSelect, selectedId }: Props) {
       </div>
 
       {/* Entries */}
-      <div className="flex-1 overflow-y-auto scrollbar-paper">
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-y-auto scrollbar-paper"
+        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+      >
         {entries.length === 0 ? (
           <div className="p-4 text-center">
             <p
@@ -78,14 +109,29 @@ export function Docket({ entries = [], onSelect, selectedId }: Props) {
             </p>
           </div>
         ) : (
-          entries.map((entry) => (
-            <DocketRow
-              key={entry.id}
-              entry={entry}
-              isSelected={entry.id === selectedId}
-              onClick={() => onSelect?.(entry.id)}
-            />
-          ))
+          <div style={{ height: totalHeight, position: "relative" }}>
+            {visibleEntries.map((entry, index) => {
+              const actualIndex = startIndex + index;
+              return (
+                <div 
+                  key={entry.id} 
+                  style={{ 
+                    position: "absolute", 
+                    top: actualIndex * ROW_HEIGHT,
+                    left: 0,
+                    right: 0,
+                    height: ROW_HEIGHT 
+                  }}
+                >
+                  <DocketRow
+                    entry={entry}
+                    isSelected={entry.id === selectedId}
+                    onClick={() => onSelect?.(entry.id)}
+                  />
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </aside>

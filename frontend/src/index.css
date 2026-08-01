@@ -23,6 +23,12 @@
     height: 100%;
   }
 
+  /* Narrate Mode — Slows down all animations and transitions globally */
+  .narrate-mode *, .narrate-mode *::before, .narrate-mode *::after {
+    animation-duration: 3s !important;
+    transition-duration: 3s !important;
+  }
+
   /* prefers-reduced-motion — blanket override, no exceptions */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

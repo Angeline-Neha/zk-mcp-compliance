@@ -76,7 +76,7 @@ export const RESOLVED_TTL_MS   = 4000;
 export const PULSE_FADE_AGE_MS = 8000;
 export const MAX_ACTIVE        = 20;
 export const MAX_PULSES_EDGE   = 4;
-export const MAX_DOCKET        = 50;
+export const MAX_DOCKET        = 1000;
 export const MAX_WIRE          = 200;
 
 const TERMINAL_STATES = new Set<RequestState>([

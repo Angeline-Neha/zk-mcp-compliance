@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar, type SidebarTab } from "./components/layout/Sidebar";
 import { StatusStrip } from "./components/layout/StatusStrip";
 import { Docket } from "./components/layout/Docket";
@@ -14,11 +14,19 @@ import { useInspector } from "./lib/useInspector";
 export default function App() {
   const [activeTab, setActiveTab] = useState<SidebarTab>("board");
   const [inspectorRequestId, setInspectorRequestId] = useState<string | null>(null);
+  const [narrateMode, setNarrateMode] = useState(false);
+  const [calmPeriodOver, setCalmPeriodOver] = useState(false);
 
-  const { connected, reconnecting, boardState, docketEntries, wireLines, stats } = useRequestStream();
+  const { connected, reconnecting, boardState, docketEntries, wireLines, stats, agentVitals } = useRequestStream();
   const { data: inspectorData, loading: inspectorLoading, error: inspectorError } = useInspector(
     inspectorRequestId
   );
+
+  useEffect(() => {
+    // 10s calm period before highlighting Exhibits
+    const t = setTimeout(() => setCalmPeriodOver(true), 10000);
+    return () => clearTimeout(t);
+  }, []);
 
   function openInspector(requestId: string) {
     setInspectorRequestId(requestId);
@@ -30,6 +38,7 @@ export default function App() {
 
   return (
     <div
+      className={narrateMode ? "narrate-mode" : ""}
       style={{
         display: "grid",
         gridTemplateColumns: "52px 1fr 240px",
@@ -43,14 +52,21 @@ export default function App() {
         agentsOnline={stats.agentsOnline}
         requestsPerMin={stats.requestsPerMin}
         verifiedPct={stats.verifiedPct}
+        history={stats.history}
         connected={connected && !reconnecting}
+        narrateMode={narrateMode}
+        onToggleNarrate={() => setNarrateMode((prev) => !prev)}
       />
 
-      <Sidebar active={activeTab} onChange={setActiveTab} />
+      <Sidebar 
+        active={activeTab} 
+        onChange={setActiveTab} 
+        highlightExhibits={calmPeriodOver && activeTab !== "exhibits"}
+      />
 
       <main style={{ overflow: "hidden", display: "flex", flexDirection: "column", gridColumn: 2, gridRow: 2 }}>
         {activeTab === "board" && (
-          <BoardView boardState={boardState} onInspectRequest={openInspector} />
+          <BoardView boardState={boardState} agentVitals={agentVitals} onInspectRequest={openInspector} />
         )}
         {activeTab === "exhibits" && <ExhibitsView />}
         {activeTab === "wire" && (

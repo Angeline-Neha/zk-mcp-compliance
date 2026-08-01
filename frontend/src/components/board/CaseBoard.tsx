@@ -39,6 +39,7 @@ interface NodeRect {
 
 interface Props {
   boardState: CaseBoardState;
+  agentVitals?: Record<string, number[]>;
   onNodeClick?: (id: NodeId) => void;
   onInspectRequest?: (requestId: string) => void;
 }
@@ -55,7 +56,7 @@ const NODE_POSITIONS: Record<NodeId, React.CSSProperties> = {
   'admin-mcp':     { top: '60%', left: '7%' },
 };
 
-export function CaseBoard({ boardState, onNodeClick, onInspectRequest }: Props) {
+export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectRequest }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Partial<Record<NodeId, HTMLDivElement | null>>>({});
   const [nodeRects, setNodeRects] = useState<Partial<Record<NodeId, NodeRect>>>({});
@@ -223,6 +224,7 @@ export function CaseBoard({ boardState, onNodeClick, onInspectRequest }: Props) 
               role={nodeDef.role}
               icon={nodeDef.icon}
               visualState={ns.visual}
+              vitals={agentVitals?.[nodeDef.id] ? { rollingPassRate: agentVitals[nodeDef.id] } : undefined}
               nestedAnnotation={
                 nodeDef.id === 'gateway'
                   ? 'orchestrator-agent  ↳ handleIncomingStructuredTask()'

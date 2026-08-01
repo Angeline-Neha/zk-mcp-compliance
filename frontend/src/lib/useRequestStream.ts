@@ -39,7 +39,9 @@ export interface StreamState {
     requestsPerMin: number;
     verifiedPct:    number;
     agentsOnline:   number;
+    history:        number[]; // Rolling verifiedPct for sparkline
   };
+  agentVitals: Record<string, number[]>;
 }
 
 let wireLineId = 0;
@@ -50,7 +52,8 @@ export function useRequestStream(): StreamState {
   const [boardState, setBoardState]       = useState<CaseBoardState>(IDLE_BOARD_STATE);
   const [docketEntries, setDocketEntries] = useState<DocketEntry[]>([]);
   const [wireLines, setWireLines]         = useState<WireLine[]>([]);
-  const [stats, setStats]                 = useState({ requestsPerMin: 0, verifiedPct: 100, agentsOnline: 0 });
+  const [stats, setStats]                 = useState({ requestsPerMin: 0, verifiedPct: 100, agentsOnline: 0, history: [100] });
+  const [agentVitals, setAgentVitals]     = useState<Record<string, number[]>>({});
 
   const requestsRef    = useRef<Map<string, TrackedRequest>>(new Map());
   const seenEventIds   = useRef<Set<string>>(new Set());
@@ -100,6 +103,17 @@ export function useRequestStream(): StreamState {
       policy:  ev.policyCommitment,
     };
     setWireLines((prev) => [wLine, ...prev].slice(0, MAX_WIRE));
+
+    if (ev.outcome === 'pass' || ev.outcome === 'fail') {
+      const val = ev.outcome === 'pass' ? 1.0 : 0.0;
+      setAgentVitals((prev) => {
+        const hist = prev[ev.agentId] || [1.0, 1.0, 1.0, 1.0, 1.0];
+        return {
+          ...prev,
+          [ev.agentId]: [...hist.slice(1), val]
+        };
+      });
+    }
   }, [recomputeBoard]);
 
   const connect = useCallback(() => {
@@ -139,11 +153,12 @@ export function useRequestStream(): StreamState {
     es.addEventListener('stats_update', (e: MessageEvent) => {
       try {
         const ev: StatsUpdateEvent = JSON.parse(e.data);
-        setStats({
+        setStats((prev) => ({
           requestsPerMin: ev.requestsPerMin,
           verifiedPct:    ev.verifiedPct,
           agentsOnline:   ev.agentsOnline,
-        });
+          history:        [...prev.history, ev.verifiedPct].slice(-30), // Keep last 30 data points
+        }));
       } catch { /* ignore */ }
     });
   }, [handleRequestUpdate]);
@@ -173,5 +188,5 @@ export function useRequestStream(): StreamState {
     };
   }, [connect, recomputeBoard]);
 
-  return { connected, reconnecting, boardState, docketEntries, wireLines, stats };
+  return { connected, reconnecting, boardState, docketEntries, wireLines, stats, agentVitals };
 }

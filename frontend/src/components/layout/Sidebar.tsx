@@ -11,9 +11,10 @@ const TABS: { id: SidebarTab; label: string; abbr: string }[] = [
 interface Props {
   active: SidebarTab;
   onChange: (tab: SidebarTab) => void;
+  highlightExhibits?: boolean;
 }
 
-export function Sidebar({ active, onChange }: Props) {
+export function Sidebar({ active, onChange, highlightExhibits = false }: Props) {
   return (
     <aside
       className="flex flex-col items-center py-3 gap-1 border-r ink-rule"
@@ -21,6 +22,7 @@ export function Sidebar({ active, onChange }: Props) {
     >
       {TABS.map((tab) => {
         const isActive = tab.id === active;
+        const isHighlight = tab.id === "exhibits" && highlightExhibits;
         return (
           <button
             key={tab.id}
@@ -31,11 +33,11 @@ export function Sidebar({ active, onChange }: Props) {
           >
             {/* The folder tab */}
             <div
-              className={`flex items-center justify-center transition-all duration-200 ${isActive ? "folder-tab-active" : ""}`}
+              className={`flex items-center justify-center transition-all duration-200 ${isActive ? "folder-tab-active" : ""} ${isHighlight ? "animate-pulse" : ""}`}
               style={{
                 height: 44,
                 width: 40,
-                backgroundColor: isActive ? "#EDE6D6" : "rgba(237,230,214,0.35)",
+                backgroundColor: isActive ? "#EDE6D6" : isHighlight ? "rgba(178, 58, 47, 0.1)" : "rgba(237,230,214,0.35)",
                 border: "1.5px solid rgba(31,27,22,0.15)",
                 borderRadius: "3px 3px 0 0",
                 borderBottom: isActive ? "1.5px solid #EDE6D6" : "1.5px solid rgba(31,27,22,0.15)",
@@ -45,7 +47,7 @@ export function Sidebar({ active, onChange }: Props) {
                 className="font-stamp text-center leading-none"
                 style={{
                   fontSize: 10,
-                  color: isActive ? "#1F1B16" : "rgba(31,27,22,0.45)",
+                  color: isActive ? "#1F1B16" : isHighlight ? "#B23A2F" : "rgba(31,27,22,0.45)",
                   writingMode: "vertical-lr",
                   textOrientation: "mixed",
                   transform: "rotate(180deg)",

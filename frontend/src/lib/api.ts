@@ -178,8 +178,8 @@ export async function startAttack(attackId: string): Promise<AttackStartResponse
 export interface StepResult {
   label: string;
   narration: string;
-  request?: unknown;
-  response?: unknown;
+  request?: any;
+  response?: any;
   blocked?: boolean;
 }
 

@@ -30,8 +30,8 @@ interface RunState {
 interface StepResult {
   label: string;
   narration: string;
-  request?: unknown;
-  response?: unknown;
+  request?: any;
+  response?: any;
   blocked?: boolean;
 }
 
@@ -200,13 +200,13 @@ export function ExhibitPanel({ meta }: Props) {
               {expanded === i && (
                 <div className="log-entry-body">
                   <p className="log-narration">{r.narration}</p>
-                  {r.request && (
+                  {!!r.request && (
                     <div className="log-payload">
                       <div className="payload-label">REQUEST</div>
                       <pre className="payload-json">{JSON.stringify(r.request, null, 2)}</pre>
                     </div>
                   )}
-                  {r.response && (
+                  {!!r.response && (
                     <div className="log-payload">
                       <div className="payload-label">RESPONSE</div>
                       <pre className="payload-json">{JSON.stringify(r.response, null, 2)}</pre>
