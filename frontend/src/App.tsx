@@ -14,10 +14,26 @@ import { useInspector } from "./lib/useInspector";
 export default function App() {
   const [activeTab, setActiveTab] = useState<SidebarTab>("board");
   const [inspectorRequestId, setInspectorRequestId] = useState<string | null>(null);
+  const [visualizedRequestId, setVisualizedRequestId] = useState<string | null>(null);
   const [narrateMode, setNarrateMode] = useState(false);
   const [calmPeriodOver, setCalmPeriodOver] = useState(false);
 
-  const { connected, reconnecting, boardState, docketEntries, wireLines, stats, agentVitals } = useRequestStream();
+  const { connected, reconnecting, boardState, docketEntries, wireLines, stats, agentVitals, getBoardSnapshot } = useRequestStream();
+
+  // When pinned to a specific past request, show its own snapshot instead of
+  // the live merged board. Falls back to live if the snapshot isn't found.
+  const displayedBoardState = visualizedRequestId
+    ? getBoardSnapshot(visualizedRequestId) ?? boardState
+    : boardState;
+
+  function visualizeRequest(requestId: string) {
+    setVisualizedRequestId(requestId);
+    setActiveTab("board");
+  }
+
+  function returnToLive() {
+    setVisualizedRequestId(null);
+  }
   const { data: inspectorData, loading: inspectorLoading, error: inspectorError } = useInspector(
     inspectorRequestId
   );
@@ -66,7 +82,13 @@ export default function App() {
 
       <main style={{ overflow: "hidden", display: "flex", flexDirection: "column", gridColumn: 2, gridRow: 2 }}>
         {activeTab === "board" && (
-          <BoardView boardState={boardState} agentVitals={agentVitals} onInspectRequest={openInspector} />
+          <BoardView
+            boardState={displayedBoardState}
+            agentVitals={agentVitals}
+            onInspectRequest={openInspector}
+            viewingSnapshot={visualizedRequestId !== null}
+            onReturnToLive={returnToLive}
+          />
         )}
         {activeTab === "exhibits" && <ExhibitsView />}
         {activeTab === "wire" && (
@@ -89,6 +111,7 @@ export default function App() {
         loading={inspectorLoading}
         error={inspectorError}
         snapshot={inspectorData}
+        onVisualize={inspectorRequestId ? () => visualizeRequest(inspectorRequestId) : undefined}
       />
     </div>
   );

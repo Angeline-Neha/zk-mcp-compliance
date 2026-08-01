@@ -192,7 +192,7 @@ function mergeEdgeState(existing: BoardEdgeState | undefined, incoming: BoardEdg
   return { thread: pickThread, checkpoint, telegram };
 }
 
-function mergeBoardSlice(into: CaseBoardState, slice: CaseBoardState): void {
+export function mergeBoardSlice(into: CaseBoardState, slice: CaseBoardState): void {
   for (const [id, ns] of Object.entries(slice.nodes) as [NodeId, BoardNodeState][]) {
     into.nodes[id] = mergeNodeState(into.nodes[id], ns);
   }

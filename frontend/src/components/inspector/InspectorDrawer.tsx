@@ -8,6 +8,7 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   snapshot?: import("../../lib/inspectorTypes").InspectorSnapshot | null;
+  onVisualize?: () => void;
 }
 
 export function InspectorDrawer({
@@ -17,6 +18,7 @@ export function InspectorDrawer({
   loading,
   error,
   snapshot,
+  onVisualize,
 }: Props) {
   return (
     <>
@@ -69,11 +71,29 @@ export function InspectorDrawer({
               </p>
             )}
           </div>
+          {onVisualize && requestId && !loading && !error && snapshot && (
+            <button
+              type="button"
+              onClick={onVisualize}
+              style={{
+                marginLeft: "auto",
+                ...monoStyle(9),
+                color: "#B08D57",
+                background: "none",
+                border: "1px solid rgba(176,141,87,0.4)",
+                borderRadius: 2,
+                padding: "2px 8px",
+                cursor: "pointer",
+              }}
+            >
+              VISUALIZE ▸
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
             style={{
-              marginLeft: "auto",
+              marginLeft: onVisualize && requestId && !loading && !error && snapshot ? 8 : "auto",
               ...monoStyle(9),
               color: "rgba(176,141,87,0.5)",
               background: "none",

@@ -8,6 +8,8 @@ import {
   type TrackedRequest,
   mergeActiveRequests,
   upsertTrackedRequest,
+  rawToCaseBoardState,
+  mergeBoardSlice,
   isTerminalState,
   IDLE_BOARD_STATE,
   MAX_DOCKET,
@@ -42,9 +44,11 @@ export interface StreamState {
     history:        number[]; // Rolling verifiedPct for sparkline
   };
   agentVitals: Record<string, number[]>;
+  getBoardSnapshot: (requestId: string) => CaseBoardState | undefined;
 }
 
 let wireLineId = 0;
+const MAX_HISTORY = 1000;
 
 export function useRequestStream(): StreamState {
   const [connected, setConnected]         = useState(false);
@@ -56,6 +60,7 @@ export function useRequestStream(): StreamState {
   const [agentVitals, setAgentVitals]     = useState<Record<string, number[]>>({});
 
   const requestsRef    = useRef<Map<string, TrackedRequest>>(new Map());
+  const historyRef     = useRef<Map<string, CaseBoardState>>(new Map());
   const seenEventIds   = useRef<Set<string>>(new Set());
   const esRef          = useRef<EventSource | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,6 +80,24 @@ export function useRequestStream(): StreamState {
 
     requestsRef.current = upsertTrackedRequest(requestsRef.current, ev);
     recomputeBoard();
+
+    // Accumulate this request's board slice across its whole event sequence.
+    // The terminal "rejected" event is intentionally near-empty on the backend
+    // (the fail edge/stamp live on the preceding proof1_fail/intent_fail/
+    // proof2_fail event) — so we merge every event for this requestId together
+    // rather than keeping only the latest one, or a re-visualized blocked
+    // request would render as a blank board.
+    const incomingSlice = rawToCaseBoardState(ev.boardState);
+    const existingSlice = historyRef.current.get(ev.requestId);
+    const combinedSlice: CaseBoardState = existingSlice
+      ? { nodes: { ...existingSlice.nodes }, edges: { ...existingSlice.edges } }
+      : { nodes: {}, edges: {} };
+    mergeBoardSlice(combinedSlice, incomingSlice);
+    historyRef.current.set(ev.requestId, combinedSlice);
+    if (historyRef.current.size > MAX_HISTORY) {
+      const first = historyRef.current.keys().next().value;
+      if (first) historyRef.current.delete(first);
+    }
 
     const dEntry: DocketEntry = {
       id:        ev.requestId,
@@ -188,5 +211,9 @@ export function useRequestStream(): StreamState {
     };
   }, [connect, recomputeBoard]);
 
-  return { connected, reconnecting, boardState, docketEntries, wireLines, stats, agentVitals };
+  const getBoardSnapshot = useCallback((requestId: string) => {
+    return historyRef.current.get(requestId);
+  }, []);
+
+  return { connected, reconnecting, boardState, docketEntries, wireLines, stats, agentVitals, getBoardSnapshot };
 }
