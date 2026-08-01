@@ -16,6 +16,12 @@ const bodySchema = z.object({ ticketText: z.string().min(1) });
 const structuredBodySchema = z.object({
   customerId: z.string().min(1),
   ticketText: z.string().min(1),
+  // Optional — lets demo/attack buttons run in an isolated session instead
+  // of colliding with the customer's real (customerId, orderRef) session.
+  // Omitted entirely for genuine customer-typed tickets, which must keep
+  // using the plain deterministic session so salami-slicing detection still
+  // works across separate real messages.
+  sessionTag: z.string().optional(),
 });
 
 export const taskRouter: Router = express.Router();
@@ -83,7 +89,7 @@ taskRouter.post("/structured", async (req, res) => {
   const parsed = structuredBodySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "invalid request" });
 
-  const { customerId, ticketText } = parsed.data;
+  const { customerId, ticketText, sessionTag } = parsed.data;
 
   // Extract the FIRST order ref from the text (e.g. "order 9104" or "#9104")
   const match = ticketText.match(/(?:order\s*#?\s*|#)(\d{4,})/i);
@@ -124,7 +130,9 @@ taskRouter.post("/structured", async (req, res) => {
           // getting a fresh 1-action allowance. This is what makes salami-
           // slicing detection actually work across separate chat messages,
           // not just within a single agent tool-call loop.
-          sessionId: createHash("sha256").update(`${customerId}:${orderRef}`).digest("hex"),
+          sessionId: createHash("sha256")
+            .update(`${customerId}:${orderRef}${sessionTag ? `:${sessionTag}` : ""}`)
+            .digest("hex"),
           customerId,
           orderRef,
           justification: ticketText,

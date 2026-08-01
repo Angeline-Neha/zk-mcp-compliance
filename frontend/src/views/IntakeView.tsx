@@ -64,7 +64,14 @@ export function IntakeView() {
     try {
       let res: TaskResult;
       if (target === "refund") {
-        res = await submitStructuredTask({ customerId, ticketText });
+        res = await submitStructuredTask({
+          customerId,
+          ticketText,
+          // Isolates the Prompt Injection demo into its own session so it
+          // doesn't share an action-count budget with the Salami Slicing
+          // demo — both otherwise target the same customer's single order.
+          sessionTag: attackMode === "injection" ? "prompt-injection" : undefined,
+        });
       } else {
         res = await submitAdminTask(ticketText);
       }
@@ -99,7 +106,14 @@ export function IntakeView() {
       setSalamiProgress({ slice, total });
       setLoading(true);
       try {
-        const res = await submitStructuredTask({ customerId, ticketText: autoFillText });
+        const res = await submitStructuredTask({
+          customerId,
+          ticketText: autoFillText,
+          // Dedicated session so this demo's action-count budget is never
+          // shared with (or exhausted by) the Prompt Injection demo, which
+          // targets the same customer's single order.
+          sessionTag: "salami-slicing",
+        });
         setResult(res);
         res.toolCalls.forEach((_, i) => {
           setTimeout(() => setRevealedCount((c) => Math.max(c, i + 1)), i * 300);

@@ -115,6 +115,17 @@ export async function submitAdminTask(ticketText: string): Promise<TaskResult> {
 export async function submitStructuredTask(args: {
   customerId: string;
   ticketText: string;
+  /**
+   * Optional — isolates this request into its own intent-binding session
+   * instead of the default customerId:orderRef session. Use this for
+   * demo/attack buttons that share a customer+order (every seeded customer
+   * has exactly one order) so they don't drain each other's action-count
+   * budget and get misreported as salami-slicing. Leave unset for real
+   * customer-typed tickets — those must keep the plain deterministic
+   * session so salami-slicing detection still works across separate
+   * genuine messages.
+   */
+  sessionTag?: string;
 }): Promise<TaskResult> {
   const res = await fetch(`${GATEWAY_URL}/task/structured`, {
     method: "POST",
