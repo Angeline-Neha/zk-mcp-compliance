@@ -7,8 +7,8 @@ function extractGateResultWithInspector(
   path: RequestPath
 ): (GateResultLike & { inspector?: InspectorDetail }) | null {
   const result = raw as {
-    toolCalls?: { tool: string; result: unknown }[];
-    supportAgentResults?: { toolCalls?: { tool: string; result: unknown }[] }[];
+    toolCalls?: { tool: string; input?: unknown; result: unknown }[];
+    supportAgentResults?: { toolCalls?: { tool: string; input?: unknown; result: unknown }[] }[];
   };
 
   const toolCalls =
@@ -19,7 +19,15 @@ function extractGateResultWithInspector(
   const toolName = path === "refund" ? "request_refund" : "request_deletion";
   const call = toolCalls.find((c) => c.tool === toolName);
   if (!call) return null;
-  return call.result as GateResultLike & { inspector?: InspectorDetail };
+  const gateResult = call.result as GateResultLike & { inspector?: InspectorDetail };
+  const callInput = call.input as { overridden?: boolean; requestedOrderRef?: string; orderRef?: string } | undefined;
+  if (callInput?.overridden) {
+    (gateResult as any).override = {
+      requestedOrderRef: callInput.requestedOrderRef,
+      enforcedOrderRef: callInput.orderRef,
+    };
+  }
+  return gateResult;
 }
 
 export function buildInspectorSnapshot(opts: {
@@ -51,5 +59,6 @@ export function buildInspectorSnapshot(opts: {
     failReason: reason,
     policyCommitment: gate.inspector.proof2?.policyCommitment ?? null,
     inspector: gate.inspector,
+    override: (gate as any).override,
   };
 }

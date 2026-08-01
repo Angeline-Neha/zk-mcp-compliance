@@ -11,5 +11,10 @@ else
   echo "Warning: .env file not found"
 fi
 
+if [ "$1" == "--seed" ]; then
+  echo "Reseeding database..."
+  node seed.js
+fi
+
 echo "Starting all services and frontend in parallel..."
 pnpm -r --parallel dev

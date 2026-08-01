@@ -53,6 +53,10 @@ export interface InspectorSnapshot {
   proof2Hash?: string | null;
   policyCommitment?: string | null;
   inspector: InspectorDetail;
+  /** Attack 8: present only when the LLM's requested order was overridden by the
+   *  structurally-authenticated one — i.e. an injected/smuggled order was blocked. */
+  override?: { requestedOrderRef?: string; enforcedOrderRef?: string };
+
 }
 
 const store = new Map<string, InspectorSnapshot>();

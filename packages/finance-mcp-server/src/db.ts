@@ -5,6 +5,12 @@ export const pool = new Pool({
     process.env.DATABASE_URL ?? "postgresql://zkmcp:zkmcp@localhost:5432/zkmcp",
 });
 
+// Orders reserved exclusively for live demo — never touch these while testing.
+// Comma-separated in env, e.g. DEMO_RESERVED_ORDERS="1001,1002"
+const DEMO_RESERVED_ORDERS = (process.env.DEMO_RESERVED_ORDERS ?? "1001")
+  .split(",")
+  .map((s) => s.trim());
+
 export interface RealOrderContext {
   orderId: string;
   customerId: string;
@@ -45,6 +51,13 @@ export async function loadOrderContext(orderRef: string): Promise<RealOrderConte
      WHERE o.customer_id = $1 AND r.created_at > now() - interval '90 days'`,
     [order.customer_id]
   );
+
+  if (DEMO_RESERVED_ORDERS.includes(orderRef) && refundCountRes.rows[0].count > 0) {
+    console.warn(
+      `⚠️  DEMO TRIPWIRE: reserved order ${orderRef} has pastRefundCount=${refundCountRes.rows[0].count} (should be 0). ` +
+      `Run "npm run reseed" before presenting.`
+    );
+  }
 
   return {
     orderId: order.id,

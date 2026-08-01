@@ -3,6 +3,7 @@ import { z } from "zod";
 import { handleIncomingTask, handleIncomingStructuredTask } from "@zk-mcp/orchestrator-agent";
 import { handleTicket } from "@zk-mcp/admin-agent";
 import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 import { Pool } from "pg";
 import { trackTaskRequest } from "../lib/requestEvents";
 
@@ -117,7 +118,13 @@ taskRouter.post("/structured", async (req, res) => {
       scopeAction: "issue_refund",
       handler: () =>
         handleIncomingStructuredTask({
-          sessionId: randomUUID(),
+          // Deterministic per customer+order (not randomUUID) — so repeated
+          // submissions for the same order within the commitment's TTL share
+          // one session and one action-count budget, instead of each resend
+          // getting a fresh 1-action allowance. This is what makes salami-
+          // slicing detection actually work across separate chat messages,
+          // not just within a single agent tool-call loop.
+          sessionId: createHash("sha256").update(`${customerId}:${orderRef}`).digest("hex"),
           customerId,
           orderRef,
           justification: ticketText,

@@ -78,6 +78,24 @@ export function InspectorContent({ snapshot }: Props) {
         />
       )}
 
+      {snapshot.override && (
+        <div
+          style={{
+            marginTop: 10,
+            padding: "8px 10px",
+            border: "1px solid rgba(184,110,0,0.4)",
+            borderRadius: 2,
+            background: "rgba(184,110,0,0.06)",
+          }}
+        >
+          <p style={{ ...monoStyle(8), color: "rgba(184,110,0,0.9)" }}>
+            ⚠ INTENT OVERRIDE — agent requested order {snapshot.override.requestedOrderRef},
+            enforced order {snapshot.override.enforcedOrderRef} instead (structurally-authenticated
+            value took precedence)
+          </p>
+        </div>
+      )}
+
       {inspector.proof2 && (
         <Proof2LabReport proof2={inspector.proof2} reached={proof2Reached} />
       )}

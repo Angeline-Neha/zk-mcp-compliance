@@ -2,8 +2,13 @@
   "name": "zk-mcp-compliance",
   "private": true,
   "version": "0.0.1",
+  "type": "module",
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "reseed": "node seed.js"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
   }
 }

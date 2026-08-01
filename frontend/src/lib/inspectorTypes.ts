@@ -49,6 +49,7 @@ export interface InspectorSnapshot {
   policyCommitment?: string | null;
   inspector: InspectorDetail | null;
   partial?: boolean;
+  override?: { requestedOrderRef?: string; enforcedOrderRef?: string };
 }
 
 export type CheckStatus = "pending" | "pass" | "fail";
