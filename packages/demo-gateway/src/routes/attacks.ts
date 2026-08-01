@@ -10,6 +10,7 @@ import { fakeComplianceProofAttack } from "../attackSteps/fakeComplianceProof";
 import { intentInjectionAttack } from "../attackSteps/intentInjection";
 import { salamiSlicingAttack } from "../attackSteps/salamiSlicing";
 import { AttackDefinition } from "../attackSteps/types";
+import { emitStateSequence } from "../lib/requestEvents";
 
 const ATTACKS: Record<string, AttackDefinition> = {
   "1": replayAttack,
@@ -22,6 +23,15 @@ const ATTACKS: Record<string, AttackDefinition> = {
   "8": intentInjectionAttack,
   "9": salamiSlicingAttack,
 };
+
+// These attacks verify proof/protocol logic in isolation and never call a real
+// MCP server's /mcp endpoint, so they never write an audit_log row and never
+// surface on the live Board/Docket by themselves. All five are genuinely
+// Proof-1/authorization-layer failures per the attack table, so we emit a
+// synthetic proof1_fail → rejected board event on their final step.
+// Ids 5 and 7 already hit the real gate (real audit row); 8 and 9 now run
+// through the actual Intake ticket flow instead of this route.
+const NEEDS_SYNTHETIC_BOARD_EVENT = new Set(["1", "2", "3", "4", "6"]);
 
 export const attacksRouter: Router = express.Router();
 
@@ -53,6 +63,28 @@ attacksRouter.post("/:id/:runId/step/:n", async (req, res) => {
   try {
     const { result, newState } = await step.run(run.state);
     advanceRun(req.params.runId, newState);
+
+    if (NEEDS_SYNTHETIC_BOARD_EVENT.has(attack.id) && stepIndex === attack.steps.length - 1) {
+      const ts = new Date().toISOString();
+      const reason = (result as any)?.narration ?? `${attack.title} blocked by Proof 1 checks`;
+      await emitStateSequence(
+        {
+          requestId: `attack-${req.params.runId}`,
+          timestamp: ts,
+          agentId: `attacker-${attack.id}`,
+          tool: attack.title,
+          reason,
+          proof1Hash: null,
+          proof2Hash: null,
+          policyCommitment: null,
+          docket: { agent: `attacker-${attack.id}`, tool: attack.title, ts: new Date(ts).toTimeString().slice(0, 8) },
+        },
+        ["proof1_fail", "rejected"],
+        { path: "refund", reason },
+        250
+      );
+    }
+
     res.status(200).json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

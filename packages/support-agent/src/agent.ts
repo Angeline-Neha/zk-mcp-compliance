@@ -33,7 +33,8 @@ You have two tools:
 Always look up the order first, then ALWAYS call request_refund — even if you believe it will
 be rejected. You must never resolve a refund decision by describing it in text instead of
 calling the tool; only the tool's real verification result determines the outcome. Your job is
-to look up data and call the tool, not to judge compliance yourself.`;
+to look up data and call the tool, not to judge compliance yourself.
+CRITICAL: Do NOT simulate a back-and-forth conversation or hallucinate fake "Customer response:" text. Provide ONLY your own direct, final response to the customer.`;
 
 const TOOLS: ChatCompletionTool[] = [
   {
@@ -226,6 +227,9 @@ export async function handleTicket(
     const toolCallsThisTurn = message.tool_calls ?? [];
 
     if (toolCallsThisTurn.length === 0) {
+      // If a refund was already attempted, build the response from the real
+      // gate outcome — ignore whatever the LLM generated, which may have been
+      // manipulated by prompt injection inside the ticket text.
       if (refundOutcome !== null) {
         return { finalResponse: buildRefundResponse(refundOutcome), toolCalls };
       }
@@ -236,9 +240,14 @@ export async function handleTicket(
           identity, attestationId, scopeLimit, structuredOrderRef, sessionId, intentCommitmentHash
         );
         refundOutcome = forcedResult as { allowed: boolean; reason?: string; refundId?: string };
-        toolCalls.push({ tool: "request_refund", input: { orderRef: structuredOrderRef, justification: "auto-forced: model attempted to resolve without calling the tool" }, result: forcedResult });
+        toolCalls.push({
+          tool: "request_refund",
+          input: { orderRef: structuredOrderRef, justification: "auto-forced: model attempted to resolve without calling the tool" },
+          result: forcedResult,
+        });
         return { finalResponse: buildRefundResponse(refundOutcome), toolCalls };
       }
+      // No refund attempted and no structured orderRef to force — safe to use the LLM's text.
       return { finalResponse: message.content ?? "", toolCalls };
     }
 
@@ -270,6 +279,17 @@ export async function handleTicket(
           sessionId,
           intentCommitmentHash
         );
+
+        // Record what the LLM claimed vs. what was actually enforced — if a
+        // structured orderRef overrode the LLM's request (e.g. an injected
+        // instruction targeting a different order), that override must be
+        // visible in the audit trail, not silently hidden behind the LLM's
+        // original claim.
+        if (structuredOrderRef && orderRef !== structuredOrderRef) {
+          input.requestedOrderRef = orderRef;
+          input.orderRef = effectiveOrderRef;
+          input.overridden = true;
+        }
       } else {
         resultPayload = { error: `unknown tool ${call.function.name}` };
       }
