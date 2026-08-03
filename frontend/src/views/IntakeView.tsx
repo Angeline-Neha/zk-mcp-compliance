@@ -80,6 +80,9 @@ export function IntakeView() {
     if (redTeamOnSubmit && target === "refund") {
       setRedTeamRunning(true);
       setRedTeamResult(null);
+      setResult(null);
+      setRevealedCount(0);
+      setError(null);
       setRedTeamStatus("🔴 Red Team Agent intercepting ticket…");
       let blocked = false;
       try {
@@ -482,26 +485,71 @@ export function IntakeView() {
         )}
 
         {redTeamResult && (
-          <div
-            className="case-card p-4 border-l-4"
-            style={{ borderLeftColor: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
-          >
-            <p
-              className="font-stamp text-[10px] uppercase tracking-widest mb-2"
-              style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626", letterSpacing: "0.2em" }}
+          <>
+            <div
+              className="case-card p-4 border-l-4"
+              style={{ borderLeftColor: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
             >
-              🔴 Red Team Agent — {redTeamResult.title}
-            </p>
-            <p
-              className="font-mono-data text-xs font-semibold mb-1"
-              style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
-            >
-              {redTeamResult.blocked ? "✅ BLOCKED" : "⚠️ VULNERABLE"}
-            </p>
-            <p className="font-mono-data text-xs leading-relaxed" style={{ color: "rgba(31,27,22,0.6)" }}>
-              {redTeamResult.reason}
-            </p>
-          </div>
+              <p
+                className="font-stamp text-[10px] uppercase tracking-widest mb-2"
+                style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626", letterSpacing: "0.2em" }}
+              >
+                🔴 Red Team Agent — {redTeamResult.title}
+              </p>
+              <p
+                className="font-mono-data text-xs font-semibold mb-1"
+                style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
+              >
+                {redTeamResult.blocked ? "BLOCKED" : "⚠️ VULNERABLE"}
+              </p>
+              <p className="font-mono-data text-xs leading-relaxed" style={{ color: "rgba(31,27,22,0.6)" }}>
+                {redTeamResult.reason}
+              </p>
+            </div>
+
+            {redTeamResult.steps.map((step, i) => (
+              <div key={i} className="case-card p-4">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: "rgba(31,27,22,0.1)" }}>
+                  <span className="font-stamp text-xs" style={{ color: "#B08D57" }}>
+                    step {i + 1} — {step.label}
+                  </span>
+                  {step.blocked !== undefined && (
+                    <span
+                      className="ml-auto font-stamp text-[9px] tracking-wider"
+                      style={{ color: step.blocked ? "#2F4A3B" : "#8B2626" }}
+                    >
+                      {step.blocked ? "BLOCKED" : "PASSED"}
+                    </span>
+                  )}
+                </div>
+                {step.narration && (
+                  <p className="font-mono-data text-xs mb-2" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
+                    {step.narration}
+                  </p>
+                )}
+                {step.request !== undefined && (
+                  <>
+                    <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(31,27,22,0.4)" }}>
+                      Request
+                    </p>
+                    <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
+                      {JSON.stringify(step.request, null, 2)}
+                    </pre>
+                  </>
+                )}
+                {step.response !== undefined && (
+                  <>
+                    <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(31,27,22,0.4)" }}>
+                      Response
+                    </p>
+                    <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
+                      {JSON.stringify(step.response, null, 2)}
+                    </pre>
+                  </>
+                )}
+              </div>
+            ))}
+          </>
         )}
 
         {result?.toolCalls.slice(0, revealedCount).map((call, i) => {
