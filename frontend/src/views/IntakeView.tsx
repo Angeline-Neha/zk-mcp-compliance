@@ -9,6 +9,7 @@ import {
   type TaskResult,
   type ToolCall,
   type Customer,
+  type StepResult,
 } from "../lib/api";
 
 /* ── Red Team Agent — attacks 1-7 only; 8/9 already live as intake attack modes ── */
@@ -45,7 +46,7 @@ export function IntakeView() {
   const [redTeamAttackId, setRedTeamAttackId] = useState<string>(RED_TEAM_ATTACKS[0]?.id ?? "1");
   const [redTeamRunning, setRedTeamRunning] = useState(false);
   const [redTeamStatus, setRedTeamStatus] = useState<string | null>(null);
-  const [redTeamResult, setRedTeamResult] = useState<{ title: string; blocked: boolean; reason: string } | null>(
+  const [redTeamResult, setRedTeamResult] = useState<{ title: string; blocked: boolean; reason: string; steps: StepResult[] } | null>(
     null
   );
 
@@ -82,7 +83,7 @@ export function IntakeView() {
       setRedTeamStatus("🔴 Red Team Agent intercepting ticket…");
       let blocked = false;
       try {
-        const { title, final } = await runAttackToCompletion(redTeamAttackId, (step, i, total) => {
+        const { title, steps, final } = await runAttackToCompletion(redTeamAttackId, (step, i, total) => {
           setRedTeamStatus(`red team: step ${i + 1}/${total} — ${step.label}`);
         });
         blocked = final.blocked === true;
@@ -90,9 +91,10 @@ export function IntakeView() {
           title,
           blocked,
           reason: final.narration ?? (blocked ? "blocked correctly" : "VULNERABLE"),
+          steps,
         });
       } catch (err: any) {
-        setRedTeamResult({ title: "Red Team Agent", blocked: false, reason: err.message ?? "attack run failed" });
+        setRedTeamResult({ title: "Red Team Agent", blocked: false, reason: err.message ?? "attack run failed", steps: [] });
       } finally {
         setRedTeamRunning(false);
         setRedTeamStatus(null);
@@ -106,6 +108,7 @@ export function IntakeView() {
     setError(null);
     setResult(null);
     setRevealedCount(0);
+    setRedTeamResult(null);
     try {
       let res: TaskResult;
       if (target === "refund") {
@@ -184,16 +187,17 @@ export function IntakeView() {
     setRedTeamResult(null);
     setRedTeamStatus("starting…");
     try {
-      const { title, final } = await runAttackToCompletion(redTeamAttackId, (step, i, total) => {
+      const { title, steps, final } = await runAttackToCompletion(redTeamAttackId, (step, i, total) => {
         setRedTeamStatus(`step ${i + 1}/${total} — ${step.label}`);
       });
       setRedTeamResult({
         title,
         blocked: final.blocked === true,
         reason: final.narration ?? (final.blocked ? "blocked correctly" : "VULNERABLE"),
+        steps,
       });
     } catch (err: any) {
-      setRedTeamResult({ title: "Red Team Agent", blocked: false, reason: err.message ?? "attack run failed" });
+      setRedTeamResult({ title: "Red Team Agent", blocked: false, reason: err.message ?? "attack run failed", steps: [] });
     } finally {
       setRedTeamRunning(false);
       setRedTeamStatus(null);
@@ -516,6 +520,8 @@ export function IntakeView() {
 
               {parsed ? (
                 <ProofDisplay parsed={parsed} />
+              ) : call.tool === "lookup_order" ? (
+                <LookupOrderDisplay input={call.input} result={call.result} />
               ) : (
                 <pre
                   className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap"
@@ -630,6 +636,57 @@ function ProofRow({
           {reason}
         </p>
       )}
+    </div>
+  );
+}
+
+function LookupOrderDisplay({ input, result }: { input: unknown; result: unknown }) {
+  const inp = input as Record<string, unknown>;
+  const res = result as Record<string, unknown>;
+
+  const fields: { label: string; key: string; unit?: string; good?: (v: number) => boolean }[] = [
+    { label: "Amount", key: "amount", unit: "$" },
+    { label: "Account Age", key: "accountAgeDays", unit: "days", good: (v) => v >= 30 },
+    { label: "Past Refunds", key: "pastRefundCount", good: (v) => v < 2 },
+    { label: "Transaction Age", key: "transactionAgeDays", unit: "days", good: (v) => v <= 90 },
+  ];
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="px-3 py-2 border-l-2"
+        style={{ borderLeftColor: "#B08D57", backgroundColor: "rgba(176,141,87,0.04)" }}
+      >
+        <p className="font-display text-[9px] uppercase tracking-widest mb-2" style={{ color: "#B08D57" }}>
+          Order Profile — {String(inp?.orderRef ?? res?.orderRef ?? "—")}
+        </p>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+          {fields.map(({ label, key, unit, good }) => {
+            const val = res?.[key];
+            const num = typeof val === "number" ? val : null;
+            const isGood = good && num !== null ? good(num) : null;
+            return (
+              <div key={key} className="flex items-center justify-between">
+                <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(31,27,22,0.4)" }}>
+                  {label}
+                </span>
+                <span
+                  className="font-mono-data font-semibold"
+                  style={{
+                    fontSize: 9,
+                    color: isGood === null ? "#1F1B16" : isGood ? "#2F4A3B" : "#B23A2F",
+                  }}
+                >
+                  {unit === "$" ? `$${val}` : unit ? `${val} ${unit}` : String(val ?? "—")}
+                  {isGood !== null && (
+                    <span style={{ marginLeft: 4 }}>{isGood ? "✓" : "✗"}</span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
