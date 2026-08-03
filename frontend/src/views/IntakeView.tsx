@@ -4,10 +4,15 @@ import {
   submitStructuredTask,
   fetchCustomers,
   fetchCustomerOrders,
+  runAttackToCompletion,
+  ATTACKS,
   type TaskResult,
   type ToolCall,
   type Customer,
 } from "../lib/api";
+
+/* ── Red Team Agent — attacks 1-7 only; 8/9 already live as intake attack modes ── */
+const RED_TEAM_ATTACKS = ATTACKS.filter((a) => Number(a.id) <= 7);
 
 /* ── Proof result parser (unchanged logic) ── */
 function toolCallToProofPanels(call: ToolCall) {
@@ -37,6 +42,12 @@ export function IntakeView() {
   const [error, setError] = useState<string | null>(null);
   const [attackMode, setAttackMode] = useState<"none" | "injection" | "salami">("none");
   const [salamiProgress, setSalamiProgress] = useState<{ slice: number; total: number } | null>(null);
+  const [redTeamAttackId, setRedTeamAttackId] = useState<string>(RED_TEAM_ATTACKS[0]?.id ?? "1");
+  const [redTeamRunning, setRedTeamRunning] = useState(false);
+  const [redTeamStatus, setRedTeamStatus] = useState<string | null>(null);
+  const [redTeamResult, setRedTeamResult] = useState<{ title: string; blocked: boolean; reason: string } | null>(
+    null
+  );
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<string>("");
@@ -138,6 +149,27 @@ export function IntakeView() {
     setSalamiProgress(null);
   }
 
+  async function fireRedTeamAttack() {
+    setRedTeamRunning(true);
+    setRedTeamResult(null);
+    setRedTeamStatus("starting…");
+    try {
+      const { title, final } = await runAttackToCompletion(redTeamAttackId, (step, i, total) => {
+        setRedTeamStatus(`step ${i + 1}/${total} — ${step.label}`);
+      });
+      setRedTeamResult({
+        title,
+        blocked: final.blocked === true,
+        reason: final.narration ?? (final.blocked ? "blocked correctly" : "VULNERABLE"),
+      });
+    } catch (err: any) {
+      setRedTeamResult({ title: "Red Team Agent", blocked: false, reason: err.message ?? "attack run failed" });
+    } finally {
+      setRedTeamRunning(false);
+      setRedTeamStatus(null);
+    }
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: "#EDE6D6" }}>
 
@@ -216,6 +248,67 @@ export function IntakeView() {
           <span style={{ color: "#1F1B16", fontWeight: 500 }}>
             {defaultOrder ?? (customerId ? "loading…" : "select a customer")}
           </span>
+        </span>
+      </div>
+
+      {/* ── Red Team Agent — fires attacks 1-7 against the real live system, independent of the ticket below ── */}
+      <div
+        className="px-5 py-2 border-b flex items-center gap-3 flex-wrap"
+        style={{ borderColor: "rgba(31,27,22,0.1)", backgroundColor: "rgba(139,38,38,0.04)" }}
+      >
+        <span
+          className="font-display text-[9px] uppercase tracking-widest font-semibold"
+          style={{ color: "#8B2626", letterSpacing: "0.15em" }}
+        >
+          🔴 Red Team Agent
+        </span>
+
+        <select
+          value={redTeamAttackId}
+          onChange={(e) => setRedTeamAttackId(e.target.value)}
+          disabled={redTeamRunning}
+          className="font-mono-data text-xs border px-2 py-0.5 focus:outline-none"
+          style={{ backgroundColor: "transparent", borderColor: "rgba(139,38,38,0.3)", borderRadius: 2, color: "#1F1B16" }}
+        >
+          {RED_TEAM_ATTACKS.map((a) => (
+            <option key={a.id} value={a.id} style={{ backgroundColor: "#EDE6D6" }}>
+              Attack {a.id}: {a.title}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={fireRedTeamAttack}
+          disabled={redTeamRunning}
+          className="font-display text-[10px] uppercase tracking-widest px-3 py-1 border transition-colors"
+          style={{
+            fontWeight: 600,
+            borderRadius: 2,
+            borderColor: "#8B2626",
+            color: redTeamRunning ? "rgba(139,38,38,0.4)" : "#8B2626",
+            letterSpacing: "0.1em",
+          }}
+        >
+          {redTeamRunning ? "Firing…" : "Fire Attack"}
+        </button>
+
+        {redTeamStatus && (
+          <span className="font-mono-data" style={{ fontSize: 10, color: "rgba(31,27,22,0.5)" }}>
+            {redTeamStatus}
+          </span>
+        )}
+
+        {redTeamResult && !redTeamStatus && (
+          <span
+            className="font-mono-data ml-auto"
+            style={{ fontSize: 10, fontWeight: 600, color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
+          >
+            {redTeamResult.title}: {redTeamResult.blocked ? "✅ BLOCKED" : "⚠️ VULNERABLE"} — {redTeamResult.reason}
+          </span>
+        )}
+
+        <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(31,27,22,0.35)" }}>
+          Runs against the live gate in real time — check the Board to watch it land.
         </span>
       </div>
 

@@ -248,6 +248,27 @@ export async function runAttackStep(
   return res.json();
 }
 
+
+/**
+ * Drives one attack (1-7) start -> every step -> completion in a single call.
+ * Used by the Intake "Red Team Agent" trigger: fired on demand, alongside
+ * normal customer ticket traffic, landing on the same live Board/Docket via
+ * the attacksRouter's existing emitStateSequence path.
+ */
+export async function runAttackToCompletion(
+  attackId: string,
+  onStep?: (step: StepResult, index: number, total: number) => void
+): Promise<{ title: string; steps: StepResult[]; final: StepResult }> {
+  const started = await startAttack(attackId);
+  const steps: StepResult[] = [];
+  for (let i = 0; i < started.steps.length; i++) {
+    const result = await runAttackStep(attackId, started.runId, i);
+    steps.push(result);
+    onStep?.(result, i, started.steps.length);
+  }
+  return { title: started.title, steps, final: steps[steps.length - 1] };
+}
+
 export async function resetDemo(): Promise<{ finance: unknown; admin: unknown }> {
   const res = await fetch(`${GATEWAY_URL}/demo/reset-all`, { method: "POST" });
   return res.json();
