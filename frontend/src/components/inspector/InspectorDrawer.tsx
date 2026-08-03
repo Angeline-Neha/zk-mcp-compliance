@@ -114,7 +114,19 @@ export function InspectorDrawer({
             </p>
           )}
           {error && !loading && (
-            <p style={{ ...monoStyle(9), color: "#B23A2F", paddingTop: 24 }}>{error}</p>
+            error === "inspector snapshot not found" ? (
+              <div style={{ paddingTop: 24, textAlign: "center" }}>
+                <p style={{ ...stampStyle(), opacity: 0.5 }}>NO SERVER TRACE</p>
+                <p style={{ ...monoStyle(9), color: "rgba(31,27,22,0.5)", marginTop: 8, lineHeight: 1.6, padding: "0 12px" }}>
+                  This attempt was rejected at Proof 1 — the sigma-protocol authorization
+                  check — and never reached a real MCP server. There's no compliance
+                  circuit, policy commitment, or inspector trace to show because the
+                  request stopped before either was ever invoked.
+                </p>
+              </div>
+            ) : (
+              <p style={{ ...monoStyle(9), color: "#B23A2F", paddingTop: 24 }}>{error}</p>
+            )
           )}
           {!loading && !error && snapshot && <InspectorContent snapshot={snapshot} />}
           {!loading && !error && !snapshot && open && (
