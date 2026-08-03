@@ -1,22 +1,28 @@
 /**
  * Salami Slicing Attack (Attack #9)
  *
- * The attacker repeats the exact same refund action many times against one
- * order. Each individual request looks perfectly legitimate and passes both
- * proofs — but the REAL ledger's pastRefundCount for that customer climbs
- * with every issued refund, so the compliance circuit (Proof 2) eventually
- * refuses to generate a passing proof once maxPastRefundCount is exceeded.
+ * The attacker repeats the exact same refund action multiple times against
+ * one order, hoping each individual request — which looks perfectly
+ * legitimate in isolation — slips through.
  *
- * This demonstrates that authorization isn't just per-request — it's
- * bounded over the lifetime of a customer's real refund history.
+ * This version routes through the SAME mechanism the real Intake flow uses
+ * (an intent commitment with expectedActionCount: 1, checked by
+ * verifyIntentBinding in gate.ts) rather than the compliance circuit's
+ * separate pastRefundCount<3 threshold. That's deliberate: it mirrors what
+ * you'll see submitting the same order twice through Intake — the FIRST
+ * identical action is authorized and passes, the moment it repeats it's
+ * blocked, regardless of whether the transaction data itself would still
+ * pass policy.
  *
- * Note: because this attack actually issues refunds against the real DB,
- * repeated runs against the SAME order will exhaust its refund budget —
- * pick a fresh order (or reseed the DB) if slice 1 unexpectedly fails.
+ * (The compliance circuit's independent pastRefundCount<3 backstop is still
+ * real and still enforced — it's just not what fires first here, because
+ * intent-binding is deliberately the tighter, primary guard for this exact
+ * attack pattern. See gate.ts's verifyIntentBinding for that check.)
  */
 import { AttackDefinition, ParamDef } from "./types";
 import {
   FINANCE_URL,
+  ISSUER_URL,
   registerAgent,
   getNonce,
   sigmaProof,
@@ -25,7 +31,19 @@ import {
   randomSalt,
   realPolicyCommitment,
 } from "@zk-mcp/attack-scripts";
+import { randomUUID } from "crypto";
+import { Pool } from "pg";
 import { lookupRealOrder } from "./orderLookup";
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL ?? "postgresql://zkmcp:zkmcp@localhost:5432/zkmcp",
+});
+
+async function customerIdForOrder(orderRef: string): Promise<string> {
+  const res = await pool.query("SELECT customer_id FROM orders WHERE order_ref = $1", [orderRef]);
+  if (res.rows.length === 0) throw new Error(`Order "${orderRef}" not found — pick a real seeded order.`);
+  return res.rows[0].customer_id as string;
+}
 
 interface Config {
   orderRef?: string;
@@ -36,6 +54,8 @@ interface State {
   agent?: { secretKey: string; publicKey: string; attestationId: string };
   policyCommitment?: string;
   realAmount?: number;
+  sessionId?: string;
+  intentCommitmentHash?: string;
   sliceCount: number;
 }
 
@@ -43,13 +63,16 @@ async function submitRefund(
   orderRef: string,
   amount: number,
   agent: NonNullable<State["agent"]>,
-  policyCommitment: string
+  policyCommitment: string,
+  sessionId: string,
+  intentCommitmentHash: string
 ) {
   const nonce = await getNonce("issue_refund", "finance-mcp-server");
   const proof1 = await sigmaProof(agent.secretKey, agent.publicKey, {
     scope: "issue_refund",
     nonce,
     serverId: "finance-mcp-server",
+    intentCommitmentHash,
   });
   const amountSalt = randomSalt();
   const order = await lookupRealOrder(orderRef);
@@ -86,6 +109,8 @@ async function submitRefund(
           claimedAmount: amount,
           claimedAmountSalt: amountSalt,
           complianceProof: { proof: proveBody.proof, publicSignals: proveBody.publicSignals },
+          sessionId,
+          intentCommitmentHash,
         },
       },
     }),
@@ -119,36 +144,60 @@ export const salamiSlicingAttack: AttackDefinition<State, Config> = {
   }),
   steps: [
     {
-      label: "Look up the real order and register an agent",
+      label: "Look up the real order, register an agent, and commit intent (1 authorized action)",
       run: async (state) => {
         const order = await lookupRealOrder(state.orderRef);
+        const customerId = await customerIdForOrder(state.orderRef);
         const agent = await registerAgent("attacker-salami-demo", { action: "issue_refund", limit: order.amount });
         const policyCommitment = await realPolicyCommitment();
+        const sessionId = randomUUID();
+
+        const commitRes = await fetch(`${ISSUER_URL}/intent-commitment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            customerId,
+            orderRefs: [state.orderRef],
+            nonce: randomUUID(),
+            expirySeconds: 300,
+          }),
+        });
+        if (!commitRes.ok) {
+          throw new Error(`Failed to register intent commitment: ${await commitRes.text()}`);
+        }
+        const { commitmentHash: intentCommitmentHash } = await commitRes.json();
+
         return {
           result: {
-            label: "Look up the real order and register an agent",
+            label: "Look up the real order, register an agent, and commit intent (1 authorized action)",
             narration:
-              `Order ${state.orderRef}'s real amount is $${order.amount}, well under policy — the attacker registers ` +
-              `a credential scoped to exactly that amount. The plan: repeat the identical, individually-legitimate ` +
-              `refund until cumulative damage is significant.`,
-            response: { orderRef: state.orderRef, amount: order.amount, attestationId: agent.attestationId },
+              `Order ${state.orderRef}'s real amount is $${order.amount}. Exactly one action gets authorized for ` +
+              `this session (expectedActionCount: 1) — the same mechanism the real Intake flow uses.`,
+            response: { orderRef: state.orderRef, amount: order.amount, sessionId, expectedActionCount: 1 },
           },
-          newState: { ...state, agent, policyCommitment, realAmount: order.amount },
+          newState: { ...state, agent, policyCommitment, realAmount: order.amount, sessionId, intentCommitmentHash },
         };
       },
     },
     {
-      label: "Slice 1 — first refund (should pass)",
+      label: "Slice 1 — first refund (authorized action, should pass)",
       run: async (state) => {
-        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
+        const result = await submitRefund(
+          state.orderRef,
+          state.realAmount!,
+          state.agent!,
+          state.policyCommitment!,
+          state.sessionId!,
+          state.intentCommitmentHash!
+        );
         const blocked = result?.allowed === false;
         return {
           result: {
-            label: "Slice 1 — first refund (should pass)",
+            label: "Slice 1 — first refund (authorized action, should pass)",
             narration: blocked
-              ? `Slice 1 unexpectedly BLOCKED: ${result?.reason}. This order may already have prior refunds from an ` +
-                `earlier demo run — pick a fresh order and try again.`
-              : "Slice 1 approved. The request looks completely legitimate in isolation — a small, policy-compliant refund.",
+              ? `Slice 1 unexpectedly BLOCKED: ${result?.reason}.`
+              : "Slice 1 approved — this is the one action the intent commitment actually authorized.",
             response: result,
             blocked,
           },
@@ -157,39 +206,25 @@ export const salamiSlicingAttack: AttackDefinition<State, Config> = {
       },
     },
     {
-      label: "Slice 2 — exact same request again",
+      label: "Slice 2 — exact same request again (mimics Intake)",
       run: async (state) => {
-        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
+        const result = await submitRefund(
+          state.orderRef,
+          state.realAmount!,
+          state.agent!,
+          state.policyCommitment!,
+          state.sessionId!,
+          state.intentCommitmentHash!
+        );
         const blocked = result?.allowed === false;
         return {
           result: {
-            label: "Slice 2 — exact same request again",
+            label: "Slice 2 — exact same request again (mimics Intake)",
             narration: blocked
-              ? `Slice 2 BLOCKED: ${result?.reason}`
-              : "Slice 2 approved. Still looks identical to any other refund — the same order, same proofs, same green light.",
-            response: result,
-            blocked,
-          },
-          newState: { ...state, sliceCount: state.sliceCount + 1 },
-        };
-      },
-    },
-    {
-      label: "Slice 3 — same again, crossing threshold",
-      run: async (state) => {
-        const result = await submitRefund(state.orderRef, state.realAmount!, state.agent!, state.policyCommitment!);
-        // The DB pastRefundCount constraint in the compliance circuit catches this
-        // because each refund increments the real DB record. By slice 3+, pastRefundCount
-        // in the real DB exceeds maxPastRefundCount, making a fresh proof impossible.
-        const blocked = result?.allowed === false;
-        return {
-          result: {
-            label: "Slice 3 — same again, crossing threshold",
-            narration: blocked
-              ? `BLOCKED at slice 3: "${result?.reason}". The compliance circuit (Proof 2) binds pastRefundCount from ` +
-                `the REAL ledger — repeated slices against the same order are caught once the DB count exceeds the ` +
-                `policy maximum.`
-              : "Slice 3 passed — the system accepted another identical refund. This would be the vulnerability in a simpler system.",
+              ? `BLOCKED: "${result?.reason}". Same proofs, same order, same data as Slice 1 — but the intent ` +
+                `commitment already spent its one authorized action. This is the same check that makes resubmitting ` +
+                `an order through Intake reject on the second try.`
+              : "Slice 2 passed — this would be the vulnerability in a simpler system.",
             response: result,
             blocked,
           },

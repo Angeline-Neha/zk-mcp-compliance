@@ -398,7 +398,50 @@ app.get("/audit-log", async (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
-// Attack 8 — Intent-Binding Extension
+// GET /audit-log/funnel — real aggregate counts for the Auditor Dashboard's
+// "Verification Funnel" widget. Derived entirely from real audit_log rows
+// written by gate.ts on every actual finance/admin gate invocation — no
+// synthetic/hardcoded numbers. Each stage's count is "how many requests got
+// at least this far", inferred from which failure reason (if any) was
+// logged, since audit_log doesn't store a separate pass/fail flag per stage.
+//
+// Caveat, stated plainly rather than hidden: attacks 1-4 and 6 are pure
+// protocol-layer demonstrations that never call the real gate (they fail at
+// the sigma-proof algebra itself, client-side in attack-scripts), so this
+// funnel only reflects traffic that actually reached finance-mcp-server or
+// admin-mcp-server — real Task Interface usage plus exhibits 5, 7, 8, 9.
+// ---------------------------------------------------------------------------
+app.get("/audit-log/funnel", async (_req: Request, res: Response) => {
+  const result = await pool.query(`
+    SELECT
+      COUNT(*) AS traffic_received,
+      COUNT(*) FILTER (
+        WHERE reason IS NULL OR reason NOT LIKE 'Proof 1 (authorization) failed%'
+      ) AS proof1_passed,
+      COUNT(*) FILTER (
+        WHERE (reason IS NULL OR reason NOT LIKE 'Proof 1 (authorization) failed%')
+          AND (reason IS NULL OR reason NOT LIKE 'INTENT_BINDING_FAIL%')
+      ) AS intent_binding_passed,
+      COUNT(*) FILTER (
+        WHERE proof2_hash IS NOT NULL
+          AND (reason IS NULL OR reason NOT LIKE 'Proof 2 (compliance) failed%')
+          AND (reason IS NULL OR reason NOT LIKE '%commitment%mismatch%')
+          AND (reason IS NULL OR reason NOT LIKE '%not approved%')
+      ) AS proof2_passed,
+      COUNT(*) FILTER (WHERE pass = true) AS executed
+    FROM audit_log
+  `);
+  const row = result.rows[0];
+  res.status(200).json({
+    stages: [
+      { name: "Traffic Received", count: Number(row.traffic_received) },
+      { name: "Proof 1 (Sigma)", count: Number(row.proof1_passed) },
+      { name: "Intent Binding", count: Number(row.intent_binding_passed) },
+      { name: "Proof 2 (Groth16)", count: Number(row.proof2_passed) },
+      { name: "Executed", count: Number(row.executed) },
+    ],
+  });
+});
 //
 // POST /intent-commitment
 //   Called at ticket ingestion, BEFORE any LLM call. Accepts the structured

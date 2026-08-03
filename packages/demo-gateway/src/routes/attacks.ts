@@ -11,6 +11,7 @@ import { intentInjectionAttack } from "../attackSteps/intentInjection";
 import { salamiSlicingAttack } from "../attackSteps/salamiSlicing";
 import { AttackDefinition, buildInitialState } from "../attackSteps/types";
 import { emitStateSequence } from "../lib/requestEvents";
+import { recordAttackOutcome, getAllAttackOutcomes } from "../lib/attackResults";
 
 const ATTACKS: Record<string, AttackDefinition> = {
   "1": replayAttack,
@@ -66,7 +67,12 @@ attacksRouter.post("/:id/:runId/step/:n", async (req, res) => {
     const { result, newState } = await step.run(run.state);
     advanceRun(req.params.runId, newState);
 
-    if (NEEDS_SYNTHETIC_BOARD_EVENT.has(attack.id) && stepIndex === attack.steps.length - 1) {
+    const isFinalStep = stepIndex === attack.steps.length - 1;
+    if (isFinalStep) {
+      recordAttackOutcome(attack.id, (result as any)?.blocked === true, (result as any)?.narration);
+    }
+
+    if (NEEDS_SYNTHETIC_BOARD_EVENT.has(attack.id) && isFinalStep) {
       const ts = new Date().toISOString();
       const reason = (result as any)?.narration ?? `${attack.title} blocked by Proof 1 checks`;
       await emitStateSequence(
@@ -91,4 +97,10 @@ attacksRouter.post("/:id/:runId/step/:n", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Backs the Auditor Dashboard's "Red Team Attack Outcomes" scoreboard —
+// real per-attack status from actual completed runs, not a static assumption.
+attacksRouter.get("/results", (_req, res) => {
+  res.status(200).json({ outcomes: getAllAttackOutcomes(Object.keys(ATTACKS)) });
 });

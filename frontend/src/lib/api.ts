@@ -35,6 +35,19 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+export interface FunnelStage {
+  name: string;
+  count: number;
+}
+
+/** Real aggregate counts for the Auditor Dashboard's Verification Funnel — derived from actual audit_log rows. */
+export async function fetchVerificationFunnel(): Promise<FunnelStage[]> {
+  const res = await fetch(`${ISSUER_URL}/audit-log/funnel`);
+  if (!res.ok) return [];
+  const body = await res.json();
+  return body.stages;
+}
+
 export async function fetchAuditLog(limit = 50, before?: string): Promise<AuditEntry[]> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (before) params.set("before", before);
@@ -149,6 +162,20 @@ export async function fetchCustomers(): Promise<Customer[]> {
   const res = await fetch(`${GATEWAY_URL}/task/customers`);
   if (!res.ok) throw new Error("Failed to fetch customers");
   return (await res.json()).customers;
+}
+
+export interface AttackOutcome {
+  status: "not_run" | "blocked" | "passed";
+  lastRunAt: string | null;
+  lastReason: string | null;
+}
+
+/** Real per-exhibit outcomes from actually-completed runs — backs the Auditor Scoreboard. */
+export async function fetchAttackResults(): Promise<Record<string, AttackOutcome>> {
+  const res = await fetch(`${GATEWAY_URL}/attack/results`);
+  if (!res.ok) return {};
+  const body = await res.json();
+  return body.outcomes;
 }
 
 export async function fetchCustomerOrders(customerId: string): Promise<string[]> {
