@@ -49,6 +49,8 @@ export function IntakeView() {
     null
   );
 
+  const [redTeamOnSubmit, setRedTeamOnSubmit] = useState(false);
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<string>("");
   const [customerOrders, setCustomerOrders] = useState<string[]>([]);
@@ -72,6 +74,34 @@ export function IntakeView() {
 
   async function handleSubmit() {
     if (!ticketText.trim()) return;
+
+    // If "fire on submit" is armed, run the red team attack first and show result
+    if (redTeamOnSubmit && target === "refund") {
+      setRedTeamRunning(true);
+      setRedTeamResult(null);
+      setRedTeamStatus("🔴 Red Team Agent intercepting ticket…");
+      let blocked = false;
+      try {
+        const { title, final } = await runAttackToCompletion(redTeamAttackId, (step, i, total) => {
+          setRedTeamStatus(`red team: step ${i + 1}/${total} — ${step.label}`);
+        });
+        blocked = final.blocked === true;
+        setRedTeamResult({
+          title,
+          blocked,
+          reason: final.narration ?? (blocked ? "blocked correctly" : "VULNERABLE"),
+        });
+      } catch (err: any) {
+        setRedTeamResult({ title: "Red Team Agent", blocked: false, reason: err.message ?? "attack run failed" });
+      } finally {
+        setRedTeamRunning(false);
+        setRedTeamStatus(null);
+      }
+      // If attack was blocked (system defended correctly), stop — don't file the real ticket
+      if (blocked) return;
+      // If not blocked (VULNERABLE), fall through and file the real ticket to show the gap
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
@@ -277,6 +307,20 @@ export function IntakeView() {
           ))}
         </select>
 
+        <label
+          className="font-mono-data flex items-center gap-1 cursor-pointer select-none"
+          style={{ fontSize: 9, color: "#8B2626" }}
+        >
+          <input
+            type="checkbox"
+            checked={redTeamOnSubmit}
+            onChange={(e) => setRedTeamOnSubmit(e.target.checked)}
+            disabled={redTeamRunning}
+            style={{ accentColor: "#8B2626" }}
+          />
+          fire on ticket submit
+        </label>
+
         <button
           onClick={fireRedTeamAttack}
           disabled={redTeamRunning}
@@ -298,14 +342,6 @@ export function IntakeView() {
           </span>
         )}
 
-        {redTeamResult && !redTeamStatus && (
-          <span
-            className="font-mono-data ml-auto"
-            style={{ fontSize: 10, fontWeight: 600, color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
-          >
-            {redTeamResult.title}: {redTeamResult.blocked ? "✅ BLOCKED" : "⚠️ VULNERABLE"} — {redTeamResult.reason}
-          </span>
-        )}
 
         <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(31,27,22,0.35)" }}>
           Runs against the live gate in real time — check the Board to watch it land.
@@ -438,6 +474,29 @@ export function IntakeView() {
             style={{ borderColor: "#B23A2F", color: "#B23A2F", backgroundColor: "rgba(178,58,47,0.04)", borderRadius: 2 }}
           >
             {error}
+          </div>
+        )}
+
+        {redTeamResult && (
+          <div
+            className="case-card p-4 border-l-4"
+            style={{ borderLeftColor: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
+          >
+            <p
+              className="font-stamp text-[10px] uppercase tracking-widest mb-2"
+              style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626", letterSpacing: "0.2em" }}
+            >
+              🔴 Red Team Agent — {redTeamResult.title}
+            </p>
+            <p
+              className="font-mono-data text-xs font-semibold mb-1"
+              style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
+            >
+              {redTeamResult.blocked ? "✅ BLOCKED" : "⚠️ VULNERABLE"}
+            </p>
+            <p className="font-mono-data text-xs leading-relaxed" style={{ color: "rgba(31,27,22,0.6)" }}>
+              {redTeamResult.reason}
+            </p>
           </div>
         )}
 
