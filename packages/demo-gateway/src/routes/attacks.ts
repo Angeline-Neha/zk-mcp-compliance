@@ -10,8 +10,10 @@ import { fakeComplianceProofAttack } from "../attackSteps/fakeComplianceProof";
 import { intentInjectionAttack } from "../attackSteps/intentInjection";
 import { salamiSlicingAttack } from "../attackSteps/salamiSlicing";
 import { AttackDefinition, buildInitialState } from "../attackSteps/types";
-import { emitStateSequence } from "../lib/requestEvents";
+import { emitStateSequence, deriveStateSequenceFromGateResult, type GateResultLike } from "../lib/requestEvents";
 import { recordAttackOutcome, getAllAttackOutcomes } from "../lib/attackResults";
+import { saveInspectorSnapshot, type InspectorSnapshot } from "../lib/inspectorStore";
+import type { RequestPath } from "../lib/boardState";
 
 const ATTACKS: Record<string, AttackDefinition> = {
   "1": replayAttack,
@@ -25,14 +27,22 @@ const ATTACKS: Record<string, AttackDefinition> = {
   "9": salamiSlicingAttack,
 };
 
-// These attacks verify proof/protocol logic in isolation and never call a real
-// MCP server's /mcp endpoint, so they never write an audit_log row and never
-// surface on the live Board/Docket by themselves. All five are genuinely
-// Proof-1/authorization-layer failures per the attack table, so we emit a
-// synthetic proof1_fail → rejected board event on their final step.
-// Ids 5 and 7 already hit the real gate (real audit row); 8 and 9 now run
-// through the actual Intake ticket flow instead of this route.
-const NEEDS_SYNTHETIC_BOARD_EVENT = new Set(["1", "2", "3", "4", "6"]);
+// Which real tool each exhibit ultimately targets — drives which lane of the
+// board (support-agent/finance vs admin-agent/admin-mcp) its events render
+// on. Fixed by which script/tool each attack actually calls, not inferred
+// from the display title (several deletion-path attacks don't say "delete"
+// anywhere in their title).
+const ATTACK_PATH: Record<string, RequestPath> = {
+  "1": "refund",
+  "2": "deletion",
+  "3": "refund",
+  "4": "deletion",
+  "5": "deletion",
+  "6": "refund",
+  "7": "refund",
+  "8": "refund",
+  "9": "refund",
+};
 
 export const attacksRouter: Router = express.Router();
 
@@ -70,27 +80,66 @@ attacksRouter.post("/:id/:runId/step/:n", async (req, res) => {
     const isFinalStep = stepIndex === attack.steps.length - 1;
     if (isFinalStep) {
       recordAttackOutcome(attack.id, (result as any)?.blocked === true, (result as any)?.narration);
-    }
 
-    if (NEEDS_SYNTHETIC_BOARD_EVENT.has(attack.id) && isFinalStep) {
+      // Emit this run onto the live Board/Docket directly — we control every
+      // step here, so there's no reason to depend on the async audit-log
+      // poller (events.ts's startAuditPoll) picking this up indirectly. That
+      // indirect path is still what surfaces real Task Interface / Intake
+      // traffic; exhibits get their own deterministic, synchronous path.
+      const requestId = `attack-${req.params.runId}`;
       const ts = new Date().toISOString();
-      const reason = (result as any)?.narration ?? `${attack.title} blocked by Proof 1 checks`;
+      const agentId = `attacker-${attack.id}`;
+      const response = (result as any)?.response as
+        | (GateResultLike & { inspector?: InspectorSnapshot["inspector"]; orderContext?: unknown })
+        | undefined;
+
+      // A real gate response (from finance-mcp-server / admin-mcp-server)
+      // always carries an `inspector` object. If this run's final step hit a
+      // real server, use its ACTUAL proof/reason data for the board + save a
+      // real inspector snapshot. Attacks that never reach a server (pure
+      // sigma-algebra failures, by design) fall back to a reason-only event
+      // with no inspector snapshot — there's nothing real to show.
+      const hasRealGateResult = !!response && ("allowed" in response);
+      const path = ATTACK_PATH[attack.id] ?? "refund";
+      const reason =
+        (hasRealGateResult ? response!.reason : null) ??
+        (result as any)?.narration ??
+        `${attack.title} — blocked`;
+
+      const sequence = hasRealGateResult
+        ? deriveStateSequenceFromGateResult(response!, path)
+        : ["proof1_fail", "rejected"];
+
       await emitStateSequence(
         {
-          requestId: `attack-${req.params.runId}`,
+          requestId,
           timestamp: ts,
-          agentId: `attacker-${attack.id}`,
+          agentId,
           tool: attack.title,
           reason,
           proof1Hash: null,
           proof2Hash: null,
-          policyCommitment: null,
-          docket: { agent: `attacker-${attack.id}`, tool: attack.title, ts: new Date(ts).toTimeString().slice(0, 8) },
+          policyCommitment: hasRealGateResult ? response!.inspector?.proof2?.policyCommitment ?? null : null,
+          docket: { agent: agentId, tool: attack.title, ts: new Date(ts).toTimeString().slice(0, 8) },
         },
-        ["proof1_fail", "rejected"],
-        { path: "refund", reason },
+        sequence as any,
+        { path, reason },
         250
       );
+
+      if (hasRealGateResult && response!.inspector) {
+        saveInspectorSnapshot({
+          requestId,
+          timestamp: ts,
+          agentId,
+          tool: attack.title,
+          state: response!.allowed ? "approved" : "rejected",
+          outcome: response!.allowed ? "pass" : "fail",
+          failReason: reason,
+          policyCommitment: response!.inspector.proof2?.policyCommitment ?? null,
+          inspector: response!.inspector,
+        });
+      }
     }
 
     res.status(200).json(result);

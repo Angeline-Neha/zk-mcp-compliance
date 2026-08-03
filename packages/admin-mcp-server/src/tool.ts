@@ -45,11 +45,11 @@ export async function handleDeleteAccount(input: DeleteAccountInput) {
 
   const gateResult = await runGate(gateInput);
   if (!gateResult.allowed) {
-    return { allowed: false, reason: gateResult.reason };
+    return { allowed: false, reason: gateResult.reason, inspector: gateResult.inspector };
   }
 
   await markAccountDeleted(account.id);
-  return { allowed: true, accountRef: input.accountRef };
+  return { allowed: true, accountRef: input.accountRef, inspector: gateResult.inspector };
 }
 
 /**
