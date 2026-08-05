@@ -57,9 +57,25 @@ async function main() {
         [orderRef, custId, 500]
       );
     }
-    
+    console.log("Inserting second orders for intent-binding demo customers...");
+    const secondOrders = [
+      { orderRef: "9003",  custId: "cust-pass-3",  amount: 35, days: 5  },
+      { orderRef: "9007",  custId: "cust-pass-7",  amount: 60, days: 15 },
+      { orderRef: "9010",  custId: "cust-pass-10", amount: 45, days: 8  },
+      { orderRef: "9012",  custId: "cust-pass-12", amount: 90, days: 20 },
+      { orderRef: "9015",  custId: "cust-pass-15", amount: 55, days: 3  },
+      { orderRef: "9018",  custId: "cust-pass-18", amount: 70, days: 12 },
+    ];
+    for (const { orderRef, custId, amount, days } of secondOrders) {
+      await client.query(
+        `INSERT INTO orders (order_ref, customer_id, amount, transaction_date)
+         VALUES ($1, $2, $3, NOW() - ($4 || ' days')::interval)`,
+        [orderRef, custId, amount, days]
+      );
+    }
+
     await client.query('COMMIT');
-    console.log("Database seeded successfully with 20 compliant and 15 non-compliant customers.");
+    console.log("Database seeded successfully with 20 compliant, 15 non-compliant customers, and 6 second-order pairs.");
     
   } catch (err) {
     await client.query('ROLLBACK');

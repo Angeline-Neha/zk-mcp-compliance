@@ -1,4 +1,4 @@
-export type SidebarTab = "board" | "exhibits" | "wire" | "auditor" | "intake";
+export type SidebarTab = "board" | "exhibits" | "wire" | "auditor" | "intake" | "baseline";
 
 const TABS: { id: SidebarTab; label: string; abbr: string }[] = [
   { id: "board",    label: "THE BOARD",  abbr: "B" },
@@ -6,6 +6,7 @@ const TABS: { id: SidebarTab; label: string; abbr: string }[] = [
   { id: "wire",     label: "THE WIRE",   abbr: "W" },
   { id: "auditor",  label: "AUDITOR",    abbr: "A" },
   { id: "intake",   label: "INTAKE",     abbr: "I" },
+  { id: "baseline", label: "BASELINE",   abbr: "X" },
 ];
 
 interface Props {

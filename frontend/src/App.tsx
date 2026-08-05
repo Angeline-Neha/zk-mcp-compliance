@@ -7,6 +7,7 @@ import { ExhibitsView } from "./views/ExhibitsView";
 import { WireView } from "./views/WireView";
 import { AuditorView } from "./views/AuditorView";
 import { IntakeView } from "./views/IntakeView";
+import { BaselineView } from "./views/BaselineView";
 import { InspectorDrawer } from "./components/inspector/InspectorDrawer";
 import { useRequestStream } from "./lib/useRequestStream";
 import { useInspector } from "./lib/useInspector";
@@ -96,6 +97,7 @@ export default function App() {
         )}
         {activeTab === "auditor" && <AuditorView />}
         {activeTab === "intake" && <IntakeView />}
+        {activeTab === "baseline" && <BaselineView />}
       </main>
 
       <Docket

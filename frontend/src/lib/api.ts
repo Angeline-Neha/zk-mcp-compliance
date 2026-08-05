@@ -5,6 +5,7 @@ export type { InspectorSnapshot } from "./inspectorTypes";
 
 export const ISSUER_URL = import.meta.env.VITE_ISSUER_URL ?? "http://localhost:4001";
 export const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL ?? "http://localhost:4006";
+export const BASELINE_URL = import.meta.env.VITE_BASELINE_URL ?? "http://localhost:4008";
 export const FINANCE_URL = import.meta.env.VITE_FINANCE_URL ?? "http://localhost:4003";
 export const PROVING_URL = import.meta.env.VITE_PROVING_URL ?? "http://localhost:4002";
 export const ADMIN_URL = import.meta.env.VITE_ADMIN_URL ?? "http://localhost:4005";
@@ -156,6 +157,26 @@ export async function submitStructuredTask(args: {
 export interface Customer {
   id: string;
   name: string;
+}
+
+/**
+ * BASELINE agent — talks directly to the traditional (non-ZK) comparison
+ * agent's own server, not through demo-gateway, since it has no proofs,
+ * audit trail, or Board/Docket state to fold into. Same request/response
+ * shape as the secure system's TaskResult so the UI can render both
+ * identically.
+ */
+export async function submitBaselineTicket(args: {
+  customerId: string;
+  ticketText: string;
+}): Promise<TaskResult> {
+  const res = await fetch(`${BASELINE_URL}/ticket`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? res.statusText);
+  return res.json();
 }
 
 export async function fetchCustomers(): Promise<Customer[]> {
