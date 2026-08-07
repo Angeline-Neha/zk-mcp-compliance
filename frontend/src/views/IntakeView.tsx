@@ -79,21 +79,22 @@ export function IntakeView() {
   async function handleSubmit() {
     if (!ticketText.trim()) return;
 
-    // If "fire on submit" is armed, run the real red team agent first and show result
+    // Clear ALL prior output before each new run
+    setError(null);
+    setResult(null);
+    setRevealedCount(0);
+    setRedTeamResult(null);
+
+    // If "fire on submit" is armed, run the real red-team agent INSTEAD of
+    // filing a normal ticket — the ticket text is irrelevant for attack routes.
     if (redTeamOnSubmit && target === "refund") {
       setRedTeamRunning(true);
-      setRedTeamResult(null);
-      setResult(null);
-      setRevealedCount(0);
-      setError(null);
       setRedTeamStatus("🔴 Red Team Agent (live LLM) is deciding how to attack, calling real tools…");
-      let blocked = false;
       try {
         const run = await runRedTeamAgentLive(redTeamAttackId);
-        blocked = run.blocked;
         setRedTeamResult({
           title: run.title,
-          blocked,
+          blocked: run.blocked,
           finalResponse: run.finalResponse,
           toolCalls: run.toolCalls,
         });
@@ -108,16 +109,13 @@ export function IntakeView() {
         setRedTeamRunning(false);
         setRedTeamStatus(null);
       }
-      // If attack was blocked (system defended correctly), stop — don't file the real ticket
-      if (blocked) return;
-      // If not blocked (VULNERABLE), fall through and file the real ticket to show the gap
+      // Always stop here — the attack result IS the output; don't file a
+      // separate legitimate ticket afterwards regardless of blocked/not.
+      return;
     }
 
+    // Normal legitimate ticket flow
     setLoading(true);
-    setError(null);
-    setResult(null);
-    setRevealedCount(0);
-    setRedTeamResult(null);
     try {
       let res: TaskResult;
       if (target === "refund") {
@@ -165,6 +163,7 @@ export function IntakeView() {
     setError(null);
     setResult(null);
     setRevealedCount(0);
+    setRedTeamResult(null);
     const total = 3;
     const sessionTag = freshTag("salami-slicing");
     for (let slice = 1; slice <= total; slice++) {
@@ -192,8 +191,13 @@ export function IntakeView() {
   }
 
   async function fireRedTeamAttack() {
-    setRedTeamRunning(true);
+    // Clear ALL prior output — both attack results and any prior ticket result
     setRedTeamResult(null);
+    setResult(null);
+    setRevealedCount(0);
+    setError(null);
+
+    setRedTeamRunning(true);
     setRedTeamStatus("🔴 Red Team Agent (live LLM) is deciding how to attack, calling real tools…");
     try {
       const run = await runRedTeamAgentLive(redTeamAttackId);
@@ -334,7 +338,7 @@ export function IntakeView() {
             disabled={redTeamRunning}
             style={{ accentColor: "#8B2626" }}
           />
-          fire on ticket submit
+          fire attack on File Ticket
         </label>
 
         <button
