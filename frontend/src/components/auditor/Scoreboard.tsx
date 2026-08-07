@@ -41,7 +41,7 @@ export function Scoreboard() {
         Red Team Attack Outcomes
       </h3>
       <p className="font-mono-data text-[10px] opacity-50 mb-3" style={{ color: "#1F1B16" }}>
-        Reflects exhibits you've actually run this session — visit Exhibits to run one.
+        Reflects attacks you've actually run this session — via Exhibits or the Intake Desk red-team agent.
       </p>
       <div className="flex flex-col gap-2">
         {ATTACKS.map((a, i) => {

@@ -2,6 +2,7 @@ import express, { Router } from "express";
 import { runRedTeamAttack, OBJECTIVES } from "@zk-mcp/red-team-agent";
 import { emitStateSequence, deriveStateSequenceFromGateResult, type GateResultLike } from "../lib/requestEvents";
 import { saveInspectorSnapshot, type InspectorSnapshot } from "../lib/inspectorStore";
+import { recordAttackOutcome } from "../lib/attackResults";
 import type { RequestPath } from "../lib/boardState";
 
 // Same lane mapping as the scripted exhibits (attacksRouter) — fixed by
@@ -48,6 +49,11 @@ redTeamRouter.post("/:id/run", async (req, res) => {
     const path = ATTACK_PATH[attackId] ?? "refund";
     const title = `Red Team Agent — ${run.title}`;
     const reason = (hasRealGateResult ? gateResponse!.reason : run.finalResponse.slice(0, 200)) ?? "no reason returned";
+
+    // Feed the Auditor Dashboard's Scoreboard the same way the scripted
+    // Exhibits runs do, so attacks fired live from the Intake Desk show up
+    // there too instead of only ever reading "NOT RUN".
+    recordAttackOutcome(attackId, run.blocked, reason);
 
     const sequence = hasRealGateResult
       ? deriveStateSequenceFromGateResult(gateResponse!, path)
