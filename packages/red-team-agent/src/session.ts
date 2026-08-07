@@ -167,12 +167,6 @@ export class RedTeamSession {
     return { status, body, amountSalt };
   }
 
-  /**
-   * Calls a real MCP tool (issue_refund, delete_account, lookup_order,
-   * lookup_account) against the actually-running finance/admin server over
-   * real JSON-RPC — this is the same path a legitimate agent uses, so a
-   * successful call here is a genuine bypass, not a simulation.
-   */
   async call_mcp_tool(args: {
     serverId: "finance-mcp-server" | "admin-mcp-server";
     toolName: string;
@@ -190,10 +184,37 @@ export class RedTeamSession {
       }),
     });
     const text = await res.text();
-    const dataLine = text.split("\n").find((l) => l.startsWith("data:"));
-    const parsed = dataLine ? JSON.parse(dataLine.slice("data:".length).trim()) : JSON.parse(text);
+
+    // The MCP server may reply with SSE ("data: {...}") or plain JSON.
+    // Safely parse whichever form arrives.
+    let parsed: any;
+    try {
+      const dataLine = text.split("\n").find((l) => l.startsWith("data:"));
+      parsed = dataLine
+        ? JSON.parse(dataLine.slice("data:".length).trim())
+        : JSON.parse(text);
+    } catch {
+      // Raw text response (e.g. "MCP error ..." from the SDK) — wrap it so
+      // the LLM can read it and inferBlocked can treat it as a gate rejection.
+      return { httpStatus: res.status, result: { error: text.trim() } };
+    }
+
+    // MCP tool results embed their payload in result.content[0].text as a
+    // JSON string. Safely parse that inner layer too.
     const content = parsed?.result?.content?.[0]?.text;
-    const resultBody = content ? JSON.parse(content) : parsed;
+    let resultBody: any;
+    try {
+      resultBody = content ? JSON.parse(content) : parsed;
+    } catch {
+      // content was a plain string (e.g. MCP error message), not JSON.
+      resultBody = content ? { error: content } : parsed;
+    }
+
+    // MCP isError flag: a tool returning isError:true means the gate blocked it.
+    if (parsed?.result?.isError) {
+      return { httpStatus: res.status, result: { error: resultBody, isError: true } };
+    }
+
     return { httpStatus: res.status, result: resultBody };
   }
 }
