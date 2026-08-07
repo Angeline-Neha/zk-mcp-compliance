@@ -14,6 +14,7 @@
     "@zk-mcp/admin-agent": "workspace:*",
     "@zk-mcp/attack-scripts": "workspace:*",
     "@zk-mcp/orchestrator-agent": "workspace:*",
+    "@zk-mcp/red-team-agent": "workspace:*",
     "@zk-mcp/sigma-core": "workspace:*",
     "circomlibjs": "^0.1.7",
     "cors": "^2.8.6",

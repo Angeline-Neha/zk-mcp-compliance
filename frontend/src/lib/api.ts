@@ -296,6 +296,37 @@ export async function resetDemo(): Promise<{ finance: unknown; admin: unknown }>
 }
 
 // ---------------------------------------------------------------------------
+// Red Team Agent (real LLM, real tool calls against the live services —
+// NOT the canned attack-scripts step runner above)
+// ---------------------------------------------------------------------------
+
+export interface RedTeamToolCall {
+  tool: string;
+  input: unknown;
+  result: unknown;
+}
+
+export interface RedTeamRunResult {
+  attackId: string;
+  title: string;
+  finalResponse: string;
+  toolCalls: RedTeamToolCall[];
+  blocked: boolean;
+}
+
+/**
+ * Runs the real LLM-driven red team agent for one attack (1-7) against the
+ * actually-running services. The model decides which tools to call, in what
+ * order — nothing here is scripted. Also lands the outcome on the live
+ * Board/Docket via the backend route (see demo-gateway/src/routes/redTeam.ts).
+ */
+export async function runRedTeamAgentLive(attackId: string): Promise<RedTeamRunResult> {
+  const res = await fetch(`${GATEWAY_URL}/red-team/${attackId}/run`, { method: "POST" });
+  if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
 // Live event stream
 // ---------------------------------------------------------------------------
 export function subscribeToEvents(onEntry: (entry: AuditEntry) => void): () => void {

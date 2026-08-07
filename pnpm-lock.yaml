@@ -278,6 +278,9 @@ importers:
       '@zk-mcp/orchestrator-agent':
         specifier: workspace:*
         version: link:../orchestrator-agent
+      '@zk-mcp/red-team-agent':
+        specifier: workspace:*
+        version: link:../red-team-agent
       '@zk-mcp/sigma-core':
         specifier: workspace:*
         version: link:../sigma-core
@@ -425,6 +428,34 @@ importers:
       '@zk-mcp/sigma-core':
         specifier: workspace:*
         version: link:../sigma-core
+      groq-sdk:
+        specifier: ^1.3.0
+        version: 1.3.0
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
+      tsx:
+        specifier: ^4.23.1
+        version: 4.23.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@20.19.43)(lightningcss@1.33.0)
+
+  packages/red-team-agent:
+    dependencies:
+      '@zk-mcp/attack-scripts':
+        specifier: workspace:*
+        version: link:../attack-scripts
+      '@zk-mcp/sigma-core':
+        specifier: workspace:*
+        version: link:../sigma-core
+      circomlibjs:
+        specifier: ^0.1.7
+        version: 0.1.7
       groq-sdk:
         specifier: ^1.3.0
         version: 1.3.0

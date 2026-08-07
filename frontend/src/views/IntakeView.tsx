@@ -4,12 +4,12 @@ import {
   submitStructuredTask,
   fetchCustomers,
   fetchCustomerOrders,
-  runAttackToCompletion,
+  runRedTeamAgentLive,
   ATTACKS,
   type TaskResult,
   type ToolCall,
   type Customer,
-  type StepResult,
+  type RedTeamToolCall,
 } from "../lib/api";
 
 /* ── Red Team Agent — attacks 1-7 only; 8/9 already live as intake attack modes ── */
@@ -46,9 +46,12 @@ export function IntakeView() {
   const [redTeamAttackId, setRedTeamAttackId] = useState<string>(RED_TEAM_ATTACKS[0]?.id ?? "1");
   const [redTeamRunning, setRedTeamRunning] = useState(false);
   const [redTeamStatus, setRedTeamStatus] = useState<string | null>(null);
-  const [redTeamResult, setRedTeamResult] = useState<{ title: string; blocked: boolean; reason: string; steps: StepResult[] } | null>(
-    null
-  );
+  const [redTeamResult, setRedTeamResult] = useState<{
+    title: string;
+    blocked: boolean;
+    finalResponse: string;
+    toolCalls: RedTeamToolCall[];
+  } | null>(null);
 
   const [redTeamOnSubmit, setRedTeamOnSubmit] = useState(false);
 
@@ -76,28 +79,31 @@ export function IntakeView() {
   async function handleSubmit() {
     if (!ticketText.trim()) return;
 
-    // If "fire on submit" is armed, run the red team attack first and show result
+    // If "fire on submit" is armed, run the real red team agent first and show result
     if (redTeamOnSubmit && target === "refund") {
       setRedTeamRunning(true);
       setRedTeamResult(null);
       setResult(null);
       setRevealedCount(0);
       setError(null);
-      setRedTeamStatus("🔴 Red Team Agent intercepting ticket…");
+      setRedTeamStatus("🔴 Red Team Agent (live LLM) is deciding how to attack, calling real tools…");
       let blocked = false;
       try {
-        const { title, steps, final } = await runAttackToCompletion(redTeamAttackId, (step, i, total) => {
-          setRedTeamStatus(`red team: step ${i + 1}/${total} — ${step.label}`);
-        });
-        blocked = final.blocked === true;
+        const run = await runRedTeamAgentLive(redTeamAttackId);
+        blocked = run.blocked;
         setRedTeamResult({
-          title,
+          title: run.title,
           blocked,
-          reason: final.narration ?? (blocked ? "blocked correctly" : "VULNERABLE"),
-          steps,
+          finalResponse: run.finalResponse,
+          toolCalls: run.toolCalls,
         });
       } catch (err: any) {
-        setRedTeamResult({ title: "Red Team Agent", blocked: false, reason: err.message ?? "attack run failed", steps: [] });
+        setRedTeamResult({
+          title: "Red Team Agent",
+          blocked: false,
+          finalResponse: err.message ?? "attack run failed",
+          toolCalls: [],
+        });
       } finally {
         setRedTeamRunning(false);
         setRedTeamStatus(null);
@@ -188,19 +194,22 @@ export function IntakeView() {
   async function fireRedTeamAttack() {
     setRedTeamRunning(true);
     setRedTeamResult(null);
-    setRedTeamStatus("starting…");
+    setRedTeamStatus("🔴 Red Team Agent (live LLM) is deciding how to attack, calling real tools…");
     try {
-      const { title, steps, final } = await runAttackToCompletion(redTeamAttackId, (step, i, total) => {
-        setRedTeamStatus(`step ${i + 1}/${total} — ${step.label}`);
-      });
+      const run = await runRedTeamAgentLive(redTeamAttackId);
       setRedTeamResult({
-        title,
-        blocked: final.blocked === true,
-        reason: final.narration ?? (final.blocked ? "blocked correctly" : "VULNERABLE"),
-        steps,
+        title: run.title,
+        blocked: run.blocked,
+        finalResponse: run.finalResponse,
+        toolCalls: run.toolCalls,
       });
     } catch (err: any) {
-      setRedTeamResult({ title: "Red Team Agent", blocked: false, reason: err.message ?? "attack run failed", steps: [] });
+      setRedTeamResult({
+        title: "Red Team Agent",
+        blocked: false,
+        finalResponse: err.message ?? "attack run failed",
+        toolCalls: [],
+      });
     } finally {
       setRedTeamRunning(false);
       setRedTeamStatus(null);
@@ -494,59 +503,38 @@ export function IntakeView() {
                 className="font-stamp text-[10px] uppercase tracking-widest mb-2"
                 style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626", letterSpacing: "0.2em" }}
               >
-                🔴 Red Team Agent — {redTeamResult.title}
+                🔴 Red Team Agent (live LLM) — {redTeamResult.title}
               </p>
               <p
-                className="font-mono-data text-xs font-semibold mb-1"
+                className="font-mono-data text-xs font-semibold mb-2"
                 style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
               >
                 {redTeamResult.blocked ? "BLOCKED" : "⚠️ VULNERABLE"}
               </p>
-              <p className="font-mono-data text-xs leading-relaxed" style={{ color: "rgba(31,27,22,0.6)" }}>
-                {redTeamResult.reason}
+              <p className="font-mono-data text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.7)" }}>
+                {redTeamResult.finalResponse}
               </p>
             </div>
 
-            {redTeamResult.steps.map((step, i) => (
+            {redTeamResult.toolCalls.map((call, i) => (
               <div key={i} className="case-card p-4">
                 <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: "rgba(31,27,22,0.1)" }}>
                   <span className="font-stamp text-xs" style={{ color: "#B08D57" }}>
-                    step {i + 1} — {step.label}
+                    tool call {i + 1} — {call.tool}
                   </span>
-                  {step.blocked !== undefined && (
-                    <span
-                      className="ml-auto font-stamp text-[9px] tracking-wider"
-                      style={{ color: step.blocked ? "#2F4A3B" : "#8B2626" }}
-                    >
-                      {step.blocked ? "BLOCKED" : "PASSED"}
-                    </span>
-                  )}
                 </div>
-                {step.narration && (
-                  <p className="font-mono-data text-xs mb-2" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
-                    {step.narration}
-                  </p>
-                )}
-                {step.request !== undefined && (
-                  <>
-                    <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(31,27,22,0.4)" }}>
-                      Request
-                    </p>
-                    <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
-                      {JSON.stringify(step.request, null, 2)}
-                    </pre>
-                  </>
-                )}
-                {step.response !== undefined && (
-                  <>
-                    <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(31,27,22,0.4)" }}>
-                      Response
-                    </p>
-                    <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
-                      {JSON.stringify(step.response, null, 2)}
-                    </pre>
-                  </>
-                )}
+                <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(31,27,22,0.4)" }}>
+                  Input (the agent's choice)
+                </p>
+                <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
+                  {JSON.stringify(call.input, null, 2)}
+                </pre>
+                <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(31,27,22,0.4)" }}>
+                  Real server response
+                </p>
+                <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
+                  {JSON.stringify(call.result, null, 2)}
+                </pre>
               </div>
             ))}
           </>
