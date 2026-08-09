@@ -1,0 +1,101 @@
+<svg width="1000" height="280" viewBox="0 0 1000 280" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#160B24"/>
+      <stop offset="100%" stop-color="#0F0819"/>
+    </linearGradient>
+    <radialGradient id="wash" cx="78%" cy="22%" r="55%">
+      <stop offset="0%" stop-color="#3A2359" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#3A2359" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="hairline" width="46" height="46" patternUnits="userSpaceOnUse">
+      <path d="M46 0 H0 V46" fill="none" stroke="#2A1A42" stroke-width="0.6"/>
+    </pattern>
+    <style>
+      .display { font-family: Georgia, 'Times New Roman', serif; }
+      .mono { font-family: Consolas, Menlo, 'Courier New', monospace; }
+      .ink { fill: #E9E1F7; }
+      .faint { fill: #7C6C99; }
+      .rule { stroke: #35234F; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <!-- base -->
+  <rect width="1000" height="280" fill="url(#bg)"/>
+  <rect width="1000" height="280" fill="url(#hairline)"/>
+  <rect width="1000" height="280" fill="url(#wash)"/>
+  <rect x="0.75" y="0.75" width="998.5" height="278.5" fill="none" stroke="#2E1D48" stroke-width="1.5"/>
+
+  <!-- eyebrow -->
+  <text x="60" y="52" class="mono faint" font-size="10.5" letter-spacing="3">FINAL-YEAR SYSTEM &#183; AUTHORIZATION LAYER FOR AI / MCP AGENTS</text>
+  <line x1="60" y1="64" x2="940" y2="64" class="rule"/>
+
+  <!-- title -->
+  <text x="60" y="118" class="display ink" font-size="46" letter-spacing="0.5">zk-mcp-auth-compliance</text>
+  <text x="61" y="146" class="mono" font-size="13" fill="#A48FD1" letter-spacing="0.5">
+    two independent proofs stand between an agent and a privileged tool call &#8212; neither reveals what it protects
+  </text>
+
+  <!-- ================= signature element: proof seal ================= -->
+  <g transform="translate(890,90)">
+    <circle r="46" fill="none" stroke="#C9AD7A" stroke-width="1.3"/>
+    <circle r="36" fill="none" stroke="#8A6FC2" stroke-width="1"/>
+    <!-- two interlocked arcs = two proofs -->
+    <path d="M -22 -10 A 26 26 0 0 1 22 -10" fill="none" stroke="#C9AD7A" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M -22 10 A 26 26 0 0 0 22 10" fill="none" stroke="#8A6FC2" stroke-width="1.6" stroke-linecap="round"/>
+    <circle r="2.4" fill="#C9AD7A"/>
+    <text x="0" y="66" text-anchor="middle" class="mono" font-size="8.5" fill="#7C6C99" letter-spacing="2">VERIFIED</text>
+  </g>
+
+  <!-- ================= schematic trace ================= -->
+  <g transform="translate(60,190)">
+    <line x1="0" y1="0" x2="880" y2="0" class="rule"/>
+
+    <!-- signal that slides along the trace once, slowly, then rests -->
+    <circle cy="0" r="3" fill="#C9AD7A">
+      <animate attributeName="cx" values="0;880" dur="5.5s" repeatCount="indefinite" keyTimes="0;1" calcMode="spline" keySplines="0.65 0 0.35 1"/>
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.06;0.9;1" dur="5.5s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- nodes -->
+    <g>
+      <circle cx="0" cy="0" r="4.5" fill="#0F0819" stroke="#9C8AC2" stroke-width="1.4"/>
+      <text x="0" y="-14" text-anchor="middle" class="mono ink" font-size="10">agent</text>
+      <text x="0" y="24" text-anchor="middle" class="mono faint" font-size="8.5">groq &#183; llama 3.3</text>
+    </g>
+
+    <g transform="translate(220,0)">
+      <circle cx="0" cy="0" r="4.5" fill="#0F0819" stroke="#C9AD7A" stroke-width="1.4"/>
+      <text x="0" y="-14" text-anchor="middle" class="mono ink" font-size="10">proof &#8544; &#183; schnorr</text>
+      <text x="0" y="24" text-anchor="middle" class="mono faint" font-size="8.5">issuer-service &#183; secp256k1</text>
+    </g>
+
+    <g transform="translate(440,0)">
+      <circle cx="0" cy="0" r="4.5" fill="#0F0819" stroke="#C9AD7A" stroke-width="1.4"/>
+      <text x="0" y="-14" text-anchor="middle" class="mono ink" font-size="10">proof &#8545; &#183; groth16</text>
+      <text x="0" y="24" text-anchor="middle" class="mono faint" font-size="8.5">circom &#183; policy circuits</text>
+    </g>
+
+    <g transform="translate(660,0)">
+      <circle cx="0" cy="0" r="4.5" fill="#0F0819" stroke="#9C8AC2" stroke-width="1.4"/>
+      <text x="0" y="-14" text-anchor="middle" class="mono ink" font-size="10">mcp gate</text>
+      <text x="0" y="24" text-anchor="middle" class="mono faint" font-size="8.5">finance &#183; admin servers</text>
+    </g>
+
+    <g transform="translate(880,0)">
+      <circle cx="0" cy="0" r="4.5" fill="#0F0819" stroke="#7FBF8E" stroke-width="1.4"/>
+      <text x="0" y="-14" text-anchor="middle" class="mono ink" font-size="10">tool call</text>
+      <text x="0" y="24" text-anchor="middle" class="mono faint" font-size="8.5">executed</text>
+    </g>
+  </g>
+
+  <!-- ================= title block, engineering-drawing style ================= -->
+  <g transform="translate(60,238)">
+    <line x1="0" y1="0" x2="880" y2="0" class="rule"/>
+    <text x="0" y="20" class="mono faint" font-size="9" letter-spacing="1">STACK</text>
+    <text x="62" y="20" class="mono ink" font-size="9.5">typescript &#183; pnpm workspaces &#183; postgres &#183; redis &#183; react / vite</text>
+
+    <text x="560" y="20" class="mono faint" font-size="9" letter-spacing="1">STATUS</text>
+    <text x="618" y="20" class="mono ink" font-size="9.5">7 / 7 injected attacks blocked</text>
+  </g>
+</svg>
