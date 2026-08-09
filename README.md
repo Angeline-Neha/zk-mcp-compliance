@@ -1,3 +1,8 @@
+<div align="center">
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=24&pause=1000&color=2EA0DE&center=true&vCenter=true&width=600&lines=Zero-Knowledge+MCP+Compliance+System;Two+Independent+ZK+Proofs%2C+Zero+Trust+Leaks;Schnorr+%2B+Groth16+%C2%B7+Built+for+AI+Agent+Authorization)](https://git.io/typing-svg)
+
+</div>
 # zk-mcp-compliance
 
 A zero-knowledge proof based authorization and compliance system for LLM agents calling MCP (Model Context Protocol) tools. Agents prove **who they are**, **what they're authorized to do**, and **that a proposed action satisfies a compliance policy** — all without ever revealing the underlying transaction data, policy thresholds, or reasoning trace to the verifier.
