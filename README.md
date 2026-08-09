@@ -134,3 +134,7 @@ pnpm -r test
 pnpm -r build
 ```
 
+## License
+
+All rights reserved. This repository is publicly visible for portfolio purposes only. No part of this codebase may be copied, 
+modified or redistributed without explicit written permission from the author.
