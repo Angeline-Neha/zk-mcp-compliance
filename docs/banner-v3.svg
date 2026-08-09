@@ -27,7 +27,7 @@
   <rect x="0.75" y="0.75" width="998.5" height="278.5" fill="none" stroke="#2E1D48" stroke-width="1.5"/>
 
   <!-- eyebrow -->
-  <text x="60" y="52" class="mono faint" font-size="10.5" letter-spacing="3">FINAL-YEAR SYSTEM &#183; AUTHORIZATION LAYER FOR AI / MCP AGENTS</text>
+  <text x="60" y="52" class="mono faint" font-size="10.5" letter-spacing="3">AUTHORIZATION AND COMPLIANCE LAYER FOR AI / MCP AGENTS</text>
   <line x1="60" y1="64" x2="940" y2="64" class="rule"/>
 
   <!-- title -->
