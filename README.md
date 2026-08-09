@@ -1,6 +1,7 @@
 <div align="center">
   <img src="./docs/banner-v2.svg" width="100%" alt="ZK-MCP-Auth-Compliance" />
 </div>
+
 # zk-mcp-compliance
 
 A zero-knowledge proof based authorization and compliance system for LLM agents calling MCP (Model Context Protocol) tools. Agents prove **who they are**, **what they're authorized to do**, and **that a proposed action satisfies a compliance policy** — all without ever revealing the underlying transaction data, policy thresholds, or reasoning trace to the verifier.
