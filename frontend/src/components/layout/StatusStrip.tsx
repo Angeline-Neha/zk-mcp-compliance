@@ -26,15 +26,16 @@ export function StatusStrip({
       className="col-span-3 flex items-center px-4 gap-0 border-b"
       style={{
         height: 36,
-        backgroundColor: "#1F1B16",
-        borderColor: "rgba(176,141,87,0.3)",
+        backgroundColor: "#170F26",
+        borderColor: "rgba(217,169,74,0.3)",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.4)",
         flexShrink: 0,
       }}
     >
-      {/* Case number */}
+      {/* Case number — stamp face, gold, per layout spec */}
       <span
         className="font-stamp text-xs tracking-widest"
-        style={{ color: "#B08D57", letterSpacing: "0.18em" }}
+        style={{ color: "#D9A94A", letterSpacing: "0.18em", textShadow: "0 0 12px rgba(217,169,74,0.35)" }}
       >
         CASE #{caseNumber}
       </span>
@@ -51,12 +52,13 @@ export function StatusStrip({
       </div>
       <Divider />
 
-      {/* Live indicator */}
+      {/* Live indicator — pulse dot ring, not a static dot */}
       <span
-        className="font-mono-data text-[10px] tracking-widest"
-        style={{ color: connected ? "#4A8C6A" : "#8A7A62" }}
+        className="font-mono-data text-[10px] tracking-widest flex items-center gap-1.5"
+        style={{ color: connected ? "#6EDBB0" : "#7C7099" }}
       >
-        ● LIVE
+        <span className={`live-pulse-dot ${connected ? "live-pulse-dot--verified" : "live-pulse-dot--muted"}`} />
+        LIVE
       </span>
 
       <div className="ml-auto flex items-center gap-3">
@@ -65,9 +67,9 @@ export function StatusStrip({
           onClick={onToggleNarrate}
           className="font-display text-[9px] tracking-widest uppercase px-2 py-0.5 border rounded transition-colors"
           style={{
-            color: narrateMode ? "#1F1B16" : "rgba(176,141,87,0.5)",
-            borderColor: narrateMode ? "#B08D57" : "rgba(176,141,87,0.2)",
-            backgroundColor: narrateMode ? "#B08D57" : "transparent",
+            color: narrateMode ? "#E9E4F2" : "rgba(217,169,74,0.5)",
+            borderColor: narrateMode ? "#D9A94A" : "rgba(217,169,74,0.2)",
+            backgroundColor: narrateMode ? "#D9A94A" : "transparent",
           }}
           title="Narrate mode — slows animation and auto-opens Inspector"
         >
@@ -85,7 +87,7 @@ function Divider() {
       style={{
         width: 1,
         height: 14,
-        backgroundColor: "rgba(176,141,87,0.25)",
+        backgroundColor: "rgba(217,169,74,0.25)",
         margin: "0 12px",
         flexShrink: 0,
       }}
@@ -98,13 +100,13 @@ function StatItem({ label, value, highlight }: { label: string; value: string; h
     <span className="flex items-baseline gap-1.5">
       <span
         className="font-display text-[9px] tracking-widest uppercase"
-        style={{ color: "rgba(176,141,87,0.6)" }}
+        style={{ color: "rgba(217,169,74,0.6)" }}
       >
         {label}
       </span>
       <span
         className="font-mono-data text-xs"
-        style={{ color: highlight ? "#4A8C6A" : "#B23A2F" }}
+        style={{ color: highlight ? "#6EDBB0" : "#E15068" }}
       >
         {value}
       </span>
@@ -123,7 +125,7 @@ function Sparkline({ data }: { data: number[] }) {
     .join(" ");
 
   const latest = data[data.length - 1];
-  const color = latest >= 90 ? "#4A8C6A" : "#B23A2F";
+  const color = latest >= 90 ? "#6EDBB0" : "#E15068";
 
   return (
     <svg width="40" height="14" viewBox="0 0 40 14" className="overflow-visible ml-1">

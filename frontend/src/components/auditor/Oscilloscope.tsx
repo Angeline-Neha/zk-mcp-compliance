@@ -31,15 +31,15 @@ export function Oscilloscope() {
 
   return (
     <div className="flex flex-col items-end">
-      <div className="font-mono-data text-[10px] uppercase text-[#1F1B16] opacity-60 mb-1">
+      <div className="font-mono-data text-[10px] uppercase text-[#E9E4F2] opacity-60 mb-1">
         Session Heartbeat
       </div>
-      <div className="w-[200px] h-[30px] bg-[rgba(31,27,22,0.03)] border border-[rgba(31,27,22,0.1)] rounded-sm overflow-hidden flex items-center">
+      <div className="w-[200px] h-[30px] bg-[rgba(233,228,242,0.03)] border border-[rgba(233,228,242,0.1)] rounded-sm overflow-hidden flex items-center">
         <svg width="200" height="30" viewBox="0 0 200 100" preserveAspectRatio="none">
           <path
             d={pathD}
             fill="none"
-            stroke="#B08D57"
+            stroke="#D9A94A"
             strokeWidth="3"
             vectorEffect="non-scaling-stroke"
           />

@@ -21,7 +21,7 @@ export function InspectorContent({ snapshot }: Props) {
           <p style={{ ...monoStyle(9), marginTop: 8, color: FAIL }}>{snapshot.failReason}</p>
         )}
         {snapshot.proof1Hash && (
-          <p style={{ ...monoStyle(8), marginTop: 8, color: "rgba(31,27,22,0.45)" }}>
+          <p style={{ ...monoStyle(8), marginTop: 8, color: "rgba(233,228,242,0.45)" }}>
             p1: {snapshot.proof1Hash.slice(0, 16)}…
           </p>
         )}
@@ -42,12 +42,12 @@ export function InspectorContent({ snapshot }: Props) {
         style={{
           marginBottom: 14,
           padding: "8px 10px",
-          border: "1px solid rgba(31,27,22,0.12)",
+          border: "1px solid rgba(233,228,242,0.12)",
           borderRadius: 2,
-          background: "rgba(31,27,22,0.03)",
+          background: "rgba(233,228,242,0.03)",
         }}
       >
-        <p style={{ ...monoStyle(8), color: "rgba(31,27,22,0.45)" }}>
+        <p style={{ ...monoStyle(8), color: "rgba(233,228,242,0.45)" }}>
           {snapshot.agentId} · {snapshot.tool}
           {snapshot.orderRef ? ` · order ${snapshot.orderRef}` : ""}
         </p>
@@ -83,12 +83,12 @@ export function InspectorContent({ snapshot }: Props) {
           style={{
             marginTop: 10,
             padding: "8px 10px",
-            border: "1px solid rgba(184,110,0,0.4)",
+            border: "1px solid rgba(240,200,116,0.4)",
             borderRadius: 2,
-            background: "rgba(184,110,0,0.06)",
+            background: "rgba(240,200,116,0.08)",
           }}
         >
-          <p style={{ ...monoStyle(8), color: "rgba(184,110,0,0.9)" }}>
+          <p style={{ ...monoStyle(8), color: "rgba(240,200,116,0.95)" }}>
             ⚠ INTENT OVERRIDE — agent requested order {snapshot.override.requestedOrderRef},
             enforced order {snapshot.override.enforcedOrderRef} instead (structurally-authenticated
             value took precedence)

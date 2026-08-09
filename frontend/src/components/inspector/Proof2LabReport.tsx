@@ -44,7 +44,7 @@ export function Proof2LabReport({ proof2, reached }: Props) {
       style={{
         padding: "12px 14px",
         marginBottom: 12,
-        background: "rgba(20,17,14,0.04)",
+        background: "rgba(233,228,242,0.03)",
       }}
     >
       <p style={stampStyle()}>Proof 2 — Lab Report</p>
@@ -54,7 +54,7 @@ export function Proof2LabReport({ proof2, reached }: Props) {
           ...monoStyle(9),
           marginTop: 10,
           whiteSpace: "pre-wrap",
-          color: "rgba(31,27,22,0.75)",
+          color: "rgba(233,228,242,0.75)",
         }}
       >
 {`CIRCUIT: ${circuitLabel}
@@ -105,7 +105,7 @@ public inputs
       )}
 
       {!reached && (
-        <p style={{ ...monoStyle(9), marginTop: 10, color: "rgba(31,27,22,0.35)" }}>
+        <p style={{ ...monoStyle(9), marginTop: 10, color: "rgba(233,228,242,0.35)" }}>
           AWAITING — Proof 1 must pass first
         </p>
       )}
@@ -116,13 +116,16 @@ public inputs
 function SealedField({ label, active }: { label: string; active: boolean }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 4, alignItems: "center" }}>
-      <span style={{ ...monoStyle(8), color: "rgba(31,27,22,0.4)", width: 110 }}>{label}</span>
+      <span style={{ ...monoStyle(8), color: "rgba(233,228,242,0.4)", width: 110 }}>{label}</span>
       <span
         style={{
           ...monoStyle(9),
           letterSpacing: 2,
-          color: "#14110E",
-          opacity: active ? undefined : 0.6,
+          color: active ? "#D9A94A" : "#3C2E5C",
+          background: "#05030A",
+          padding: "1px 4px",
+          borderRadius: 2,
+          opacity: active ? undefined : 0.7,
           animation: active ? "pulse-seal 2.5s ease-in-out infinite" : undefined,
         }}
       >

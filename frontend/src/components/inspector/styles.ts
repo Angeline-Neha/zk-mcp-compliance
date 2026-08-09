@@ -1,14 +1,14 @@
-const INK = "#1F1B16";
-const PASS = "#2F4A3B";
-const FAIL = "#B23A2F";
-const BRASS = "#B08D57";
-const PENDING = "rgba(31,27,22,0.35)";
+const INK = "#E9E4F2";
+const PASS = "#54C99A";
+const FAIL = "#E15068";
+const BRASS = "#D9A94A";
+const PENDING = "rgba(233,228,242,0.35)";
 
 import type { CSSProperties } from "react";
 
 export function monoStyle(size = 9): CSSProperties {
   return {
-    fontFamily: "'JetBrains Mono', monospace",
+    fontFamily: "'IBM Plex Mono', monospace",
     fontSize: size,
     color: INK,
     lineHeight: 1.6,

@@ -100,16 +100,26 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        backgroundColor: '#EDE6D6',
+        backgroundColor: '#0D0817',
       }}
     >
-      {/* ── Paper grain overlay ── */}
+      {/* ── Blueprint grid overlay (forensic cryptography backdrop) ── */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E\")",
+            'repeating-linear-gradient(to right, rgba(233,228,242,0.05) 0, rgba(233,228,242,0.05) 1px, transparent 1px, transparent 32px), repeating-linear-gradient(to bottom, rgba(233,228,242,0.05) 0, rgba(233,228,242,0.05) 1px, transparent 1px, transparent 32px)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage:
+            'radial-gradient(circle at 8% 6%, rgba(217,169,74,0.05) 0%, transparent 30%), radial-gradient(circle at 94% 90%, rgba(139,127,224,0.05) 0%, transparent 32%)',
           pointerEvents: 'none',
           zIndex: 0,
         }}
@@ -129,7 +139,7 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
           style={{
             fontFamily: "'Special Elite', serif",
             fontSize: 10,
-            color: 'rgba(31,27,22,0.2)',
+            color: 'rgba(233,228,242,0.2)',
             letterSpacing: '0.25em',
             textTransform: 'uppercase',
           }}
@@ -248,16 +258,17 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
                   style={{
                     fontFamily: "'Special Elite', serif",
                     fontSize: 13,
-                    color: ns.stamp.state === 'pass' ? '#2F4A3B' : '#B23A2F',
-                    border: `2.5px solid ${ns.stamp.state === 'pass' ? '#2F4A3B' : '#B23A2F'}`,
+                    color: ns.stamp.state === 'pass' ? '#54C99A' : '#E15068',
+                    border: `2.5px solid ${ns.stamp.state === 'pass' ? '#54C99A' : '#E15068'}`,
                     padding: '2px 8px',
                     borderRadius: 2,
                     letterSpacing: '0.12em',
                     display: 'inline-block',
-                    opacity: 0.82,
-                    transform: 'rotate(-5deg)',
-                    animation: 'stamp-land 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards',
+                    opacity: 0.92,
+                    transform: 'rotate(-4deg)',
+                    animation: 'stamp-land-overshoot 0.5s cubic-bezier(.2,1.6,.4,1) forwards',
                     textTransform: 'uppercase',
+                    boxShadow: `0 0 16px 2px ${ns.stamp.state === 'pass' ? 'rgba(84,201,154,0.35)' : 'rgba(225,80,104,0.35)'}`,
                   }}
                 >
                   {ns.stamp.state === 'pass' ? 'APPROVED' : 'BLOCKED'}

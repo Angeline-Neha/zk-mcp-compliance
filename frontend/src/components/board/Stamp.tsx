@@ -24,13 +24,13 @@ export function Stamp({ state, count, max, style }: StampProps) {
           style={{
             fontFamily: "'Special Elite', serif",
             fontSize: 11,
-            color: count === max ? '#B23A2F' : '#2F4A3B',
-            border: `2px solid ${count === max ? '#B23A2F' : '#2F4A3B'}`,
+            color: count === max ? '#E15068' : '#54C99A',
+            border: `2px solid ${count === max ? '#E15068' : '#54C99A'}`,
             padding: '2px 8px',
             borderRadius: 2,
             letterSpacing: '0.08em',
             opacity: 0.85,
-            animation: 'stamp-land 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards',
+            animation: 'stamp-land-overshoot 0.5s cubic-bezier(.2,1.6,.4,1) forwards',
           }}
         >
           {count}/{max}
@@ -39,7 +39,7 @@ export function Stamp({ state, count, max, style }: StampProps) {
           style={{
             fontFamily: "'Archivo', sans-serif",
             fontSize: 7,
-            color: 'rgba(31,27,22,0.4)',
+            color: 'rgba(233,228,242,0.4)',
             letterSpacing: '0.15em',
             marginTop: 2,
             textTransform: 'uppercase',
@@ -52,7 +52,7 @@ export function Stamp({ state, count, max, style }: StampProps) {
   }
 
   const isPass = state === 'pass';
-  const color = isPass ? '#2F4A3B' : '#B23A2F';
+  const color = isPass ? '#54C99A' : '#E15068';
   const label = isPass ? 'APPROVED' : 'BLOCKED';
 
   return (
@@ -60,7 +60,7 @@ export function Stamp({ state, count, max, style }: StampProps) {
       style={{
         display: 'inline-block',
         transform: 'rotate(-5deg)',
-        animation: 'stamp-land 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        animation: 'stamp-land-overshoot 0.5s cubic-bezier(.2,1.6,.4,1) forwards',
         ...style,
       }}
     >
@@ -75,7 +75,7 @@ export function Stamp({ state, count, max, style }: StampProps) {
           letterSpacing: '0.14em',
           display: 'inline-block',
           opacity: 0.82,
-          boxShadow: `inset 0 0 0 1px ${color}20`,
+          boxShadow: `inset 0 0 0 1px ${color}20, 0 0 14px ${color}30`,
           textTransform: 'uppercase',
         }}
       >

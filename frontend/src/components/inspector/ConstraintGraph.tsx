@@ -27,15 +27,15 @@ export function ConstraintGraph({ constraints, resolvedCount }: Props) {
         const color = statusColor(status);
         const bg =
           status === "pass"
-            ? "rgba(47,74,59,0.08)"
+            ? "rgba(84,201,154,0.08)"
             : status === "fail"
-              ? "rgba(178,58,47,0.08)"
-              : "rgba(31,27,22,0.04)";
+              ? "rgba(225,80,104,0.08)"
+              : "rgba(233,228,242,0.04)";
 
         return (
           <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 4 }}>
             {i > 0 && (
-              <span style={{ ...monoStyle(8), color: "rgba(31,27,22,0.25)" }}>→</span>
+              <span style={{ ...monoStyle(8), color: "rgba(233,228,242,0.25)" }}>→</span>
             )}
             <div
               style={{
@@ -47,7 +47,9 @@ export function ConstraintGraph({ constraints, resolvedCount }: Props) {
                 color,
                 letterSpacing: "0.05em",
                 opacity: resolved ? 1 : 0.5,
-                transition: "opacity 0.15s, border-color 0.15s",
+                transform: resolved ? "scale(1)" : "scale(0.92)",
+                boxShadow: resolved && status !== "pending" ? `0 0 8px ${status === "pass" ? "rgba(84,201,154,0.25)" : "rgba(225,80,104,0.25)"}` : "none",
+                transition: "opacity 0.2s, border-color 0.2s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s",
               }}
             >
               [{c.name}]
@@ -61,7 +63,7 @@ export function ConstraintGraph({ constraints, resolvedCount }: Props) {
 
 export function ConstraintGraphHeader() {
   return (
-    <p style={{ ...stampStyle(), fontSize: 9, marginTop: 12, color: "rgba(176,141,87,0.7)" }}>
+    <p style={{ ...stampStyle(), fontSize: 9, marginTop: 12, color: "rgba(217,169,74,0.7)" }}>
       Constraint graph
     </p>
   );

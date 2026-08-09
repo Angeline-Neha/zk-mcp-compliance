@@ -28,7 +28,7 @@ export function InspectorDrawer({
           style={{
             position: "fixed",
             inset: 0,
-            backgroundColor: "rgba(20,17,14,0.35)",
+            backgroundColor: "rgba(5,3,10,0.55)",
             zIndex: 40,
             cursor: "pointer",
           }}
@@ -42,9 +42,9 @@ export function InspectorDrawer({
           right: 0,
           bottom: 0,
           width: 420,
-          backgroundColor: "#EDE6D6",
-          borderLeft: "1.5px solid rgba(31,27,22,0.15)",
-          boxShadow: "-4px 0 24px rgba(31,27,22,0.12)",
+          backgroundColor: "#0D0817",
+          borderLeft: "1.5px solid rgba(233,228,242,0.15)",
+          boxShadow: "-4px 0 24px rgba(233,228,242,0.12)",
           zIndex: 50,
           display: "flex",
           flexDirection: "column",
@@ -55,8 +55,8 @@ export function InspectorDrawer({
         <div
           style={{
             padding: "12px 16px",
-            borderBottom: "1px solid rgba(31,27,22,0.1)",
-            backgroundColor: "#1F1B16",
+            borderBottom: "1px solid rgba(217,169,74,0.2)",
+            backgroundColor: "#170F26",
             display: "flex",
             alignItems: "center",
             gap: 12,
@@ -64,9 +64,9 @@ export function InspectorDrawer({
           }}
         >
           <div>
-            <p style={{ ...stampStyle(), color: "#B08D57" }}>Inspector</p>
+            <p style={{ ...stampStyle(), color: "#D9A94A" }}>Inspector</p>
             {requestId && (
-              <p style={{ ...monoStyle(8), color: "rgba(176,141,87,0.5)", marginTop: 2 }}>
+              <p style={{ ...monoStyle(8), color: "rgba(217,169,74,0.5)", marginTop: 2 }}>
                 {requestId.length > 28 ? `${requestId.slice(0, 12)}…${requestId.slice(-8)}` : requestId}
               </p>
             )}
@@ -78,9 +78,9 @@ export function InspectorDrawer({
               style={{
                 marginLeft: "auto",
                 ...monoStyle(9),
-                color: "#B08D57",
+                color: "#D9A94A",
                 background: "none",
-                border: "1px solid rgba(176,141,87,0.4)",
+                border: "1px solid rgba(217,169,74,0.4)",
                 borderRadius: 2,
                 padding: "2px 8px",
                 cursor: "pointer",
@@ -95,9 +95,9 @@ export function InspectorDrawer({
             style={{
               marginLeft: onVisualize && requestId && !loading && !error && snapshot ? 8 : "auto",
               ...monoStyle(9),
-              color: "rgba(176,141,87,0.5)",
+              color: "rgba(217,169,74,0.5)",
               background: "none",
-              border: "1px solid rgba(176,141,87,0.2)",
+              border: "1px solid rgba(217,169,74,0.2)",
               borderRadius: 2,
               padding: "2px 8px",
               cursor: "pointer",
@@ -117,7 +117,7 @@ export function InspectorDrawer({
             error === "inspector snapshot not found" ? (
               <div style={{ paddingTop: 24, textAlign: "center" }}>
                 <p style={{ ...stampStyle(), opacity: 0.5 }}>NO SERVER TRACE</p>
-                <p style={{ ...monoStyle(9), color: "rgba(31,27,22,0.5)", marginTop: 8, lineHeight: 1.6, padding: "0 12px" }}>
+                <p style={{ ...monoStyle(9), color: "rgba(233,228,242,0.5)", marginTop: 8, lineHeight: 1.6, padding: "0 12px" }}>
                   This attempt was rejected at Proof 1 — the sigma-protocol authorization
                   check — and never reached a real MCP server. There's no compliance
                   circuit, policy commitment, or inspector trace to show because the
@@ -125,7 +125,7 @@ export function InspectorDrawer({
                 </p>
               </div>
             ) : (
-              <p style={{ ...monoStyle(9), color: "#B23A2F", paddingTop: 24 }}>{error}</p>
+              <p style={{ ...monoStyle(9), color: "#E15068", paddingTop: 24 }}>{error}</p>
             )
           )}
           {!loading && !error && snapshot && <InspectorContent snapshot={snapshot} />}

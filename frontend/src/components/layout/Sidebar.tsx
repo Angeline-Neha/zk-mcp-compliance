@@ -19,7 +19,7 @@ export function Sidebar({ active, onChange, highlightExhibits = false }: Props) 
   return (
     <aside
       className="flex flex-col items-center py-3 gap-1 border-r ink-rule"
-      style={{ backgroundColor: "rgba(237,230,214,0.5)", borderColor: "rgba(31,27,22,0.12)", width: 52 }}
+      style={{ backgroundColor: "rgba(23,15,38,0.5)", borderColor: "rgba(233,228,242,0.12)", width: 52 }}
     >
       {TABS.map((tab) => {
         const isActive = tab.id === active;
@@ -29,7 +29,7 @@ export function Sidebar({ active, onChange, highlightExhibits = false }: Props) 
             key={tab.id}
             title={tab.label}
             onClick={() => onChange(tab.id)}
-            className="relative group"
+            className="relative group sidebar-tab-btn"
             style={{ width: 40 }}
           >
             {/* The folder tab */}
@@ -38,17 +38,18 @@ export function Sidebar({ active, onChange, highlightExhibits = false }: Props) 
               style={{
                 height: 44,
                 width: 40,
-                backgroundColor: isActive ? "#EDE6D6" : isHighlight ? "rgba(178, 58, 47, 0.1)" : "rgba(237,230,214,0.35)",
-                border: "1.5px solid rgba(31,27,22,0.15)",
+                backgroundColor: isActive ? "#0D0817" : isHighlight ? "rgba(225,80,104, 0.1)" : "rgba(23,15,38,0.35)",
+                border: isActive ? "1.5px solid rgba(217,169,74,0.45)" : "1.5px solid rgba(233,228,242,0.15)",
                 borderRadius: "3px 3px 0 0",
-                borderBottom: isActive ? "1.5px solid #EDE6D6" : "1.5px solid rgba(31,27,22,0.15)",
+                borderBottom: isActive ? "1.5px solid #0D0817" : "1.5px solid rgba(233,228,242,0.15)",
               }}
             >
               <span
-                className="font-stamp text-center leading-none"
+                className="font-stamp text-center leading-none sidebar-tab-label"
                 style={{
                   fontSize: 10,
-                  color: isActive ? "#1F1B16" : isHighlight ? "#B23A2F" : "rgba(31,27,22,0.45)",
+                  color: isActive ? "#F0C874" : isHighlight ? "#E15068" : "rgba(233,228,242,0.45)",
+                  textShadow: isActive ? "0 0 10px rgba(217,169,74,0.4)" : "none",
                   writingMode: "vertical-lr",
                   textOrientation: "mixed",
                   transform: "rotate(180deg)",
@@ -68,7 +69,7 @@ export function Sidebar({ active, onChange, highlightExhibits = false }: Props) 
                   transform: "translateY(-50%)",
                   width: 3,
                   height: 24,
-                  backgroundColor: "#B08D57",
+                  backgroundColor: "#D9A94A",
                   borderRadius: "0 2px 2px 0",
                 }}
               />
@@ -80,10 +81,10 @@ export function Sidebar({ active, onChange, highlightExhibits = false }: Props) 
       {/* Bottom: case file icon */}
       <div className="mt-auto mb-1 opacity-30">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="3" y="4" width="14" height="13" rx="1" stroke="#1F1B16" strokeWidth="1.2"/>
-          <path d="M7 4V2h6v2" stroke="#1F1B16" strokeWidth="1.2"/>
-          <line x1="6" y1="9" x2="14" y2="9" stroke="#1F1B16" strokeWidth="1"/>
-          <line x1="6" y1="12" x2="12" y2="12" stroke="#1F1B16" strokeWidth="1"/>
+          <rect x="3" y="4" width="14" height="13" rx="1" stroke="#E9E4F2" strokeWidth="1.2"/>
+          <path d="M7 4V2h6v2" stroke="#E9E4F2" strokeWidth="1.2"/>
+          <line x1="6" y1="9" x2="14" y2="9" stroke="#E9E4F2" strokeWidth="1"/>
+          <line x1="6" y1="12" x2="12" y2="12" stroke="#E9E4F2" strokeWidth="1"/>
         </svg>
       </div>
     </aside>

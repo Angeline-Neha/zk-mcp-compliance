@@ -19,13 +19,13 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
   const cy = pt.y;
   const r = 8;
 
-  const color = state === 'pass' ? '#2F4A3B' : state === 'fail' ? '#B23A2F' : '#B08D57';
+  const color = state === 'pass' ? '#54C99A' : state === 'fail' ? '#E15068' : '#D9A94A';
   const symbol = state === 'pass' ? '✓' : state === 'fail' ? '✗' : '…';
 
   return (
     <g id={`checkpoint-${id}`}>
       {/* Turnstile gate body */}
-      <circle cx={cx} cy={cy} r={r + 2} fill="#EDE6D6" stroke={color} strokeWidth={1.5} />
+      <circle cx={cx} cy={cy} r={r + 2} fill="#0D0817" stroke={color} strokeWidth={1.5} />
       <circle cx={cx} cy={cy} r={r} fill={color} opacity={state === 'pending' ? 0.2 : 0.12} />
 
       {/* Symbol */}
@@ -36,7 +36,7 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
         dominantBaseline="middle"
         fill={color}
         style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "'IBM Plex Mono', monospace",
           fontSize: state === 'pending' ? 8 : 10,
           fontWeight: 600,
         }}
@@ -59,15 +59,15 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
         <foreignObject x={cx - 80} y={cy + r + 6} width={160} height={40}>
           <div
             style={{
-              fontFamily: "'JetBrains Mono', monospace",
+              fontFamily: "'IBM Plex Mono', monospace",
               fontSize: 8,
-              color: '#B23A2F',
+              color: '#E15068',
               textAlign: 'center',
               lineHeight: 1.4,
-              backgroundColor: 'rgba(237,230,214,0.95)',
+              backgroundColor: 'rgba(23,15,38,0.95)',
               padding: '2px 4px',
               borderRadius: 2,
-              border: '1px solid rgba(178,58,47,0.3)',
+              border: '1px solid rgba(225,80,104,0.3)',
             }}
           >
             {reason}

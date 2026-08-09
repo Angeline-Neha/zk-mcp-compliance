@@ -8,11 +8,11 @@ import { Oscilloscope } from "../components/auditor/Oscilloscope";
 
 export function AuditorView() {
   return (
-    <div className="auditor-layout h-full overflow-y-auto p-8" style={{ backgroundColor: "#EDE6D6" }}>
+    <div className="auditor-layout h-full overflow-y-auto p-8" style={{ backgroundColor: "#0D0817" }}>
       
-      <div className="flex items-end justify-between border-b-2 pb-4 mb-8" style={{ borderColor: "rgba(31,27,22,0.15)" }}>
+      <div className="flex items-end justify-between border-b-2 pb-4 mb-8" style={{ borderColor: "rgba(233,228,242,0.15)" }}>
         <div>
-          <h1 className="font-stamp text-4xl m-0" style={{ color: "#1F1B16" }}>AUDITOR DASHBOARD</h1>
+          <h1 className="font-stamp text-4xl m-0" style={{ color: "#E9E4F2" }}>AUDITOR DASHBOARD</h1>
           <p className="font-mono-data text-xs mt-2 opacity-60 m-0 uppercase tracking-widest">
             Cryptographic Integrity & Baseline Comparison
           </p>

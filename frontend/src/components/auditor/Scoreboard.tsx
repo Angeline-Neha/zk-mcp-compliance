@@ -14,9 +14,9 @@ const ATTACKS: { id: string; name: string }[] = [
 ];
 
 const BADGE_STYLES: Record<AttackOutcome["status"], { bg: string; fg: string; border: string; label: string }> = {
-  not_run: { bg: "rgba(31,27,22,0.04)", fg: "rgba(31,27,22,0.45)", border: "rgba(31,27,22,0.25)", label: "NOT RUN" },
-  blocked: { bg: "rgba(178,58,47,0.1)", fg: "#B23A2F", border: "#B23A2F", label: "BLOCKED" },
-  passed: { bg: "rgba(178,58,47,0.1)", fg: "#B23A2F", border: "#B23A2F", label: "EXECUTED — VULNERABLE" },
+  not_run: { bg: "rgba(233,228,242,0.04)", fg: "rgba(233,228,242,0.45)", border: "rgba(233,228,242,0.25)", label: "NOT RUN" },
+  blocked: { bg: "rgba(84,201,154,0.1)", fg: "#54C99A", border: "#54C99A", label: "BLOCKED — DEFENDED" },
+  passed: { bg: "rgba(225,80,104,0.12)", fg: "#E15068", border: "#E15068", label: "EXECUTED — VULNERABLE" },
 };
 
 export function Scoreboard() {
@@ -36,11 +36,11 @@ export function Scoreboard() {
   }, []);
 
   return (
-    <div className="bg-[#E6DCC8] border border-[rgba(31,27,22,0.15)] rounded-sm p-5">
-      <h3 className="font-stamp text-lg mb-4 text-[#1F1B16] uppercase tracking-widest border-b border-[rgba(31,27,22,0.1)] pb-2">
+    <div className="bg-[#1E1530] border border-[rgba(233,228,242,0.15)] rounded-sm p-5">
+      <h3 className="font-stamp text-lg mb-4 text-[#E9E4F2] uppercase tracking-widest border-b border-[rgba(233,228,242,0.1)] pb-2">
         Red Team Attack Outcomes
       </h3>
-      <p className="font-mono-data text-[10px] opacity-50 mb-3" style={{ color: "#1F1B16" }}>
+      <p className="font-mono-data text-[10px] opacity-50 mb-3" style={{ color: "#E9E4F2" }}>
         Reflects attacks you've actually run this session — via Exhibits or the Intake Desk red-team agent.
       </p>
       <div className="flex flex-col gap-2">
@@ -50,11 +50,14 @@ export function Scoreboard() {
           return (
             <div
               key={a.id}
-              className="flex justify-between items-center py-2 px-3 bg-[rgba(31,27,22,0.03)] border-l-2"
-              style={{ borderLeftColor: outcome.status === "not_run" ? "rgba(31,27,22,0.2)" : "#1F1B16" }}
+              className="flex justify-between items-center py-2 px-3 bg-[rgba(233,228,242,0.03)] border-l-2 transition-colors"
+              style={{
+                borderLeftColor: outcome.status === "not_run" ? "rgba(233,228,242,0.2)" : style.fg,
+                animation: `rise-in 0.3s ease-out ${i * 0.05}s both`,
+              }}
               title={outcome.lastReason ?? undefined}
             >
-              <span className="font-mono-data text-xs uppercase" style={{ color: "#1F1B16" }}>
+              <span className="font-mono-data text-xs uppercase" style={{ color: "#E9E4F2" }}>
                 [{String(i + 1).padStart(2, "0")}] {a.name}
               </span>
               <span

@@ -21,19 +21,19 @@ export interface NodeProps {
 
 const STATE_STYLES: Record<NodeVisualState, React.CSSProperties> = {
   idle: {
-    borderColor: 'rgba(31,27,22,0.18)',
-    boxShadow: '2px 2px 6px rgba(31,27,22,0.10), 0 0 0 0.5px rgba(31,27,22,0.05)',
+    borderColor: 'rgba(233,228,242,0.18)',
+    boxShadow: '2px 2px 6px rgba(233,228,242,0.10), 0 0 0 0.5px rgba(233,228,242,0.05)',
   },
   active: {
-    borderColor: 'rgba(176,141,87,0.5)',
-    boxShadow: '2px 2px 10px rgba(31,27,22,0.14), 0 0 18px rgba(176,141,87,0.18)',
+    borderColor: 'rgba(217,169,74,0.5)',
+    boxShadow: '2px 2px 10px rgba(233,228,242,0.14), 0 0 18px rgba(217,169,74,0.18)',
   },
   targeted: {
-    borderColor: '#B08D57',
-    boxShadow: '2px 2px 10px rgba(31,27,22,0.14), 0 0 0 2px rgba(176,141,87,0.2)',
+    borderColor: '#D9A94A',
+    boxShadow: '2px 2px 10px rgba(233,228,242,0.14), 0 0 0 2px rgba(217,169,74,0.2)',
   },
   unauthorized: {
-    borderColor: 'rgba(178,58,47,0.3)',
+    borderColor: 'rgba(225,80,104,0.3)',
     borderStyle: 'dashed',
     boxShadow: 'none',
   },
@@ -54,7 +54,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
       className={className}
       style={{
         width: 200,
-        backgroundColor: '#EDE6D6',
+        backgroundColor: '#0D0817',
         border: '1.5px solid',
         borderRadius: 3,
         cursor: onClick ? 'pointer' : 'default',
@@ -72,7 +72,8 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
             position: 'absolute',
             top: -1,
             right: -1,
-            backgroundColor: '#1F1B16',
+            backgroundColor: '#1E1530',
+            border: '1px solid rgba(217,169,74,0.3)',
             borderRadius: '0 3px 0 3px',
             padding: '2px 6px',
             lineHeight: 1,
@@ -80,9 +81,9 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
         >
           <span
             style={{
-              fontFamily: "'JetBrains Mono', monospace",
+              fontFamily: "'IBM Plex Mono', monospace",
               fontSize: 9,
-              color: '#B08D57',
+              color: '#D9A94A',
               letterSpacing: '0.05em',
             }}
           >
@@ -98,7 +99,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
             position: 'absolute',
             inset: -4,
             borderRadius: 5,
-            border: '1px solid rgba(176,141,87,0.2)',
+            border: '1px solid rgba(217,169,74,0.2)',
             pointerEvents: 'none',
             animation: 'pulse-seal 2.5s ease-in-out infinite',
           }}
@@ -114,7 +115,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
             fontSize: 8,
             letterSpacing: '0.2em',
             textTransform: 'uppercase',
-            color: 'rgba(31,27,22,0.4)',
+            color: 'rgba(233,228,242,0.4)',
             marginBottom: 6,
             fontWeight: 600,
           }}
@@ -131,7 +132,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
             style={{
               fontFamily: "'Special Elite', serif",
               fontSize: 13,
-              color: '#1F1B16',
+              color: '#E9E4F2',
               lineHeight: 1.2,
               letterSpacing: '0.02em',
             }}
@@ -143,11 +144,11 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
         {/* Badge */}
         <p
           style={{
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 9,
-            color: 'rgba(31,27,22,0.45)',
+            color: 'rgba(233,228,242,0.45)',
             lineHeight: 1.4,
-            borderTop: '1px solid rgba(31,27,22,0.08)',
+            borderTop: '1px solid rgba(233,228,242,0.08)',
             paddingTop: 6,
             marginTop: 2,
           }}
@@ -161,16 +162,16 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
             style={{
               marginTop: 6,
               padding: '4px 6px',
-              backgroundColor: 'rgba(31,27,22,0.04)',
-              borderLeft: '2px solid rgba(176,141,87,0.4)',
+              backgroundColor: 'rgba(233,228,242,0.04)',
+              borderLeft: '2px solid rgba(217,169,74,0.4)',
               borderRadius: '0 2px 2px 0',
             }}
           >
             <p
               style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: 8,
-                color: 'rgba(31,27,22,0.4)',
+                color: 'rgba(233,228,242,0.4)',
                 letterSpacing: '0.02em',
               }}
             >
@@ -194,7 +195,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
             left: '20%',
             right: '20%',
             height: 2,
-            backgroundColor: '#B08D57',
+            backgroundColor: '#D9A94A',
             borderRadius: '0 0 2px 2px',
             opacity: 0.6,
           }}
@@ -218,7 +219,7 @@ function Sparkline({ data }: { data: number[] }) {
         <polyline
           points={points}
           fill="none"
-          stroke="#2F4A3B"
+          stroke="#54C99A"
           strokeWidth="1.2"
           strokeLinejoin="round"
           strokeLinecap="round"

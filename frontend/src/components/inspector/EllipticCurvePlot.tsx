@@ -47,7 +47,7 @@ export function EllipticCurvePlot({ R, s, c, publicKey, algebraOk, expanded, onT
           marginTop: 8,
           fontFamily: "'Archivo', sans-serif",
           fontSize: 9,
-          color: "#B08D57",
+          color: "#D9A94A",
           background: "none",
           border: "none",
           cursor: "pointer",
@@ -68,7 +68,7 @@ export function EllipticCurvePlot({ R, s, c, publicKey, algebraOk, expanded, onT
         style={{
           fontFamily: "'Archivo', sans-serif",
           fontSize: 9,
-          color: "#B08D57",
+          color: "#D9A94A",
           background: "none",
           border: "none",
           cursor: "pointer",
@@ -83,16 +83,16 @@ export function EllipticCurvePlot({ R, s, c, publicKey, algebraOk, expanded, onT
         width={size}
         height={size}
         style={{
-          border: "1px solid rgba(31,27,22,0.15)",
+          border: "1px solid rgba(233,228,242,0.15)",
           borderRadius: 2,
-          background: "rgba(31,27,22,0.03)",
+          background: "rgba(233,228,242,0.03)",
         }}
       >
         {/* faint grid */}
         {[30, 60, 90].map((n) => (
           <g key={n} opacity={0.15}>
-            <line x1={n} y1={0} x2={n} y2={size} stroke="#1F1B16" strokeWidth={0.5} />
-            <line x1={0} y1={n} x2={size} y2={n} stroke="#1F1B16" strokeWidth={0.5} />
+            <line x1={n} y1={0} x2={n} y2={size} stroke="#E9E4F2" strokeWidth={0.5} />
+            <line x1={0} y1={n} x2={size} y2={n} stroke="#E9E4F2" strokeWidth={0.5} />
           </g>
         ))}
 
@@ -107,13 +107,13 @@ export function EllipticCurvePlot({ R, s, c, publicKey, algebraOk, expanded, onT
             transition: algebraOk ? undefined : "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
           }}
         />
-        <text x={sgX + 7} y={sgY + 3} fontSize={7} fill={PASS} fontFamily="JetBrains Mono">
+        <text x={sgX + 7} y={sgY + 3} fontSize={7} fill={PASS} fontFamily="IBM Plex Mono">
           s·G
         </text>
 
         {/* R + c·P */}
         <circle cx={rcP_X} cy={rcP_Y} r={5} fill={algebraOk ? PASS : FAIL} opacity={0.85} />
-        <text x={rcP_X + 7} y={rcP_Y + 3} fontSize={7} fill={algebraOk ? PASS : FAIL} fontFamily="JetBrains Mono">
+        <text x={rcP_X + 7} y={rcP_Y + 3} fontSize={7} fill={algebraOk ? PASS : FAIL} fontFamily="IBM Plex Mono">
           R+c·P
         </text>
       </svg>

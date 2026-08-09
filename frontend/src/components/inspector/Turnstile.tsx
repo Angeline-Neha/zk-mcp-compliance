@@ -19,7 +19,7 @@ export function Turnstile({ ok, orderRef, message, visible }: Props) {
         padding: "10px 12px",
         border: `2px solid ${color}`,
         borderRadius: 3,
-        background: ok ? "rgba(47,74,59,0.06)" : "rgba(178,58,47,0.06)",
+        background: ok ? "rgba(84,201,154,0.06)" : "rgba(225,80,104,0.06)",
         position: "relative",
       }}
     >

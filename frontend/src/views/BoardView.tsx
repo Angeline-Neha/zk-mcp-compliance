@@ -20,12 +20,12 @@ export function BoardView({ boardState, agentVitals, onInspectRequest, viewingSn
             justifyContent: 'center',
             gap: 10,
             padding: '6px 10px',
-            borderBottom: '1px solid rgba(176,141,87,0.3)',
-            backgroundColor: 'rgba(31,27,22,0.9)',
-            fontFamily: 'monospace',
+            borderBottom: '1px solid rgba(217,169,74,0.3)',
+            backgroundColor: '#1E1530',
+            fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 9,
             letterSpacing: '0.08em',
-            color: '#B08D57',
+            color: '#D9A94A',
           }}
         >
           VIEWING PINNED REQUEST — LIVE UPDATES PAUSED
@@ -34,9 +34,9 @@ export function BoardView({ boardState, agentVitals, onInspectRequest, viewingSn
             onClick={onReturnToLive}
             style={{
               fontSize: 9,
-              color: '#EDE6D6',
+              color: '#D9A94A',
               background: 'none',
-              border: '1px solid rgba(237,230,214,0.4)',
+              border: '1px solid rgba(217,169,74,0.4)',
               borderRadius: 2,
               padding: '1px 6px',
               cursor: 'pointer',

@@ -16,10 +16,10 @@ export interface ThreadProps {
 }
 
 const THREAD_COLORS: Record<ThreadState, string> = {
-  idle:    '#B08D57',
-  pending: '#B08D57',
-  pass:    '#2F4A3B',
-  fail:    '#B23A2F',
+  idle:    '#D9A94A',
+  pending: '#D9A94A',
+  pass:    '#54C99A',
+  fail:    '#E15068',
   'no-path': 'transparent',
 };
 
@@ -65,7 +65,7 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
       <path
         d={d}
         fill="none"
-        stroke="rgba(31,27,22,0.08)"
+        stroke="rgba(233,228,242,0.08)"
         strokeWidth={4}
         strokeLinecap="round"
       />
@@ -95,10 +95,10 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
         />
       )}
 
-      <circle cx={x1} cy={y1} r={pinR} fill="#B08D57" opacity={0.7} />
-      <circle cx={x1} cy={y1} r={pinR - 1.5} fill="#EDE6D6" />
-      <circle cx={x2} cy={y2} r={pinR} fill="#B08D57" opacity={0.7} />
-      <circle cx={x2} cy={y2} r={pinR - 1.5} fill="#EDE6D6" />
+      <circle cx={x1} cy={y1} r={pinR} fill="#D9A94A" opacity={0.7} />
+      <circle cx={x1} cy={y1} r={pinR - 1.5} fill="#0D0817" />
+      <circle cx={x2} cy={y2} r={pinR} fill="#D9A94A" opacity={0.7} />
+      <circle cx={x2} cy={y2} r={pinR - 1.5} fill="#0D0817" />
 
       {/* Single pulse for pass/pending thread state */}
       {showTravel && !hasPulses && (
@@ -122,8 +122,8 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
 function FractureMarker({ x, y }: { x: number; y: number }) {
   return (
     <g opacity={0.7}>
-      <line x1={x - 5} y1={y - 5} x2={x + 5} y2={y + 5} stroke="#B23A2F" strokeWidth={1.5} strokeLinecap="round" />
-      <line x1={x + 5} y1={y - 5} x2={x - 5} y2={y + 5} stroke="#B23A2F" strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={x - 5} y1={y - 5} x2={x + 5} y2={y + 5} stroke="#E15068" strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={x + 5} y1={y - 5} x2={x - 5} y2={y + 5} stroke="#E15068" strokeWidth={1.5} strokeLinecap="round" />
     </g>
   );
 }

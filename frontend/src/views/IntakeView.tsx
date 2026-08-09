@@ -221,20 +221,20 @@ export function IntakeView() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: "#EDE6D6" }}>
+    <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: "#0D0817" }}>
 
       {/* ── Header ── */}
       <div
         className="px-5 py-3 border-b flex items-center gap-4"
-        style={{ borderColor: "rgba(31,27,22,0.12)", backgroundColor: "rgba(31,27,22,0.03)" }}
+        style={{ borderColor: "rgba(233,228,242,0.12)", backgroundColor: "rgba(233,228,242,0.03)" }}
       >
         <div>
-          <p className="font-stamp text-xs tracking-widest" style={{ color: "#B08D57", letterSpacing: "0.2em" }}>
+          <p className="font-stamp text-xs tracking-widest" style={{ color: "#D9A94A", letterSpacing: "0.2em" }}>
             INTAKE DESK
           </p>
           <h2
             className="font-stamp text-lg leading-tight"
-            style={{ color: "#1F1B16" }}
+            style={{ color: "#E9E4F2" }}
           >
             Customer Support
           </h2>
@@ -249,9 +249,9 @@ export function IntakeView() {
               style={{
                 fontWeight: 600,
                 borderRadius: 2,
-                borderColor: target === t ? "#2F4A3B" : "rgba(31,27,22,0.2)",
-                color: target === t ? "#2F4A3B" : "rgba(31,27,22,0.45)",
-                backgroundColor: target === t ? "rgba(47,74,59,0.06)" : "transparent",
+                borderColor: target === t ? "#54C99A" : "rgba(233,228,242,0.2)",
+                color: target === t ? "#54C99A" : "rgba(233,228,242,0.45)",
+                backgroundColor: target === t ? "rgba(84,201,154,0.06)" : "transparent",
                 letterSpacing: "0.15em",
               }}
             >
@@ -264,9 +264,9 @@ export function IntakeView() {
       {/* ── Customer session bar ── */}
       <div
         className="px-5 py-2 border-b flex items-center gap-3"
-        style={{ borderColor: "rgba(31,27,22,0.1)", backgroundColor: "rgba(31,27,22,0.02)" }}
+        style={{ borderColor: "rgba(233,228,242,0.1)", backgroundColor: "rgba(233,228,242,0.02)" }}
       >
-        <span className="font-display text-[9px] uppercase tracking-widest" style={{ color: "rgba(31,27,22,0.4)" }}>
+        <span className="font-display text-[9px] uppercase tracking-widest" style={{ color: "rgba(233,228,242,0.4)" }}>
           Logged in as
         </span>
         {customers.length > 0 ? (
@@ -276,26 +276,26 @@ export function IntakeView() {
             className="font-mono-data text-xs border px-2 py-0.5 focus:outline-none"
             style={{
               backgroundColor: "transparent",
-              borderColor: "rgba(31,27,22,0.2)",
+              borderColor: "rgba(233,228,242,0.2)",
               borderRadius: 2,
-              color: "#1F1B16",
+              color: "#E9E4F2",
             }}
           >
             {customers.map((c) => (
-              <option key={c.id} value={c.id} style={{ backgroundColor: "#EDE6D6" }}>
+              <option key={c.id} value={c.id} style={{ backgroundColor: "#0D0817" }}>
                 {c.name}
               </option>
             ))}
           </select>
         ) : (
-          <span className="font-mono-data text-xs cursor-blink" style={{ color: "rgba(31,27,22,0.4)" }}>
+          <span className="font-mono-data text-xs cursor-blink" style={{ color: "rgba(233,228,242,0.4)" }}>
             loading
           </span>
         )}
 
-        <span className="font-mono-data ml-auto" style={{ fontSize: 10, color: "rgba(31,27,22,0.4)" }}>
+        <span className="font-mono-data ml-auto" style={{ fontSize: 10, color: "rgba(233,228,242,0.4)" }}>
           Active Order:{" "}
-          <span style={{ color: "#1F1B16", fontWeight: 500 }}>
+          <span style={{ color: "#E9E4F2", fontWeight: 500 }}>
             {defaultOrder ?? (customerId ? "loading…" : "select a customer")}
           </span>
         </span>
@@ -304,11 +304,11 @@ export function IntakeView() {
       {/* ── Red Team Agent — fires attacks 1-7 against the real live system, independent of the ticket below ── */}
       <div
         className="px-5 py-2 border-b flex items-center gap-3 flex-wrap"
-        style={{ borderColor: "rgba(31,27,22,0.1)", backgroundColor: "rgba(139,38,38,0.04)" }}
+        style={{ borderColor: "rgba(233,228,242,0.1)", backgroundColor: "rgba(194,56,86,0.06)" }}
       >
         <span
           className="font-display text-[9px] uppercase tracking-widest font-semibold"
-          style={{ color: "#8B2626", letterSpacing: "0.15em" }}
+          style={{ color: "#C23856", letterSpacing: "0.15em" }}
         >
           🔴 Red Team Agent
         </span>
@@ -318,10 +318,10 @@ export function IntakeView() {
           onChange={(e) => setRedTeamAttackId(e.target.value)}
           disabled={redTeamRunning}
           className="font-mono-data text-xs border px-2 py-0.5 focus:outline-none"
-          style={{ backgroundColor: "transparent", borderColor: "rgba(139,38,38,0.3)", borderRadius: 2, color: "#1F1B16" }}
+          style={{ backgroundColor: "transparent", borderColor: "rgba(194,56,86,0.35)", borderRadius: 2, color: "#E9E4F2" }}
         >
           {RED_TEAM_ATTACKS.map((a) => (
-            <option key={a.id} value={a.id} style={{ backgroundColor: "#EDE6D6" }}>
+            <option key={a.id} value={a.id} style={{ backgroundColor: "#0D0817" }}>
               Attack {a.id}: {a.title}
             </option>
           ))}
@@ -329,14 +329,14 @@ export function IntakeView() {
 
         <label
           className="font-mono-data flex items-center gap-1 cursor-pointer select-none"
-          style={{ fontSize: 9, color: "#8B2626" }}
+          style={{ fontSize: 9, color: "#C23856" }}
         >
           <input
             type="checkbox"
             checked={redTeamOnSubmit}
             onChange={(e) => setRedTeamOnSubmit(e.target.checked)}
             disabled={redTeamRunning}
-            style={{ accentColor: "#8B2626" }}
+            style={{ accentColor: "#C23856" }}
           />
           fire attack on File Ticket
         </label>
@@ -348,8 +348,8 @@ export function IntakeView() {
           style={{
             fontWeight: 600,
             borderRadius: 2,
-            borderColor: "#8B2626",
-            color: redTeamRunning ? "rgba(139,38,38,0.4)" : "#8B2626",
+            borderColor: "#C23856",
+            color: redTeamRunning ? "rgba(194,56,86,0.45)" : "#C23856",
             letterSpacing: "0.1em",
           }}
         >
@@ -357,13 +357,13 @@ export function IntakeView() {
         </button>
 
         {redTeamStatus && (
-          <span className="font-mono-data" style={{ fontSize: 10, color: "rgba(31,27,22,0.5)" }}>
+          <span className="font-mono-data" style={{ fontSize: 10, color: "rgba(233,228,242,0.5)" }}>
             {redTeamStatus}
           </span>
         )}
 
 
-        <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(31,27,22,0.35)" }}>
+        <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(233,228,242,0.35)" }}>
           Runs against the live gate in real time — check the Board to watch it land.
         </span>
       </div>
@@ -371,23 +371,23 @@ export function IntakeView() {
       {/* ── Ticket compose area ── */}
       <div
         className="px-5 py-4 border-b"
-        style={{ borderColor: "rgba(31,27,22,0.1)" }}
+        style={{ borderColor: "rgba(233,228,242,0.1)" }}
       >
         {/* Intent binding notice */}
         <div
           className="mb-3 flex items-start gap-2 px-3 py-2 border"
           style={{
-            borderColor: "rgba(176,141,87,0.3)",
-            backgroundColor: "rgba(176,141,87,0.06)",
+            borderColor: "rgba(217,169,74,0.3)",
+            backgroundColor: "rgba(217,169,74,0.06)",
             borderRadius: 2,
           }}
         >
-          <span style={{ color: "#B08D57", fontSize: 14 }}>🔒</span>
+          <span style={{ color: "#D9A94A", fontSize: 14 }}>🔒</span>
           <div>
-            <p className="font-display text-[9px] uppercase tracking-widest font-semibold" style={{ color: "#B08D57" }}>
+            <p className="font-display text-[9px] uppercase tracking-widest font-semibold" style={{ color: "#D9A94A" }}>
               Intent Binding Active
             </p>
-            <p className="font-mono-data mt-0.5" style={{ fontSize: 9, color: "rgba(31,27,22,0.5)" }}>
+            <p className="font-mono-data mt-0.5" style={{ fontSize: 9, color: "rgba(233,228,242,0.5)" }}>
               The backend extracted your order and bound it cryptographically before the LLM was invoked.
               Any LLM prompt injection targeting a different order will be rejected.
             </p>
@@ -402,8 +402,8 @@ export function IntakeView() {
               className="font-mono-data border px-2 py-0.5 transition-colors"
               style={{
                 fontSize: 9,
-                color: "rgba(31,27,22,0.45)",
-                borderColor: "rgba(31,27,22,0.2)",
+                color: "rgba(233,228,242,0.45)",
+                borderColor: "rgba(233,228,242,0.2)",
                 borderRadius: 2,
                 letterSpacing: "0.05em",
               }}
@@ -414,7 +414,7 @@ export function IntakeView() {
               onClick={loadPromptInjection}
               disabled={!ordersLoaded || loading}
               className="font-mono-data border px-2 py-0.5"
-              style={{ fontSize: 9, color: "#B23A2F", borderColor: "rgba(178,58,47,0.4)", borderRadius: 2 }}
+              style={{ fontSize: 9, color: "#E15068", borderColor: "rgba(225,80,104,0.4)", borderRadius: 2 }}
             >
               Prompt Injection →
             </button>
@@ -422,19 +422,19 @@ export function IntakeView() {
               onClick={runSalamiSlicing}
               disabled={!ordersLoaded || loading}
               className="font-mono-data border px-2 py-0.5"
-              style={{ fontSize: 9, color: "#B23A2F", borderColor: "rgba(178,58,47,0.4)", borderRadius: 2 }}
+              style={{ fontSize: 9, color: "#E15068", borderColor: "rgba(225,80,104,0.4)", borderRadius: 2 }}
             >
               Salami Slicing (×3) →
             </button>
             {salamiProgress && (
-              <span className="font-mono-data ml-1" style={{ fontSize: 9, color: "#B23A2F" }}>
+              <span className="font-mono-data ml-1" style={{ fontSize: 9, color: "#E15068" }}>
                 slice {salamiProgress.slice}/{salamiProgress.total} — watch the Board
               </span>
             )}
           </div>
         )}
         {attackMode === "injection" && (
-          <p className="font-mono-data mb-2" style={{ fontSize: 9, color: "#B23A2F" }}>
+          <p className="font-mono-data mb-2" style={{ fontSize: 9, color: "#E15068" }}>
             Ticket text now contains an injected instruction targeting order {injectedOrder}. Your real
             structured order stays {defaultOrder} — file the ticket and check the Inspector to confirm
             {" "}{injectedOrder} was never touched.
@@ -459,10 +459,10 @@ export function IntakeView() {
             }
             className="flex-1 font-mono-data text-xs border px-3 py-2 focus:outline-none resize-none"
             style={{
-              backgroundColor: "rgba(31,27,22,0.03)",
-              borderColor: "rgba(31,27,22,0.18)",
+              backgroundColor: "rgba(233,228,242,0.03)",
+              borderColor: "rgba(233,228,242,0.18)",
               borderRadius: 2,
-              color: "#1F1B16",
+              color: "#E9E4F2",
               lineHeight: 1.6,
             }}
           />
@@ -475,9 +475,9 @@ export function IntakeView() {
               paddingTop: 8,
               paddingBottom: 8,
               borderRadius: 2,
-              borderColor: loading ? "rgba(31,27,22,0.2)" : "#2F4A3B",
-              color: loading ? "rgba(31,27,22,0.35)" : "#2F4A3B",
-              backgroundColor: loading ? "transparent" : "rgba(47,74,59,0.06)",
+              borderColor: loading ? "rgba(233,228,242,0.2)" : "#54C99A",
+              color: loading ? "rgba(233,228,242,0.35)" : "#54C99A",
+              backgroundColor: loading ? "transparent" : "rgba(84,201,154,0.06)",
               letterSpacing: "0.08em",
             }}
           >
@@ -491,7 +491,7 @@ export function IntakeView() {
         {error && (
           <div
             className="border px-4 py-3 font-mono-data text-xs"
-            style={{ borderColor: "#B23A2F", color: "#B23A2F", backgroundColor: "rgba(178,58,47,0.04)", borderRadius: 2 }}
+            style={{ borderColor: "#E15068", color: "#E15068", backgroundColor: "rgba(225,80,104,0.04)", borderRadius: 2 }}
           >
             {error}
           </div>
@@ -501,42 +501,42 @@ export function IntakeView() {
           <>
             <div
               className="case-card p-4 border-l-4"
-              style={{ borderLeftColor: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
+              style={{ borderLeftColor: redTeamResult.blocked ? "#54C99A" : "#C23856" }}
             >
               <p
                 className="font-stamp text-[10px] uppercase tracking-widest mb-2"
-                style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626", letterSpacing: "0.2em" }}
+                style={{ color: redTeamResult.blocked ? "#54C99A" : "#C23856", letterSpacing: "0.2em" }}
               >
                 🔴 Red Team Agent (live LLM) — {redTeamResult.title}
               </p>
               <p
                 className="font-mono-data text-xs font-semibold mb-2"
-                style={{ color: redTeamResult.blocked ? "#2F4A3B" : "#8B2626" }}
+                style={{ color: redTeamResult.blocked ? "#54C99A" : "#C23856" }}
               >
                 {redTeamResult.blocked ? "BLOCKED" : "⚠️ VULNERABLE"}
               </p>
-              <p className="font-mono-data text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.7)" }}>
+              <p className="font-mono-data text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "rgba(233,228,242,0.7)" }}>
                 {redTeamResult.finalResponse}
               </p>
             </div>
 
             {redTeamResult.toolCalls.map((call, i) => (
               <div key={i} className="case-card p-4">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: "rgba(31,27,22,0.1)" }}>
-                  <span className="font-stamp text-xs" style={{ color: "#B08D57" }}>
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: "rgba(233,228,242,0.1)" }}>
+                  <span className="font-stamp text-xs" style={{ color: "#D9A94A" }}>
                     tool call {i + 1} — {call.tool}
                   </span>
                 </div>
-                <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(31,27,22,0.4)" }}>
+                <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(233,228,242,0.4)" }}>
                   Input (the agent's choice)
                 </p>
-                <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
+                <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(233,228,242,0.6)", lineHeight: 1.6 }}>
                   {JSON.stringify(call.input, null, 2)}
                 </pre>
-                <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(31,27,22,0.4)" }}>
+                <p className="font-display text-[9px] uppercase tracking-widest mt-2 mb-1" style={{ color: "rgba(233,228,242,0.4)" }}>
                   Real server response
                 </p>
-                <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.6 }}>
+                <pre className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: "rgba(233,228,242,0.6)", lineHeight: 1.6 }}>
                   {JSON.stringify(call.result, null, 2)}
                 </pre>
               </div>
@@ -549,11 +549,11 @@ export function IntakeView() {
           return (
             <div key={i} className="case-card p-4">
               {/* Tool call header */}
-              <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: "rgba(31,27,22,0.1)" }}>
-                <span className="font-stamp text-xs" style={{ color: "#B08D57" }}>
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: "rgba(233,228,242,0.1)" }}>
+                <span className="font-stamp text-xs" style={{ color: "#D9A94A" }}>
                   {call.tool}
                 </span>
-                <span className="font-mono-data text-xs truncate" style={{ color: "rgba(31,27,22,0.4)" }}>
+                <span className="font-mono-data text-xs truncate" style={{ color: "rgba(233,228,242,0.4)" }}>
                   {JSON.stringify(call.input)}
                 </span>
               </div>
@@ -565,7 +565,7 @@ export function IntakeView() {
               ) : (
                 <pre
                   className="font-mono-data text-xs overflow-x-auto whitespace-pre-wrap"
-                  style={{ color: "rgba(31,27,22,0.6)", lineHeight: 1.7 }}
+                  style={{ color: "rgba(233,228,242,0.6)", lineHeight: 1.7 }}
                 >
                   {JSON.stringify(call.result, null, 2)}
                 </pre>
@@ -575,14 +575,14 @@ export function IntakeView() {
         })}
 
         {result && revealedCount >= result.toolCalls.length && (
-          <div className="case-card p-4 border-l-4" style={{ borderLeftColor: "#B08D57" }}>
+          <div className="case-card p-4 border-l-4" style={{ borderLeftColor: "#D9A94A" }}>
             <p
               className="font-stamp text-[10px] uppercase tracking-widest mb-2"
-              style={{ color: "#B08D57", letterSpacing: "0.2em" }}
+              style={{ color: "#D9A94A", letterSpacing: "0.2em" }}
             >
               Final Response
             </p>
-            <p className="font-mono-data text-xs leading-relaxed" style={{ color: "#1F1B16" }}>
+            <p className="font-mono-data text-xs leading-relaxed" style={{ color: "#E9E4F2" }}>
               {result.finalResponse}
             </p>
           </div>
@@ -636,7 +636,7 @@ function ProofDisplay({
         >
           {allowed ? "APPROVED" : "BLOCKED"}
         </span>
-        <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(31,27,22,0.4)" }}>
+        <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(233,228,242,0.4)" }}>
           outcome
         </span>
       </div>
@@ -655,16 +655,16 @@ function ProofRow({
   reason?: string;
   note?: string;
 }) {
-  const statusColor = { pass: "#2F4A3B", fail: "#B23A2F", idle: "rgba(31,27,22,0.3)" }[status];
+  const statusColor = { pass: "#54C99A", fail: "#E15068", idle: "rgba(233,228,242,0.3)" }[status];
   const statusLabel = { pass: "PASS", fail: "REJECTED", idle: "AWAITING" }[status];
 
   return (
     <div
       className="flex flex-col gap-1 px-3 py-2 border-l-2"
-      style={{ borderLeftColor: statusColor, backgroundColor: "rgba(31,27,22,0.02)" }}
+      style={{ borderLeftColor: statusColor, backgroundColor: "rgba(233,228,242,0.02)" }}
     >
       <div className="flex items-center gap-2">
-        <span className="font-display text-[9px] uppercase tracking-widest" style={{ color: "rgba(31,27,22,0.5)" }}>
+        <span className="font-display text-[9px] uppercase tracking-widest" style={{ color: "rgba(233,228,242,0.5)" }}>
           {label}
         </span>
         <span className="ml-auto font-stamp text-[9px] tracking-wider" style={{ color: statusColor }}>
@@ -672,7 +672,7 @@ function ProofRow({
         </span>
       </div>
       {reason && (
-        <p className="font-mono-data" style={{ fontSize: 9, color: "#B23A2F", lineHeight: 1.5 }}>
+        <p className="font-mono-data" style={{ fontSize: 9, color: "#E15068", lineHeight: 1.5 }}>
           {reason}
         </p>
       )}
@@ -695,9 +695,9 @@ function LookupOrderDisplay({ input, result }: { input: unknown; result: unknown
     <div className="space-y-2">
       <div
         className="px-3 py-2 border-l-2"
-        style={{ borderLeftColor: "#B08D57", backgroundColor: "rgba(176,141,87,0.04)" }}
+        style={{ borderLeftColor: "#D9A94A", backgroundColor: "rgba(217,169,74,0.04)" }}
       >
-        <p className="font-display text-[9px] uppercase tracking-widest mb-2" style={{ color: "#B08D57" }}>
+        <p className="font-display text-[9px] uppercase tracking-widest mb-2" style={{ color: "#D9A94A" }}>
           Order Profile — {String(inp?.orderRef ?? res?.orderRef ?? "—")}
         </p>
         <div className="grid grid-cols-2 gap-x-6 gap-y-1">
@@ -707,14 +707,14 @@ function LookupOrderDisplay({ input, result }: { input: unknown; result: unknown
             const isGood = good && num !== null ? good(num) : null;
             return (
               <div key={key} className="flex items-center justify-between">
-                <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(31,27,22,0.4)" }}>
+                <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(233,228,242,0.4)" }}>
                   {label}
                 </span>
                 <span
                   className="font-mono-data font-semibold"
                   style={{
                     fontSize: 9,
-                    color: isGood === null ? "#1F1B16" : isGood ? "#2F4A3B" : "#B23A2F",
+                    color: isGood === null ? "#E9E4F2" : isGood ? "#54C99A" : "#E15068",
                   }}
                 >
                   {unit === "$" ? `$${val}` : unit ? `${val} ${unit}` : String(val ?? "—")}

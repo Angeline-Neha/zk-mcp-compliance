@@ -55,14 +55,14 @@ export default function App() {
 
   return (
     <div
-      className={narrateMode ? "narrate-mode" : ""}
+      className={`live-backdrop${narrateMode ? " narrate-mode" : ""}`}
       style={{
         display: "grid",
         gridTemplateColumns: "52px 1fr 240px",
         gridTemplateRows: "36px 1fr",
         height: "100vh",
         overflow: "hidden",
-        backgroundColor: "#EDE6D6",
+        backgroundColor: "#0D0817",
       }}
     >
       <StatusStrip

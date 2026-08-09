@@ -17,7 +17,7 @@ export function WireView({ lines, onLineClick }: Props) {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        backgroundColor: '#14110E',
+        backgroundColor: '#05030A',
         overflow: 'hidden',
       }}
     >
@@ -25,8 +25,8 @@ export function WireView({ lines, onLineClick }: Props) {
       <div
         style={{
           padding: '6px 16px',
-          borderBottom: '1px solid rgba(176,141,87,0.15)',
-          backgroundColor: '#1A1510',
+          borderBottom: '1px solid rgba(217,169,74,0.15)',
+          backgroundColor: '#0D0817',
           display: 'flex',
           alignItems: 'center',
           gap: 16,
@@ -37,7 +37,7 @@ export function WireView({ lines, onLineClick }: Props) {
           style={{
             fontFamily: "'Special Elite', serif",
             fontSize: 11,
-            color: '#B08D57',
+            color: '#D9A94A',
             letterSpacing: '0.2em',
           }}
         >
@@ -45,9 +45,9 @@ export function WireView({ lines, onLineClick }: Props) {
         </span>
 
         <div style={{ display: 'flex', gap: 12, marginLeft: 8 }}>
-          <MetaStat label="TOTAL"  value={String(total)}     color="#B08D57" />
-          <MetaStat label="PASS"   value={String(passCount)} color="#4A8C6A" />
-          <MetaStat label="FAIL"   value={String(failCount)} color="#B23A2F" />
+          <MetaStat label="TOTAL"  value={String(total)}     color="#D9A94A" />
+          <MetaStat label="PASS"   value={String(passCount)} color="#6EDBB0" />
+          <MetaStat label="FAIL"   value={String(failCount)} color="#E15068" />
         </div>
 
         {/* Column headers */}
@@ -56,9 +56,9 @@ export function WireView({ lines, onLineClick }: Props) {
             marginLeft: 'auto',
             display: 'flex',
             gap: 10,
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 8,
-            color: 'rgba(176,141,87,0.3)',
+            color: 'rgba(217,169,74,0.3)',
             letterSpacing: '0.1em',
           }}
         >
@@ -81,7 +81,7 @@ function MetaStat({ label, value, color }: { label: string; value: string; color
         style={{
           fontFamily: "'Archivo', sans-serif",
           fontSize: 8,
-          color: 'rgba(176,141,87,0.4)',
+          color: 'rgba(217,169,74,0.4)',
           letterSpacing: '0.15em',
           textTransform: 'uppercase',
         }}
@@ -90,7 +90,7 @@ function MetaStat({ label, value, color }: { label: string; value: string; color
       </span>
       <span
         style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "'IBM Plex Mono', monospace",
           fontSize: 11,
           color,
           fontWeight: 600,

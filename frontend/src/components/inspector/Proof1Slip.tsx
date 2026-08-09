@@ -37,7 +37,7 @@ export function Proof1Slip({ proof1 }: Props) {
       style={{ padding: "12px 14px", marginBottom: 12 }}
     >
       <p style={stampStyle()}>Proof 1 — Evidence Slip</p>
-      <p style={{ ...monoStyle(8), color: "rgba(31,27,22,0.45)", marginTop: 4 }}>
+      <p style={{ ...monoStyle(8), color: "rgba(233,228,242,0.45)", marginTop: 4 }}>
         SIGMA / Schnorr · secp256k1
       </p>
 
@@ -47,7 +47,7 @@ export function Proof1Slip({ proof1 }: Props) {
         <Row label="c" value={truncateHex(proof1.c, 10, 8)} />
       </div>
 
-      <div style={{ marginTop: 12, borderTop: "1px solid rgba(31,27,22,0.1)", paddingTop: 10 }}>
+      <div style={{ marginTop: 12, borderTop: "1px solid rgba(233,228,242,0.1)", paddingTop: 10 }}>
         {CHECK_ORDER.map((key, idx) => {
           const resolved = resolvedCount > idx;
           const check = proof1.checks[key];
@@ -72,7 +72,7 @@ export function Proof1Slip({ proof1 }: Props) {
                 alignItems: "flex-start",
               }}
             >
-              <span style={{ ...monoStyle(8), color: "rgba(31,27,22,0.35)", width: 52, flexShrink: 0 }}>
+              <span style={{ ...monoStyle(8), color: "rgba(233,228,242,0.35)", width: 52, flexShrink: 0 }}>
                 {CHECK_LABELS[key]}
               </span>
               <span style={{ ...monoStyle(9), color, flex: 1 }}>
@@ -99,7 +99,7 @@ export function Proof1Slip({ proof1 }: Props) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 3 }}>
-      <span style={{ color: "rgba(31,27,22,0.4)", width: 14 }}>{label}</span>
+      <span style={{ color: "rgba(233,228,242,0.4)", width: 14 }}>{label}</span>
       <span style={{ wordBreak: "break-all" }}>{value}</span>
     </div>
   );
