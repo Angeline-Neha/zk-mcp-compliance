@@ -3,8 +3,7 @@ import { Scoreboard } from "../components/auditor/Scoreboard";
 import { BreachComparison } from "../components/auditor/BreachComparison";
 import { CheckpointFunnel } from "../components/auditor/CheckpointFunnel";
 import { ProofLatencyStrip } from "../components/auditor/ProofLatencyStrip";
-import { AuthorityTree } from "../components/auditor/AuthorityTree";
-import { ScopeCoverageMatrix } from "../components/auditor/ScopeCoverageMatrix";
+import { LiveDatabasePanel } from "../components/auditor/LiveDatabasePanel";
 import { Oscilloscope } from "../components/auditor/Oscilloscope";
 import { fetchAttackResults } from "../lib/api";
 
@@ -402,9 +401,8 @@ export function AuditorView() {
 
         {/* ── Authority + Scope ── */}
         <SectionHeading>Trust Graph & Scope Coverage</SectionHeading>
-        <div style={{ display: "grid", gridTemplateColumns: "7fr 5fr", gap: 20, paddingBottom: 32 }}>
-          <AuthorityTree />
-          <ScopeCoverageMatrix />
+        <div style={{ paddingBottom: 32 }}>
+          <LiveDatabasePanel />
         </div>
 
         {/* ── Footer stamp ── */}

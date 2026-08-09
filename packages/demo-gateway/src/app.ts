@@ -5,7 +5,7 @@ import { redTeamRouter } from "./routes/redTeam";
 import { demoControlRouter } from "./routes/demoControl";
 import { registerEventsRoutes } from "./routes/events";
 import { inspectorRouter } from "./routes/inspector";
-
+import { dbSnapshotRouter } from "./routes/dbSnapshot";
 export const app: Express = express();
 app.use(express.json());
 app.use(require("cors")());
@@ -15,6 +15,7 @@ app.use("/admin-task", adminTaskRouter);
 app.use("/attack", attacksRouter);
 app.use("/red-team", redTeamRouter);
 app.use("/demo", demoControlRouter);
+app.use("/auditor", dbSnapshotRouter);
 registerEventsRoutes(app);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

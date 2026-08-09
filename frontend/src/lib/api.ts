@@ -261,6 +261,25 @@ export interface AttackOutcome {
   lastRunAt: string | null;
   lastReason: string | null;
 }
+export interface DbTableSnapshot {
+  key: string;
+  label: string;
+  count: number;
+  latest: Record<string, unknown>[];
+  ok: boolean;
+  error?: string;
+}
+
+export interface DbSnapshot {
+  tables: DbTableSnapshot[];
+  fetchedAt: string;
+}
+
+export async function fetchDbSnapshot(): Promise<DbSnapshot> {
+  const res = await fetch(`${GATEWAY_URL}/auditor/db-snapshot`);
+  if (!res.ok) throw new Error(`db-snapshot failed: ${res.status}`);
+  return res.json();
+}
 
 /** Real per-exhibit outcomes from actually-completed runs — backs the Auditor Scoreboard. */
 export async function fetchAttackResults(): Promise<Record<string, AttackOutcome>> {
