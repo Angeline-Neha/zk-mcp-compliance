@@ -166,7 +166,7 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
           `}</style>
         </defs>
 
-        {EDGES.map((edge) => {
+        {EDGES.filter((edge) => edge.from !== 'admin-agent' && edge.to !== 'admin-agent' && edge.from !== 'admin-mcp' && edge.to !== 'admin-mcp').map((edge) => {
           const fromRect = nodeRects[edge.from];
           const toRect   = nodeRects[edge.to];
           const edgeState = boardState.edges[edge.id];
@@ -214,7 +214,7 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
       </svg>
 
       {/* ── Node cards (above threads) ── */}
-      {NODES.map((nodeDef) => {
+      {NODES.filter((n) => n.id !== 'admin-agent' && n.id !== 'admin-mcp').map((nodeDef) => {
         const ns = boardState.nodes[nodeDef.id] ?? { visual: 'idle' };
         return (
           <div

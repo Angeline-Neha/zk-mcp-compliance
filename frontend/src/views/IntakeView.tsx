@@ -489,7 +489,7 @@ export function IntakeView() {
         </div>
 
         <div className="ml-auto flex gap-2">
-          {(["refund", "deletion"] as const).map((t) => (
+          {(["refund"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTarget(t)}

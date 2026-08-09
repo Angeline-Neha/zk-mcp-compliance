@@ -14,6 +14,7 @@ fi
 if [ "$1" == "--seed" ]; then
   echo "Reseeding database..."
   node seed.js
+  node seed_accounts.js
 fi
 
 echo "Starting all services and frontend in parallel..."

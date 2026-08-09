@@ -32,17 +32,17 @@ export function StatusStrip({
         flexShrink: 0,
       }}
     >
-      {/* Case number — stamp face, gold, per layout spec */}
+      {/* Project title — stamp face, gold, per layout spec */}
       <span
         className="font-stamp text-xs tracking-widest"
         style={{ color: "#D9A94A", letterSpacing: "0.18em", textShadow: "0 0 12px rgba(217,169,74,0.35)" }}
       >
-        CASE #{caseNumber}
+        ZK-MCP AUTH & COMPLIANCE
       </span>
 
       <Divider />
 
-      <StatItem label="AGENTS ONLINE" value={String(agentsOnline)} />
+      <StatItem label="SERVICES ONLINE" value={String(agentsOnline)} />
       <Divider />
       <StatItem label="REQUESTS/MIN" value={String(requestsPerMin)} />
       <Divider />

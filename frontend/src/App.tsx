@@ -66,7 +66,7 @@ export default function App() {
       }}
     >
       <StatusStrip
-        agentsOnline={stats.agentsOnline}
+        agentsOnline={Math.min(stats.agentsOnline, 5)}
         requestsPerMin={stats.requestsPerMin}
         verifiedPct={stats.verifiedPct}
         history={stats.history}
