@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/banner-v2.svg" width="100%" alt="ZK-MCP-Auth-Compliance" />
+  <img src="./docs/banner-v3.svg" width="100%" alt="ZK-MCP-Auth-Compliance" />
 </div>
 
 # zk-mcp-compliance
