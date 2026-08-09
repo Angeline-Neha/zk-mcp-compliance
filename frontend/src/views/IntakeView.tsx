@@ -455,7 +455,7 @@ export function IntakeView() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: "#0D0817", position: "relative" }}>
+    <div className="h-full flex flex-col overflow-y-auto" style={{ backgroundColor: "#0D0817", position: "relative" }}>
       {/* Blueprint grid overlay */}
       <div
         style={{
@@ -728,7 +728,7 @@ export function IntakeView() {
       </div>
 
       {/* ── Results ── */}
-      <div className="flex-1 overflow-y-auto scrollbar-paper p-5 space-y-4">
+      <div className="p-5 space-y-4">
         {error && (
           <div
             className="border px-4 py-3 font-mono-data text-xs"

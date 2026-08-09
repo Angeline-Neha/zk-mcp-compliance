@@ -472,7 +472,7 @@ export function BaselineView() {
     setError(null);
 
     const ref = defaultOrder;
-    const otherRef = String(Number(ref) + 50);
+    const otherRef = String(Number(ref) + 1);  // +1 lands on a real adjacent order owned by another customer
 
     try {
       if (directAttackId === "1") {
@@ -530,7 +530,7 @@ export function BaselineView() {
 
   return (
     <div
-      className="h-full flex flex-col overflow-hidden"
+      className="h-full flex flex-col overflow-y-auto"
       style={{ backgroundColor: "#0D0817", position: "relative" }}
     >
       {/* Blueprint grid overlay */}
@@ -546,7 +546,7 @@ export function BaselineView() {
         }}
       />
 
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", minHeight: "100%" }}>
 
         {/* ── Header ── */}
         <div
@@ -734,36 +734,30 @@ export function BaselineView() {
               Auto-fill →
             </button>
 
-            {TRADITIONAL_ATTACKS.map((atk) => (
-              <button
-                key={atk.id}
-                onClick={() => loadAttack(atk.id)}
-                disabled={!ordersLoaded || loading}
-                title={atk.zkAttack}
-                style={{
-                  fontFamily: "var(--font-data)",
-                  fontSize: 9,
-                  color: atk.accent,
-                  border: `1px solid ${attackMode === atk.id ? atk.accent : `${atk.accent}55`}`,
-                  borderRadius: 2,
-                  backgroundColor: attackMode === atk.id ? `${atk.accent}12` : "transparent",
-                  padding: "3px 8px",
-                  cursor: !ordersLoaded || loading ? "not-allowed" : "pointer",
-                  letterSpacing: "0.05em",
-                  transition: "all 0.15s",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {atk.label}
-                <span style={{ opacity: 0.55, fontSize: 8, marginLeft: 4, fontStyle: "normal" }}>[≈ {atk.zkAttack.split(":")[0]}]</span>
-                {" →"}
-              </button>
-            ))}
+            <button
+              onClick={() => loadAttack("prompt_injection")}
+              disabled={!ordersLoaded || loading}
+              title="Attack 8: Intent Binding Fail — Prompt Injection / IDOR equivalent"
+              style={{
+                fontFamily: "var(--font-data)", fontSize: 9,
+                color: attackMode === "prompt_injection" ? "#E15068" : "#E15068",
+                border: `1px solid ${attackMode === "prompt_injection" ? "#E15068" : "rgba(225,80,104,0.45)"}`,
+                borderRadius: 2,
+                backgroundColor: attackMode === "prompt_injection" ? "rgba(225,80,104,0.1)" : "transparent",
+                padding: "3px 8px",
+                cursor: !ordersLoaded || loading ? "not-allowed" : "pointer",
+                letterSpacing: "0.05em",
+                transition: "all 0.15s",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Prompt Injection<span style={{ opacity: 0.55, fontSize: 8, marginLeft: 4 }}>[≈ Attack 8]</span>{" →"}
+            </button>
 
             <button
               onClick={runReplayAttack}
               disabled={!ordersLoaded || loading || salamiRunning}
-              title="Attack 1: Replay Attack — JWT/Token Replay equivalent"
+              title="Attack 1: Token Replay — JWT/Nonce Replay equivalent (LLM path)"
               style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "#54C99A", border: `1px solid ${salamiRunning ? "rgba(84,201,154,0.4)" : "rgba(84,201,154,0.5)"}`, borderRadius: 2, backgroundColor: "transparent", padding: "3px 8px", cursor: !ordersLoaded || loading || salamiRunning ? "not-allowed" : "pointer", letterSpacing: "0.05em", whiteSpace: "nowrap" }}
             >
               {salamiRunning
@@ -832,7 +826,7 @@ export function BaselineView() {
         {/* ── Results ── */}
         <div
           ref={resultsRef}
-          style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}
+          style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}
         >
           {error && (
             <div style={{ border: "1px solid rgba(225,80,104,0.4)", color: "#E15068", backgroundColor: "rgba(225,80,104,0.06)", borderRadius: 2, padding: "10px 14px", fontFamily: "var(--font-data)", fontSize: 11 }}>

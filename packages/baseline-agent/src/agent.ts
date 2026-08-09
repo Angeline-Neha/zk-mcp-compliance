@@ -2,6 +2,37 @@ import Groq from "groq-sdk";
 import type { ChatCompletionMessageParam, ChatCompletionTool } from "groq-sdk/resources/chat/completions";
 import { loadOrderContext, executeRefund, type OrderContext } from "./db";
 import { evaluatePolicy } from "./policy";
+import fs from "fs";
+import path from "path";
+
+// Try to auto-load GROQ_API_KEY from .env if missing from process.env
+if (!process.env.GROQ_API_KEY) {
+  try {
+    const possiblePaths = [
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "..", "..", ".env"),
+    ];
+    // Add __dirname fallback for CommonJS compatibility
+    if (typeof __dirname !== "undefined") {
+      possiblePaths.push(path.resolve(__dirname, "..", "..", "..", ".env"));
+    }
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        const envContent = fs.readFileSync(p, "utf-8");
+        for (const line of envContent.split(/\r?\n/)) {
+          const match = line.match(/^\s*GROQ_API_KEY\s*=\s*(.+)$/);
+          if (match) {
+            process.env.GROQ_API_KEY = match[1].trim();
+            break;
+          }
+        }
+      }
+      if (process.env.GROQ_API_KEY) break;
+    }
+  } catch (e) {
+    // Ignore error
+  }
+}
 
 /**
  * BASELINE AGENT — the comparison arm.
@@ -30,6 +61,9 @@ import { evaluatePolicy } from "./policy";
 
 let _groq: Groq | null = null;
 function getGroqClient(): Groq {
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("The GROQ_API_KEY environment variable is missing or empty.");
+  }
   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   return _groq;
 }
