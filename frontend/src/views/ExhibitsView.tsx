@@ -1,9 +1,5 @@
 /**
- * ExhibitsView — Phase 5: Nine Attack Exhibits
- *
- * Each panel corresponds to one attack definition in the backend
- * (packages/demo-gateway/src/attackSteps/). Panels are step-through
- * interactive: click "Run" → click "Step" through each stage → see BLOCKED.
+ * ExhibitsView — Phase 5: Nine Attack Exhibits (dark purple theme)
  */
 import { useState } from "react";
 import { ExhibitPanel, ExhibitMeta } from "../components/exhibits/ExhibitPanel";
@@ -126,11 +122,14 @@ export function ExhibitsView() {
       {/* ── Left nav: exhibit index ── */}
       <nav className="exhibits-nav">
         <div className="exhibits-nav-header">
-          <span className="font-stamp" style={{ fontSize: 11, letterSpacing: "0.18em", color: "#B23A2F" }}>
+          <p style={{ fontFamily: "var(--font-data)", fontSize: 8, letterSpacing: "0.25em", color: "#8B7FE0", margin: "0 0 2px", textTransform: "uppercase" }}>
+            ZK-MCP COMPLIANCE
+          </p>
+          <span className="font-stamp" style={{ fontSize: 11, letterSpacing: "0.18em", color: "#E15068" }}>
             CASE FILE
           </span>
           <br />
-          <span className="font-stamp" style={{ fontSize: 9, letterSpacing: "0.12em", color: "#1F1B16", opacity: 0.5 }}>
+          <span className="font-stamp" style={{ fontSize: 9, letterSpacing: "0.12em", color: "rgba(233,228,242,0.45)" }}>
             ATTACK EXHIBITS
           </span>
         </div>

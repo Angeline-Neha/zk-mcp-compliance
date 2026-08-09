@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   submitAdminTask,
   submitStructuredTask,
@@ -11,6 +11,240 @@ import {
   type Customer,
   type RedTeamToolCall,
 } from "../lib/api";
+
+/* ── Per-attack live workflow steps shown while LLM is running ── */
+const ATTACK_STEPS: Record<string, string[]> = {
+  "1": [
+    "Requesting attestation from Issuer MCP…",
+    "Fetching nonce from finance-mcp-server…",
+    "Generating Sigma proof (Proof 1)…",
+    "Replaying captured proof to gate…",
+    "Gate checking nonce burn status…",
+    "Evaluating gate response…",
+  ],
+  "2": [
+    "Registering attacker with refund scope…",
+    "Requesting nonce for admin-mcp-server…",
+    "Generating proof with refund credentials…",
+    "Calling delete_account with refund proof…",
+    "Gate checking scope match…",
+    "Evaluating gate response…",
+  ],
+  "3": [
+    "Requesting base attestation (limit: $50)…",
+    "Constructing delegation with $999,999 limit…",
+    "Submitting over-scoped delegation to gate…",
+    "Gate validating delegation chain…",
+    "Checking granted vs requested limits…",
+    "Evaluating gate response…",
+  ],
+  "4": [
+    "Attempting to reach un-attested tool…",
+    "Forging attestation for delete_account…",
+    "Generating proof for non-existent attestation…",
+    "Submitting to admin gate…",
+    "Gate verifying attestation chain…",
+    "Evaluating gate response…",
+  ],
+  "5": [
+    "Requesting attestation on finance-mcp-server…",
+    "Fetching nonce for finance-mcp-server…",
+    "Generating Proof 1 for finance server…",
+    "Submitting finance proof to admin-mcp-server…",
+    "Gate checking server binding in proof…",
+    "Evaluating gate response…",
+  ],
+  "6": [
+    "Registering attacker identity…",
+    "Generating valid proof before revocation…",
+    "Revoking agent mid-flight…",
+    "Submitting proof after revocation…",
+    "Gate checking revocation status…",
+    "Evaluating gate response…",
+  ],
+  "7": [
+    "Registering attacker identity…",
+    "Fetching nonce from gate…",
+    "Forging policy commitment with $999,999 limit…",
+    "Generating fake Groth16 compliance proof…",
+    "Submitting forged proof to finance gate…",
+    "Gate verifying commitment against registry…",
+    "Evaluating gate response…",
+  ],
+};
+
+const DEFAULT_STEPS = [
+  "Initialising red team agent…",
+  "Calling Issuer MCP to register…",
+  "Fetching cryptographic nonce…",
+  "Generating proof materials…",
+  "Submitting to live gate…",
+  "Awaiting gate verdict…",
+];
+
+/* ── Live workflow timeline shown while LLM attack runs ── */
+function LiveWorkflow({ attackId }: { attackId: string }) {
+  const steps = ATTACK_STEPS[attackId] ?? DEFAULT_STEPS;
+  const [activeStep, setActiveStep] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setActiveStep(0);
+    setCompletedSteps([]);
+    let current = 0;
+    timerRef.current = setInterval(() => {
+      setCompletedSteps((prev) => [...prev, current]);
+      current += 1;
+      if (current < steps.length) {
+        setActiveStep(current);
+      } else {
+        clearInterval(timerRef.current!);
+      }
+    }, 2200);
+    return () => clearInterval(timerRef.current!);
+  }, [attackId, steps.length]);
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#100B20",
+        border: "1px solid rgba(194,56,86,0.25)",
+        borderLeft: "3px solid #C23856",
+        borderRadius: 3,
+        padding: "14px 16px",
+        marginTop: 8,
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "var(--font-data)",
+          fontSize: 9,
+          textTransform: "uppercase",
+          letterSpacing: "0.2em",
+          color: "#C23856",
+          marginBottom: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            backgroundColor: "#C23856",
+            display: "inline-block",
+            animation: "intake-pulse 1.2s ease-in-out infinite",
+          }}
+        />
+        Live Agent Workflow — Attack {attackId}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {steps.map((step, i) => {
+          const done = completedSteps.includes(i);
+          const active = activeStep === i && !done;
+          const pending = !done && !active;
+          return (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                opacity: pending ? 0.3 : 1,
+                transition: "opacity 0.4s ease",
+              }}
+            >
+              {/* icon */}
+              <span
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  border: `1.5px solid ${done ? "#54C99A" : active ? "#D9A94A" : "rgba(233,228,242,0.2)"}`,
+                  backgroundColor: done
+                    ? "rgba(84,201,154,0.15)"
+                    : active
+                    ? "rgba(217,169,74,0.1)"
+                    : "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  fontSize: 8,
+                  color: done ? "#54C99A" : active ? "#D9A94A" : "transparent",
+                  transition: "all 0.3s ease",
+                  animation: active ? "intake-pulse 1s ease-in-out infinite" : "none",
+                }}
+              >
+                {done ? "✓" : active ? "●" : ""}
+              </span>
+              {/* label */}
+              <span
+                style={{
+                  fontFamily: "var(--font-data)",
+                  fontSize: 10,
+                  color: done ? "#54C99A" : active ? "#D9A94A" : "rgba(233,228,242,0.5)",
+                  transition: "color 0.3s ease",
+                  letterSpacing: "0.03em",
+                }}
+              >
+                {step}
+              </span>
+              {active && (
+                <span
+                  style={{
+                    fontFamily: "var(--font-data)",
+                    fontSize: 9,
+                    color: "rgba(217,169,74,0.6)",
+                    animation: "blink-cursor 1s step-end infinite",
+                    marginLeft: 2,
+                  }}
+                >
+                  ▌
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* progress bar */}
+      <div
+        style={{
+          marginTop: 14,
+          height: 3,
+          backgroundColor: "rgba(233,228,242,0.08)",
+          borderRadius: 2,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${Math.round((completedSteps.length / steps.length) * 100)}%`,
+            background: "linear-gradient(to right, #C23856, #D9A94A)",
+            borderRadius: 2,
+            transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        />
+      </div>
+      <style>{`
+        @keyframes intake-pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.3; }
+        }
+        @keyframes blink-cursor {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 /* ── Red Team Agent — attacks 1-7 only; 8/9 already live as intake attack modes ── */
 const RED_TEAM_ATTACKS = ATTACKS.filter((a) => Number(a.id) <= 7);
@@ -221,7 +455,21 @@ export function IntakeView() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: "#0D0817" }}>
+    <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: "#0D0817", position: "relative" }}>
+      {/* Blueprint grid overlay */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          zIndex: 0,
+          backgroundImage:
+            "repeating-linear-gradient(to right,rgba(42,32,68,0.35) 0,rgba(42,32,68,0.35) 1px,transparent 1px,transparent 32px),repeating-linear-gradient(to bottom,rgba(42,32,68,0.35) 0,rgba(42,32,68,0.35) 1px,transparent 1px,transparent 32px)",
+          opacity: 0.55,
+        }}
+      />
+      {/* All content needs z-index above grid */}
+      <div style={{ position: "relative", zIndex: 1, display: "contents" }}>
 
       {/* ── Header ── */}
       <div
@@ -355,13 +603,6 @@ export function IntakeView() {
         >
           {redTeamRunning ? "Firing…" : "Fire Attack"}
         </button>
-
-        {redTeamStatus && (
-          <span className="font-mono-data" style={{ fontSize: 10, color: "rgba(233,228,242,0.5)" }}>
-            {redTeamStatus}
-          </span>
-        )}
-
 
         <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(233,228,242,0.35)" }}>
           Runs against the live gate in real time — check the Board to watch it land.
@@ -587,6 +828,12 @@ export function IntakeView() {
             </p>
           </div>
         )}
+
+        {/* Live workflow shown while red team agent is running */}
+        {redTeamRunning && <LiveWorkflow attackId={redTeamAttackId} />}
+      </div>
+
+      {/* close the z-index wrapper div */}
       </div>
     </div>
   );
