@@ -179,6 +179,77 @@ export async function submitBaselineTicket(args: {
   return res.json();
 }
 
+/* ── Baseline Direct API Attacks (no LLM — raw parameter manipulation) ── */
+
+export interface BaselineAttackResult {
+  allowed: boolean;
+  refundId?: string;
+  action?: string;
+  sessionId?: string;
+  sessionStillActive?: boolean;
+  ownedBy?: string;
+  claimedService?: string;
+  effectiveLimitUsed?: number;
+  realLimit?: number;
+  realPolicyWouldApprove?: boolean;
+  escalated?: boolean;
+  exploited?: boolean;
+  realValues?: Record<string, unknown>;
+  callerSuppliedFakeValues?: Record<string, unknown>;
+  reason?: string;
+  note?: string;
+  vulnerability: string;
+  zkDifference: string;
+  [key: string]: unknown;
+}
+
+async function baselineAttack(path: string, body: unknown): Promise<BaselineAttackResult> {
+  const res = await fetch(`${BASELINE_URL}/attack${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({ error: res.statusText, vulnerability: "", zkDifference: "" }));
+  if (!res.ok && !data.vulnerability) throw new Error(data.error ?? res.statusText);
+  return data;
+}
+
+// Attack 1 — Token Replay
+export const runBaselineReplay = (customerId: string, orderRef: string) =>
+  baselineAttack("/replay", { customerId, orderRef });
+
+// Attack 2 — Confused Deputy
+export const runBaselineConfusedDeputy = (customerId: string, orderRef: string, action: "refund" | "delete") =>
+  baselineAttack("/confused-deputy", { customerId, orderRef, action });
+
+// Attack 3 — Privilege Escalation
+export const runBaselinePrivilegeEscalation = (customerId: string, orderRef: string, claimedLimit: number) =>
+  baselineAttack("/privilege-escalation", { customerId, orderRef, claimedLimit });
+
+// Attack 4 — IDOR (no ownership check)
+export const runBaselineIdor = (orderRef: string) =>
+  baselineAttack("/idor", { orderRef });
+
+// Attack 5 — Cross-Service Reuse
+export const runBaselineCrossService = (customerId: string, orderRef: string, serviceHeader: string) =>
+  baselineAttack("/cross-service", { customerId, orderRef, serviceHeader });
+
+// Attack 6 — TOCTOU: create → revoke → fire
+export const createBaselineSession = (customerId: string) =>
+  baselineAttack("/session/create", { customerId });
+export const revokeBaselineSession = (sessionId: string) =>
+  baselineAttack("/session/revoke", { sessionId });
+export const runBaselineToctou = (customerId: string, orderRef: string, sessionId: string) =>
+  baselineAttack("/toctou-refund", { customerId, orderRef, sessionId });
+
+// Attack 7 — Fake Compliance Proof
+export const runBaselineFakeCompliance = (
+  customerId: string,
+  orderRef: string,
+  fakeFields: { amount?: number; accountAgeDays?: number; pastRefundCount?: number; transactionAgeDays?: number }
+) => baselineAttack("/fake-compliance", { customerId, orderRef, fakeFields });
+
+
 export async function fetchCustomers(): Promise<Customer[]> {
   const res = await fetch(`${GATEWAY_URL}/task/customers`);
   if (!res.ok) throw new Error("Failed to fetch customers");

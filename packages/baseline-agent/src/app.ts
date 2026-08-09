@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { z } from "zod";
 import { handleTicket } from "./agent";
+import { attackRouter } from "./attacks";
 
 export const app = express();
 app.use(cors());
@@ -22,5 +23,8 @@ app.post("/ticket", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Traditional API attack routes - direct parameter manipulation, no LLM involved
+app.use("/attack", attackRouter);
 
 app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
