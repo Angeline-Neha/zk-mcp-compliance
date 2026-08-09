@@ -1,0 +1,151 @@
+<svg width="1000" height="300" viewBox="0 0 1000 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d0518"/>
+      <stop offset="55%" stop-color="#1a0b2e"/>
+      <stop offset="100%" stop-color="#0d0518"/>
+    </linearGradient>
+    <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#e879f9"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="50%" cy="35%" r="75%">
+      <stop offset="0%" stop-color="#3b1370" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#3b1370" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M 34 0 L 0 0 0 34" fill="none" stroke="#3d2266" stroke-width="0.7" opacity="0.45"/>
+    </pattern>
+    <pattern id="gridBig" width="170" height="170" patternUnits="userSpaceOnUse">
+      <path d="M 170 0 L 0 0 0 170" fill="none" stroke="#5b21b6" stroke-width="0.9" opacity="0.35"/>
+    </pattern>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .mono { font-family: 'Courier New', monospace; }
+      .chip { fill: #170a2c; stroke: #6d28d9; stroke-width: 1; }
+      .chip-txt { font-family: 'Courier New', monospace; font-size: 9.5px; fill: #d8b4fe; }
+    </style>
+  </defs>
+
+  <!-- base -->
+  <rect width="1000" height="300" fill="url(#bg)"/>
+  <rect width="1000" height="300" fill="url(#gridBig)"/>
+  <rect width="1000" height="300" fill="url(#grid)"/>
+  <rect width="1000" height="300" fill="url(#vignette)"/>
+  <rect x="0" y="0" width="1000" height="300" fill="none" stroke="#4c1d95" stroke-width="1.5" opacity="0.6"/>
+
+  <!-- corner accents -->
+  <path d="M0,24 L0,0 L24,0" fill="none" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+  <path d="M1000,24 L1000,0 L976,0" fill="none" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+  <path d="M0,276 L0,300 L24,300" fill="none" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+  <path d="M1000,276 L1000,300 L976,300" fill="none" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+
+  <!-- title -->
+  <text x="500" y="42" text-anchor="middle" class="mono" font-size="27" font-weight="bold" fill="url(#titleGrad)" filter="url(#glow)" letter-spacing="1">
+    ZK-MCP-AUTH-COMPLIANCE
+  </text>
+  <text x="500" y="62" text-anchor="middle" class="mono" font-size="11.5" fill="#9d7cc9" letter-spacing="2.5">
+    ZERO-KNOWLEDGE TWO-PROOF AUTHORIZATION GATE FOR AI / MCP AGENTS
+  </text>
+
+  <!-- ===== animated proof flow ===== -->
+  <!-- Agent -->
+  <g filter="url(#softGlow)">
+    <circle cx="90" cy="168" r="30" fill="#170a2c" stroke="#38bdf8" stroke-width="2"/>
+  </g>
+  <text x="90" y="164" text-anchor="middle" class="mono" font-size="9.5" fill="#7dd3fc">SUPPORT</text>
+  <text x="90" y="175" text-anchor="middle" class="mono" font-size="9.5" fill="#7dd3fc">AGENT</text>
+  <text x="90" y="205" text-anchor="middle" class="mono" font-size="8" fill="#5b6c85">Groq · Llama 3.3</text>
+
+  <!-- issuer-service -->
+  <g filter="url(#softGlow)">
+    <circle cx="280" cy="168" r="32" fill="#170a2c" stroke="#a855f7" stroke-width="2.2"/>
+  </g>
+  <text x="280" y="163" text-anchor="middle" class="mono" font-size="9" fill="#e9d5ff">PROOF 1</text>
+  <text x="280" y="174" text-anchor="middle" class="mono" font-size="9" fill="#e9d5ff">SCHNORR</text>
+  <text x="280" y="205" text-anchor="middle" class="mono" font-size="8" fill="#5b6c85">issuer-service · secp256k1</text>
+
+  <!-- compliance-proving-service -->
+  <g filter="url(#softGlow)">
+    <circle cx="500" cy="168" r="36" fill="#170a2c" stroke="#e879f9" stroke-width="2.4">
+      <animate attributeName="r" values="36;40;36" dur="2.6s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  <text x="500" y="163" text-anchor="middle" class="mono" font-size="9" fill="#f5d0fe">PROOF 2</text>
+  <text x="500" y="174" text-anchor="middle" class="mono" font-size="9" fill="#f5d0fe">GROTH16</text>
+  <text x="500" y="207" text-anchor="middle" class="mono" font-size="8" fill="#5b6c85">Circom circuits · policy check</text>
+
+  <!-- finance-mcp-server -->
+  <g filter="url(#softGlow)">
+    <circle cx="720" cy="168" r="32" fill="#170a2c" stroke="#a855f7" stroke-width="2.2"/>
+  </g>
+  <text x="720" y="163" text-anchor="middle" class="mono" font-size="8.5" fill="#e9d5ff">FINANCE</text>
+  <text x="720" y="174" text-anchor="middle" class="mono" font-size="8.5" fill="#e9d5ff">MCP GATE</text>
+  <text x="720" y="205" text-anchor="middle" class="mono" font-size="8" fill="#5b6c85">two-proof check</text>
+
+  <!-- tool executed -->
+  <g filter="url(#softGlow)">
+    <circle cx="910" cy="168" r="30" fill="#170a2c" stroke="#4ade80" stroke-width="2"/>
+  </g>
+  <text x="910" y="164" text-anchor="middle" class="mono" font-size="9" fill="#86efac">ISSUE_</text>
+  <text x="910" y="175" text-anchor="middle" class="mono" font-size="9" fill="#86efac">REFUND</text>
+
+  <!-- connecting lines -->
+  <line x1="120" y1="168" x2="248" y2="168" stroke="#3d2266" stroke-width="2"/>
+  <line x1="312" y1="168" x2="464" y2="168" stroke="#3d2266" stroke-width="2"/>
+  <line x1="536" y1="168" x2="688" y2="168" stroke="#3d2266" stroke-width="2"/>
+  <line x1="752" y1="168" x2="880" y2="168" stroke="#3d2266" stroke-width="2"/>
+
+  <!-- traveling pulse, full chain, looping -->
+  <circle r="6.5" fill="#e879f9" filter="url(#glow)">
+    <animateMotion dur="4.2s" repeatCount="indefinite"
+      path="M90,168 L90,168 L280,168 L280,168 L500,168 L500,168 L720,168 L720,168 L910,168"
+      keyPoints="0;0.02;0.02;0.26;0.26;0.5;0.5;0.74;1"
+      keyTimes="0;0.02;0.24;0.26;0.48;0.5;0.72;0.74;1"
+      calcMode="linear"/>
+  </circle>
+
+  <!-- checkmark flash at final node -->
+  <path d="M898,168 l8,8 l16,-16" stroke="#4ade80" stroke-width="0" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <animate attributeName="stroke-width" values="0;0;3;3;0" keyTimes="0;0.7;0.78;0.96;1" dur="4.2s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- ===== stack chip row ===== -->
+  <g class="mono">
+    <rect x="30" y="238" width="90" height="22" rx="11" class="chip"/>
+    <text x="75" y="252" text-anchor="middle" class="chip-txt">sigma-core</text>
+
+    <rect x="128" y="238" width="112" height="22" rx="11" class="chip"/>
+    <text x="184" y="252" text-anchor="middle" class="chip-txt">Postgres + Redis</text>
+
+    <rect x="248" y="238" width="130" height="22" rx="11" class="chip"/>
+    <text x="313" y="252" text-anchor="middle" class="chip-txt">compliance-circuits</text>
+
+    <rect x="386" y="238" width="96" height="22" rx="11" class="chip"/>
+    <text x="434" y="252" text-anchor="middle" class="chip-txt">orchestrator</text>
+
+    <rect x="490" y="238" width="86" height="22" rx="11" class="chip"/>
+    <text x="533" y="252" text-anchor="middle" class="chip-txt">admin-mcp</text>
+
+    <rect x="584" y="238" width="98" height="22" rx="11" class="chip"/>
+    <text x="633" y="252" text-anchor="middle" class="chip-txt">attack-scripts</text>
+
+    <rect x="690" y="238" width="102" height="22" rx="11" class="chip"/>
+    <text x="741" y="252" text-anchor="middle" class="chip-txt">demo-gateway</text>
+
+    <rect x="800" y="238" width="140" height="22" rx="11" class="chip"/>
+    <text x="870" y="252" text-anchor="middle" class="chip-txt">React · Vite · Tailwind</text>
+  </g>
+
+  <text x="500" y="286" text-anchor="middle" class="mono" font-size="9.5" fill="#5b3d8a">
+    zero-knowledge · privacy-preserving · prompt-injection resistant · 8 packages · 7 attacks blocked
+  </text>
+</svg>

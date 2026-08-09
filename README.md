@@ -1,7 +1,5 @@
 <div align="center">
-
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=24&pause=1000&color=2EA0DE&center=true&vCenter=true&width=600&lines=Zero-Knowledge+MCP+Compliance+System;Two+Independent+ZK+Proofs%2C+Zero+Trust+Leaks;Schnorr+%2B+Groth16+%C2%B7+Built+for+AI+Agent+Authorization)](https://git.io/typing-svg)
-
+  <img src="./docs/banner-v2.svg" width="100%" alt="ZK-MCP-Auth-Compliance" />
 </div>
 # zk-mcp-compliance
 
