@@ -309,7 +309,17 @@ export async function runRedTeamAttack(attackId: string): Promise<RedTeamRunResu
     }
 
     const message = response.choices[0].message;
-    messages.push(message);
+    const trimmedMessage = {
+      ...message,
+      tool_calls: message.tool_calls?.map((tc) => ({
+        ...tc,
+        function: {
+          ...tc.function,
+          arguments: JSON.stringify(trimForHistory(JSON.parse(tc.function.arguments))),
+        },
+      })),
+    };
+    messages.push(trimmedMessage);
 
     const toolCallsThisTurn = message.tool_calls ?? [];
     if (toolCallsThisTurn.length === 0) {
