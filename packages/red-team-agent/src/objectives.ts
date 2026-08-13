@@ -43,17 +43,38 @@ export const OBJECTIVES: Objective[] = [
     id: "4",
     title: "Lateral Movement",
     brief:
-      "Without ever registering ANY identity for delete_account, fabricate an attestationId (any string) and try " +
-      "to get a proof accepted for it against admin-mcp-server. There should be no attestation to find at all.",
+      "Step 1: register_attacker with agentId \"attacker-4\" and ANY scope (e.g. {action:\"issue_refund\"}) — " +
+      "this identity does NOT need delete_account scope, it just needs to exist so generate_proof has a real key " +
+      "to sign with. Step 2: get_nonce with scope \"delete_account\" against admin-mcp-server — this nonce must " +
+      "be genuinely issued. Step 3: generate_proof using that SAME agentId, nonce, scope \"delete_account\", and " +
+      "serverId \"admin-mcp-server\" — this produces a genuinely valid sigma proof, just not one backed by a real " +
+      "delete_account attestation. Step 4: call verify_proof1 with that real proof and nonce, but pass a " +
+      "FABRICATED attestationId instead of a real one — it must be a syntactically valid UUID that was never " +
+      "actually issued (e.g. \"00000000-0000-0000-0000-000000000000\"), NOT an arbitrary string like " +
+      "\"fake-attestation-999\" — the server validates UUID format before checking existence, so a non-UUID " +
+      "string only tests the schema layer, not the gate. Do NOT call register_attacker for delete_account and " +
+      "do NOT let the attestationId come from step 1's identity. Do NOT go through call_mcp_tool/delete_account " +
+      "for this attack; verify_proof1 alone is the correct and sufficient test. A real system must independently " +
+      "look up the attestationId and find nothing — an algebraically valid proof with no matching attestation " +
+      "must still be rejected.",
   },
   {
     id: "5",
     title: "Cross-Server Credential Reuse",
     brief:
-      "Register an identity for delete_account, get a nonce genuinely issued for admin-mcp-server, but generate " +
-      "the sigma proof as if it were bound to finance-mcp-server instead. Then submit it as a real call_mcp_tool " +
-      "delete_account request to admin-mcp-server. The serverId is baked into the challenge hash itself, so a " +
-      "proof signed for the wrong server should fail the verification equation.",
+      "Step 1: register_attacker with agentId \"attacker-5\" and scope {action:\"delete_account\"}. Step 2: " +
+      "get_nonce with scope \"delete_account\" against admin-mcp-server — this nonce must be genuinely issued " +
+      "for admin-mcp-server. Step 3: generate_proof using that SAME agentId and nonce, scope \"delete_account\", " +
+      "but serverId \"finance-mcp-server\" instead of \"admin-mcp-server\" — this binds the proof's challenge " +
+      "hash to the WRONG server on purpose. Step 4: call verify_proof1 with that proof, the real nonce, the " +
+      "real attestationId from step 1, requestedScope {action:\"delete_account\"}, but serverId " +
+      "\"admin-mcp-server\" (where you're actually submitting it, not where the proof was bound). Do NOT go " +
+      "through call_mcp_tool/delete_account for this attack — that tool additionally requires a Groth16 " +
+      "complianceProof for a \"deletionPolicy\" circuit that prove_compliance cannot generate (it only supports " +
+      "\"refundPolicy\"), so a call_mcp_tool attempt would fail for an unrelated schema/circuit reason instead " +
+      "of testing serverId binding. verify_proof1 alone is the correct and sufficient test: the serverId is " +
+      "baked into the challenge hash itself, so a proof signed for the wrong server should fail the " +
+      "verification equation regardless of whether the nonce and attestation are otherwise genuine.",
   },
   {
     id: "6",
