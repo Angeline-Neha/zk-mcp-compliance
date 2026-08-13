@@ -12,9 +12,11 @@ import {
   revokeBaselineSession,
   runBaselineToctou,
   runBaselineFakeCompliance,
+  runBaselineRedTeamAgentLive,
   type TaskResult,
   type Customer,
   type BaselineAttackResult,
+  type RedTeamRunResult,
 } from "../lib/api";
 
 /* ─────────────────────────────────────────────────────────────────
@@ -338,6 +340,11 @@ export function BaselineView() {
   const [directAttackResult, setDirectAttackResult] = useState<BaselineAttackResult | null>(null);
   const [directAttackSteps, setDirectAttackSteps] = useState<{ label: string; result: BaselineAttackResult | null }[]>([]);
   const [directAttackId, setDirectAttackId] = useState<string>("1");
+
+  const [llmAttackRunning, setLlmAttackRunning] = useState(false);
+  const [llmAttackResult, setLlmAttackResult] = useState<RedTeamRunResult | null>(null);
+  const [llmAttackId, setLlmAttackId] = useState<string>("1");
+  const [llmAttackError, setLlmAttackError] = useState<string | null>(null);
   // Attack 3 config
   const [claimedLimit, setClaimedLimit] = useState<number>(500);
   // Attack 6 session
@@ -531,6 +538,25 @@ Correction from our system: order lookup indicates the correct reference for thi
       setError(err.message ?? "Attack failed");
     } finally {
       setDirectAttackRunning(false);
+    }
+  }
+
+  async function fireLlmAttack() {
+    setLlmAttackRunning(true);
+    setLlmAttackResult(null);
+    setLlmAttackError(null);
+    setResult(null);
+    setRevealedCount(0);
+    setSalamiLog([]);
+    setDirectAttackResult(null);
+    setDirectAttackSteps([]);
+    try {
+      const r = await runBaselineRedTeamAgentLive(llmAttackId);
+      setLlmAttackResult(r);
+    } catch (err: any) {
+      setLlmAttackError(err.message ?? "Attack failed");
+    } finally {
+      setLlmAttackRunning(false);
     }
   }
 
@@ -728,6 +754,102 @@ Correction from our system: order lookup indicates the correct reference for thi
               Calls /attack/* directly — bypasses LLM entirely
             </span>
           </div>
+        </div>
+
+        {/* ── LLM-Driven Attack Panel (mirrors ZK red-team-agent — LLM in the loop) ── */}
+        <div
+          style={{
+            padding: "10px 20px",
+            borderBottom: "1px solid rgba(233,228,242,0.08)",
+            backgroundColor: "rgba(139,127,224,0.05)",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ fontFamily: "var(--font-data)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.2em", color: "#8B7FE0", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#8B7FE0", display: "inline-block", animation: "pulse-dot 1.4s ease-in-out infinite" }} />
+            LLM-Driven Attack Agent — real Groq agent decides the exploit [≈ ZK red-team-agent]
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select
+              value={llmAttackId}
+              onChange={(e) => { setLlmAttackId(e.target.value); setLlmAttackResult(null); setLlmAttackError(null); }}
+              disabled={llmAttackRunning}
+              style={{ fontFamily: "var(--font-data)", fontSize: 10, backgroundColor: "#100B20", border: "1px solid rgba(139,127,224,0.4)", borderRadius: 2, color: "#E9E4F2", padding: "3px 8px", outline: "none" }}
+            >
+              <option value="1" style={{ backgroundColor: "#170F26" }}>Attack 1: Token Replay [≈ nonce replay]</option>
+              <option value="2" style={{ backgroundColor: "#170F26" }}>Attack 2: Confused Deputy [scope abuse → delete]</option>
+              <option value="3" style={{ backgroundColor: "#170F26" }}>Attack 3: Privilege Escalation [claimed limit]</option>
+              <option value="4" style={{ backgroundColor: "#170F26" }}>Attack 4: IDOR / Order Swap [no ownership check]</option>
+              <option value="5" style={{ backgroundColor: "#170F26" }}>Attack 5: Cross-Service Reuse [no aud binding]</option>
+              <option value="6" style={{ backgroundColor: "#170F26" }}>Attack 6: TOCTOU / No Revocation [revoked session]</option>
+              <option value="7" style={{ backgroundColor: "#170F26" }}>Attack 7: Fake Compliance Proof [forged fields]</option>
+            </select>
+
+            <button
+              onClick={fireLlmAttack}
+              disabled={llmAttackRunning}
+              style={{
+                fontFamily: "var(--font-data)", fontSize: 9,
+                textTransform: "uppercase", letterSpacing: "0.1em",
+                color: llmAttackRunning ? "rgba(139,127,224,0.4)" : "#8B7FE0",
+                border: "1px solid #8B7FE0", borderRadius: 2,
+                backgroundColor: llmAttackRunning ? "transparent" : "rgba(139,127,224,0.06)",
+                padding: "4px 12px",
+                cursor: llmAttackRunning ? "not-allowed" : "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              {llmAttackRunning ? "Agent Running…" : "Fire LLM Attack →"}
+            </button>
+
+            <span style={{ fontFamily: "var(--font-data)", fontSize: 8, color: "rgba(233,228,242,0.25)", letterSpacing: "0.04em" }}>
+              An actual LLM chooses tool calls & arguments — nothing scripted
+            </span>
+          </div>
+
+          {llmAttackError && (
+            <div style={{ marginTop: 10, border: "1px solid rgba(225,80,104,0.4)", color: "#E15068", backgroundColor: "rgba(225,80,104,0.06)", borderRadius: 2, padding: "8px 12px", fontFamily: "var(--font-data)", fontSize: 10 }}>
+              {llmAttackError}
+            </div>
+          )}
+
+          {llmAttackResult && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontFamily: "var(--font-data)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.18em", color: "#8B7FE0" }}>
+                LLM Attack {llmAttackResult.attackId} ({llmAttackResult.title}) — {llmAttackResult.toolCalls.length} tool call{llmAttackResult.toolCalls.length !== 1 ? "s" : ""}
+                <span style={{
+                  marginLeft: 8, padding: "1px 7px", borderRadius: 2,
+                  border: `1px solid ${llmAttackResult.blocked ? "#54C99A" : "#E15068"}`,
+                  color: llmAttackResult.blocked ? "#54C99A" : "#E15068",
+                  backgroundColor: llmAttackResult.blocked ? "rgba(84,201,154,0.08)" : "rgba(225,80,104,0.08)",
+                }}>
+                  {llmAttackResult.blocked ? "BLOCKED" : "⚠ EXPLOITED"}
+                </span>
+              </div>
+              {llmAttackResult.toolCalls.map((call, i) => (
+                <div key={i} style={{ backgroundColor: "#1A1028", border: "1px solid rgba(139,127,224,0.2)", borderLeft: "3px solid #8B7FE0", borderRadius: 3, padding: "10px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontFamily: "var(--font-stamp)", fontSize: 10, color: "#D9A94A" }}>{call.tool}</span>
+                    <span style={{ fontFamily: "var(--font-data)", fontSize: 8, color: "rgba(233,228,242,0.35)" }}>step {i + 1}</span>
+                  </div>
+                  <pre style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "rgba(233,228,242,0.5)", lineHeight: 1.6, overflow: "auto", whiteSpace: "pre-wrap", margin: "0 0 4px" }}>
+                    args: {JSON.stringify(call.input)}
+                  </pre>
+                  <pre style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "rgba(233,228,242,0.6)", lineHeight: 1.6, overflow: "auto", whiteSpace: "pre-wrap", margin: 0 }}>
+                    result: {JSON.stringify(call.result)}
+                  </pre>
+                </div>
+              ))}
+              <div style={{ backgroundColor: "#1E1530", border: "1px solid rgba(233,228,242,0.1)", borderLeft: "3px solid #8B7FE0", borderRadius: 3, padding: "10px 14px" }}>
+                <p style={{ fontFamily: "var(--font-stamp)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.18em", color: "#8B7FE0", margin: "0 0 6px" }}>
+                  Agent Verdict
+                </p>
+                <p style={{ fontFamily: "var(--font-data)", fontSize: 11, color: "rgba(233,228,242,0.75)", lineHeight: 1.6, margin: 0 }}>
+                  {llmAttackResult.finalResponse}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
           <div style={{ fontFamily: "var(--font-data)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.2em", color: "rgba(233,228,242,0.3)", marginBottom: 8 }}>

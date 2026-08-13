@@ -416,6 +416,18 @@ export async function runRedTeamAgentLive(attackId: string): Promise<RedTeamRunR
   return res.json();
 }
 
+/**
+ * Runs the real LLM-driven red team agent for one attack (1-7) against the
+ * actually-running BASELINE services (no crypto). Same shape/contract as
+ * runRedTeamAgentLive above — this is its baseline-side counterpart, so the
+ * two can be shown side by side. See demo-gateway/src/routes/baselineRedTeam.ts.
+ */
+export async function runBaselineRedTeamAgentLive(attackId: string): Promise<RedTeamRunResult> {
+  const res = await fetch(`${GATEWAY_URL}/baseline-red-team/${attackId}/run`, { method: "POST" });
+  if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+  return res.json();
+}
+
 // ---------------------------------------------------------------------------
 // Live event stream
 // ---------------------------------------------------------------------------

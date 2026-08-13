@@ -6,6 +6,26 @@ export const attackRouter = Router();
 const AGENT_ID = "traditional-api-attacker";
 const activeSessions = new Map<string, { customerId: string; createdAt: number }>();
 
+/* Free, ungated read — same convention as finance-mcp-server's lookup_order,
+   so an LLM red-team agent can discover real orderRefs (and who owns them)
+   before spending a turn on a stateful attack call. No auth, no ownership
+   check by design: this is a read-only reconnaissance tool, not a target. */
+attackRouter.get("/lookup-order/:orderRef", async (req, res) => {
+  const order = await loadOrderContext(req.params.orderRef);
+  if (!order) return res.status(404).json({ error: "order not found" });
+  const policy = evaluatePolicy(order);
+  return res.json({
+    orderRef: order.orderRef,
+    ownedBy: order.customerId,
+    amount: order.amount,
+    accountAgeDays: order.accountAgeDays,
+    pastRefundCount: order.pastRefundCount,
+    transactionAgeDays: order.transactionAgeDays,
+    wouldPolicyApprove: policy.approved,
+    policyReason: policy.reason ?? null,
+  });
+});
+
 /* Attack 1 - Token Replay: no nonce, same payload works every time */
 attackRouter.post("/replay", async (req, res) => {
   const { customerId, orderRef } = req.body as { customerId: string; orderRef: string };
