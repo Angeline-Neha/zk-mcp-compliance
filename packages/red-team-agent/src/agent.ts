@@ -9,7 +9,46 @@ function getGroqClient(): Groq {
   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   return _groq;
 }
-const MODEL = process.env.RED_TEAM_AGENT_MODEL ?? "llama-3.1-8b-instant";
+// Tiered model strategy — free-tier TPM budgets make the escalation model
+// (larger, more reliable, but tighter per-minute quota) too expensive to run
+// by default on every attack. Start cheap; escalate ONLY the current run,
+// ONLY after the fabrication guard in session.ts proves the cheap model
+// actually needs it (see PRIMARY_MODEL / usedEscalation below).
+const PRIMARY_MODEL = process.env.RED_TEAM_AGENT_MODEL ?? "openai/gpt-oss-20b";
+const ESCALATION_MODEL = process.env.RED_TEAM_AGENT_ESCALATION_MODEL ?? "openai/gpt-oss-120b";
+
+// Keys whose values must survive trimming byte-for-byte — these are exactly
+// the fields session.ts's assertRealNonce/assertRealProof compare against
+// what the model sends back on a later turn. Truncating any of these would
+// make a genuine attack step fail with a fabrication error that isn't real.
+const PROTECTED_KEYS = new Set([
+  "nonce", "R", "s", "attestationId", "orderRef", "refundId", "publicKey",
+  "agentId", "scope", "serverId", "action", "error", "allowed", "valid", "ok",
+  "httpStatus", "reason", "vulnerability", "zkDifference",
+]);
+const MAX_STRING_LEN = 300;
+
+// Recursively trims long, non-identifier string fields out of a tool result
+// before it's pushed into the growing `messages` history — this is what was
+// driving 10K+ input tokens by the last turn of a run. Anything in
+// PROTECTED_KEYS is left untouched, whatever its length.
+function trimForHistory(value: unknown, keyHint?: string): unknown {
+  if (typeof value === "string") {
+    if (keyHint && PROTECTED_KEYS.has(keyHint)) return value;
+    return value.length > MAX_STRING_LEN
+      ? value.slice(0, MAX_STRING_LEN) + `…[+${value.length - MAX_STRING_LEN} chars trimmed]`
+      : value;
+  }
+  if (Array.isArray(value)) return value.map((v) => trimForHistory(v));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = trimForHistory(v, k);
+    }
+    return out;
+  }
+  return value;
+}
 
 const SYSTEM_PROMPT_PREFIX = `You are a red-team security agent testing a live zero-knowledge MCP compliance
 gate. You have real tools that make real network calls against actually-running services (Issuer, Proving
@@ -42,6 +81,39 @@ best assessment of what happened so far. Do not use remaining turns to attempt a
 OBJECTIVE (this is the only attack you may attempt):
 `;
 
+// True for a network/transport-level failure — dropped connection, DNS,
+// timeout — as opposed to a real API error response (bad request, rate
+// limit, tool_use_failed). The groq-sdk/OpenAI client throws APIError
+// subclasses with a `status` for real API responses; a bare "Connection
+// error" or similar has no status because it never got a response at all.
+function isInfraError(err: any): boolean {
+  if (typeof err?.status === "number") return false; // got a real HTTP response
+  const msg = String(err?.message ?? err ?? "").toLowerCase();
+  return (
+    msg.includes("connection error") ||
+    msg.includes("econnreset") ||
+    msg.includes("etimedout") ||
+    msg.includes("fetch failed") ||
+    msg.includes("network")
+  );
+}
+
+// Retries a Groq call up to twice on a genuine infra failure, with a short
+// backoff, before giving up. Real API error responses (rate limits, bad
+// requests, tool_use_failed) are NOT retried here — those are handled by
+// the caller's existing logic and shouldn't be masked by a blind retry.
+async function callGroqWithRetry<T>(fn: () => Promise<T>): Promise<T> {
+  const delaysMs = [500, 1500];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      if (!isInfraError(err) || attempt >= delaysMs.length) throw err;
+      await new Promise((r) => setTimeout(r, delaysMs[attempt]));
+    }
+  }
+}
+
 export interface RedTeamToolCall {
   tool: string;
   input: unknown;
@@ -54,6 +126,13 @@ export interface RedTeamRunResult {
   finalResponse: string;
   toolCalls: RedTeamToolCall[];
   blocked: boolean;
+  // True only when this run gave up because the Groq API call itself failed
+  // (network/connection error, timeout) — NOT because the gate rejected
+  // anything. `blocked` stays a best-effort guess for backward
+  // compatibility, but callers should check this first: a true infra
+  // failure is not a demonstration of the gate defending itself, and
+  // shouldn't be recorded or narrated as one.
+  infraError?: boolean;
 }
 
 function inferBlocked(toolCalls: RedTeamToolCall[]): boolean {
@@ -110,16 +189,23 @@ export async function runRedTeamAttack(attackId: string): Promise<RedTeamRunResu
   const MAX_TURNS = 10;
   let malformedRetries = 0;
   const MAX_MALFORMED_RETRIES = 2;
+  // Flips true the first time this run hits a fabrication error (the model
+  // invented a nonce/proof instead of reusing a real one) — from that turn
+  // on, this run pays the escalation model's cost, but only THIS run, and
+  // only after proving it actually needs the smarter model.
+  let usedEscalation = false;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     let response;
     try {
-      response = await getGroqClient().chat.completions.create({
-        model: MODEL,
-        max_tokens: 1024,
-        tools: TOOLS,
-        messages,
-      });
+      response = await callGroqWithRetry(() =>
+        getGroqClient().chat.completions.create({
+          model: usedEscalation ? ESCALATION_MODEL : PRIMARY_MODEL,
+          max_tokens: 1024,
+          tools: TOOLS,
+          messages,
+        })
+      );
     } catch (err: any) {
       const isToolUseFailed = err?.error?.error?.code === "tool_use_failed";
       if (isToolUseFailed && malformedRetries < MAX_MALFORMED_RETRIES) {
@@ -133,12 +219,18 @@ export async function runRedTeamAttack(attackId: string): Promise<RedTeamRunResu
         turn--;
         continue;
       }
+      // A connection-level failure (dropped connection, timeout, DNS) is an
+      // infrastructure problem, not the gate doing anything — don't let it
+      // masquerade as a "blocked" verdict. isInfraError() below decides which
+      // this was; callers (the demo route) check `infraError` before
+      // recording a scoreboard outcome or narrating a fake rejection.
       return {
         attackId,
         title: objective.title,
         finalResponse: `agent error: ${err.message ?? String(err)}`,
         toolCalls,
         blocked: inferBlocked(toolCalls),
+        infraError: isInfraError(err),
       };
     }
 
@@ -172,10 +264,23 @@ export async function runRedTeamAttack(attackId: string): Promise<RedTeamRunResu
       }
 
       toolCalls.push({ tool: call.function.name, input, result: resultPayload });
+
+      // Escalate for the REST of this run once the cheap model proves it
+      // needs help — a fabrication error means it invented a value instead
+      // of reusing a real one from a prior step.
+      const errText = (resultPayload as any)?.error;
+      if (typeof errText === "string" && errText.startsWith("REJECTED BEFORE REACHING THE SERVER")) {
+        usedEscalation = true;
+      }
+
+      // Trimmed, not the raw payload — this is what keeps a 10-turn run's
+      // last call from ballooning to 10K+ input tokens. Identifiers the
+      // fabrication guard checks later are preserved exactly (see
+      // PROTECTED_KEYS above).
       messages.push({
         role: "tool",
         tool_call_id: call.id,
-        content: JSON.stringify(resultPayload),
+        content: JSON.stringify(trimForHistory(resultPayload)),
       });
     }
   }

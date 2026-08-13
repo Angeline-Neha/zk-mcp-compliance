@@ -1,0 +1,148 @@
+diff --git a/packages/admin-agent/src/agent.ts b/packages/admin-agent/src/agent.ts
+index b0f4fd8..fdc23ea 100755
+--- a/packages/admin-agent/src/agent.ts
++++ b/packages/admin-agent/src/agent.ts
+@@ -9,7 +9,7 @@ function getGroqClient(): Groq {
+   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+   return _groq;
+ }
+-const MODEL = process.env.ADMIN_AGENT_MODEL ?? "llama-3.1-8b-instant";
++const MODEL = process.env.ADMIN_AGENT_MODEL ?? "openai/gpt-oss-20b";
+ 
+ const SYSTEM_PROMPT = `You are an admin agent for a customer support system, handling account deletion requests.
+ 
+diff --git a/packages/baseline-agent/src/agent.ts b/packages/baseline-agent/src/agent.ts
+index e9a59a3..8dc5ac3 100755
+--- a/packages/baseline-agent/src/agent.ts
++++ b/packages/baseline-agent/src/agent.ts
+@@ -67,7 +67,7 @@ function getGroqClient(): Groq {
+   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+   return _groq;
+ }
+-const MODEL = process.env.BASELINE_AGENT_MODEL ?? "llama-3.1-8b-instant";
++const MODEL = process.env.BASELINE_AGENT_MODEL ?? "openai/gpt-oss-20b";
+ const AGENT_ID = "baseline-support-agent";
+ 
+ const SYSTEM_PROMPT = `You are a customer support agent for an e-commerce company, handling refund requests.
+diff --git a/packages/orchestrator-agent/src/agent.ts b/packages/orchestrator-agent/src/agent.ts
+index 3d4a1fb..6327fea 100755
+--- a/packages/orchestrator-agent/src/agent.ts
++++ b/packages/orchestrator-agent/src/agent.ts
+@@ -9,7 +9,7 @@ function getGroqClient(): Groq {
+   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+   return _groq;
+ }
+-const MODEL = process.env.ORCHESTRATOR_MODEL ?? "llama-3.1-8b-instant";
++const MODEL = process.env.ORCHESTRATOR_MODEL ?? "openai/gpt-oss-20b";
+ 
+ // Deliberately NOT LLM-controlled — the standard support-tier delegation
+ // limit is a fixed business policy value, set here in code. Letting the
+diff --git a/packages/red-team-agent/src/agent.ts b/packages/red-team-agent/src/agent.ts
+index da91714..e02634d 100755
+--- a/packages/red-team-agent/src/agent.ts
++++ b/packages/red-team-agent/src/agent.ts
+@@ -9,7 +9,46 @@ function getGroqClient(): Groq {
+   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+   return _groq;
+ }
+-const MODEL = process.env.RED_TEAM_AGENT_MODEL ?? "llama-3.1-8b-instant";
++// Tiered model strategy — free-tier TPM budgets make the escalation model
++// (larger, more reliable, but tighter per-minute quota) too expensive to run
++// by default on every attack. Start cheap; escalate ONLY the current run,
++// ONLY after the fabrication guard in session.ts proves the cheap model
++// actually needs it (see PRIMARY_MODEL / usedEscalation below).
++const PRIMARY_MODEL = process.env.RED_TEAM_AGENT_MODEL ?? "openai/gpt-oss-20b";
++const ESCALATION_MODEL = process.env.RED_TEAM_AGENT_ESCALATION_MODEL ?? "openai/gpt-oss-120b";
++
++// Keys whose values must survive trimming byte-for-byte — these are exactly
++// the fields session.ts's assertRealNonce/assertRealProof compare against
++// what the model sends back on a later turn. Truncating any of these would
++// make a genuine attack step fail with a fabrication error that isn't real.
++const PROTECTED_KEYS = new Set([
++  "nonce", "R", "s", "attestationId", "orderRef", "refundId", "publicKey",
++  "agentId", "scope", "serverId", "action", "error", "allowed", "valid", "ok",
++  "httpStatus", "reason", "vulnerability", "zkDifference",
++]);
++const MAX_STRING_LEN = 300;
++
++// Recursively trims long, non-identifier string fields out of a tool result
++// before it's pushed into the growing `messages` history — this is what was
++// driving 10K+ input tokens by the last turn of a run. Anything in
++// PROTECTED_KEYS is left untouched, whatever its length.
++function trimForHistory(value: unknown, keyHint?: string): unknown {
++  if (typeof value === "string") {
++    if (keyHint && PROTECTED_KEYS.has(keyHint)) return value;
++    return value.length > MAX_STRING_LEN
++      ? value.slice(0, MAX_STRING_LEN) + `…[+${value.length - MAX_STRING_LEN} chars trimmed]`
++      : value;
++  }
++  if (Array.isArray(value)) return value.map((v) => trimForHistory(v));
++  if (value && typeof value === "object") {
++    const out: Record<string, unknown> = {};
++    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
++      out[k] = trimForHistory(v, k);
++    }
++    return out;
++  }
++  return value;
++}
+ 
+ const SYSTEM_PROMPT_PREFIX = `You are a red-team security agent testing a live zero-knowledge MCP compliance
+ gate. You have real tools that make real network calls against actually-running services (Issuer, Proving
+@@ -110,12 +149,17 @@ export async function runRedTeamAttack(attackId: string): Promise<RedTeamRunResu
+   const MAX_TURNS = 10;
+   let malformedRetries = 0;
+   const MAX_MALFORMED_RETRIES = 2;
++  // Flips true the first time this run hits a fabrication error (the model
++  // invented a nonce/proof instead of reusing a real one) — from that turn
++  // on, this run pays the escalation model's cost, but only THIS run, and
++  // only after proving it actually needs the smarter model.
++  let usedEscalation = false;
+ 
+   for (let turn = 0; turn < MAX_TURNS; turn++) {
+     let response;
+     try {
+       response = await getGroqClient().chat.completions.create({
+-        model: MODEL,
++        model: usedEscalation ? ESCALATION_MODEL : PRIMARY_MODEL,
+         max_tokens: 1024,
+         tools: TOOLS,
+         messages,
+@@ -172,10 +216,23 @@ export async function runRedTeamAttack(attackId: string): Promise<RedTeamRunResu
+       }
+ 
+       toolCalls.push({ tool: call.function.name, input, result: resultPayload });
++
++      // Escalate for the REST of this run once the cheap model proves it
++      // needs help — a fabrication error means it invented a value instead
++      // of reusing a real one from a prior step.
++      const errText = (resultPayload as any)?.error;
++      if (typeof errText === "string" && errText.startsWith("REJECTED BEFORE REACHING THE SERVER")) {
++        usedEscalation = true;
++      }
++
++      // Trimmed, not the raw payload — this is what keeps a 10-turn run's
++      // last call from ballooning to 10K+ input tokens. Identifiers the
++      // fabrication guard checks later are preserved exactly (see
++      // PROTECTED_KEYS above).
+       messages.push({
+         role: "tool",
+         tool_call_id: call.id,
+-        content: JSON.stringify(resultPayload),
++        content: JSON.stringify(trimForHistory(resultPayload)),
+       });
+     }
+   }
+diff --git a/packages/support-agent/src/agent.ts b/packages/support-agent/src/agent.ts
+index f11d9ee..cec39db 100755
+--- a/packages/support-agent/src/agent.ts
++++ b/packages/support-agent/src/agent.ts
+@@ -12,7 +12,7 @@ function getGroqClient(): Groq {
+   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+   return _groq;
+ }
+-const MODEL = process.env.SUPPORT_AGENT_MODEL ?? "llama-3.1-8b-instant";
++const MODEL = process.env.SUPPORT_AGENT_MODEL ?? "openai/gpt-oss-20b";
+ 
+ const SYSTEM_PROMPT = `You are a customer support agent for an e-commerce company, handling refund requests.
+ 

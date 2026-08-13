@@ -32,6 +32,18 @@ redTeamRouter.post("/:id/run", async (req, res) => {
   try {
     const run = await runRedTeamAttack(attackId);
 
+    // A Groq connection failure isn't a gate verdict — don't record it on
+    // the scoreboard or narrate a fake "proof1 rejected" sequence for it.
+    // Report it plainly and let the caller retry.
+    if (run.infraError) {
+      return res.status(502).json({
+        error: "red-team agent could not reach the LLM API (infrastructure failure, not a gate result)",
+        detail: run.finalResponse,
+        attackId,
+        retryable: true,
+      });
+    }
+
     // If the agent's transcript reached a real gate call (call_mcp_tool
     // against issue_refund/delete_account), land its actual response on the
     // live Board/Docket the same way the scripted exhibits do. If it never

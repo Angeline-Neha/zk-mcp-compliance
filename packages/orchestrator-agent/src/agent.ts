@@ -9,7 +9,7 @@ function getGroqClient(): Groq {
   if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   return _groq;
 }
-const MODEL = process.env.ORCHESTRATOR_MODEL ?? "llama-3.1-8b-instant";
+const MODEL = process.env.ORCHESTRATOR_MODEL ?? "openai/gpt-oss-20b";
 
 // Deliberately NOT LLM-controlled — the standard support-tier delegation
 // limit is a fixed business policy value, set here in code. Letting the
