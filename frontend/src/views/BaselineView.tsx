@@ -3,19 +3,9 @@ import {
   submitBaselineTicket,
   fetchCustomers,
   fetchCustomerOrders,
-  runBaselineReplay,
-  runBaselineConfusedDeputy,
-  runBaselinePrivilegeEscalation,
-  runBaselineIdor,
-  runBaselineCrossService,
-  createBaselineSession,
-  revokeBaselineSession,
-  runBaselineToctou,
-  runBaselineFakeCompliance,
   runBaselineRedTeamAgentLive,
   type TaskResult,
   type Customer,
-  type BaselineAttackResult,
   type RedTeamRunResult,
 } from "../lib/api";
 
@@ -141,18 +131,26 @@ function ToolCallCard({
   call,
   index,
   visible,
+  isAttack,
 }: {
   call: { tool: string; input: unknown; result: unknown };
   index: number;
   visible: boolean;
+  isAttack: boolean;
 }) {
   const res = call.result as Record<string, unknown> | undefined;
   const isRefund = call.tool === "request_refund";
   const isDeletion = call.tool === "request_deletion" || call.tool === "delete_account";
   const allowed = (isRefund || isDeletion) ? (res?.allowed as boolean | undefined) : null;
+  // Only frame allowed:true as red/"exploited" when this ticket was actually
+  // an attack attempt. For a normal, legitimate ticket, allowed:true is the
+  // correct/expected outcome and should read as a plain approval.
   const accentColor = (isRefund || isDeletion)
-    ? allowed ? "#E15068" : "#54C99A"   // flipped: allowed = bad (exploit succeeded)
+    ? (allowed ? (isAttack ? "#E15068" : "#54C99A") : (isAttack ? "#54C99A" : "#E15068"))
     : "#D9A94A";
+  const badgeText = allowed
+    ? (isAttack ? "⚠ EXPLOITED" : "✓ APPROVED")
+    : (isAttack ? "BLOCKED" : "✗ DENIED");
 
   return (
     <div
@@ -194,7 +192,7 @@ function ToolCallCard({
               letterSpacing: "0.1em",
             }}
           >
-            {allowed ? "⚠ EXPLOITED" : "BLOCKED"}
+            {badgeText}
           </span>
         )}
         <span
@@ -335,21 +333,12 @@ export function BaselineView() {
   const [salamiProgress, setSalamiProgress] = useState<{ slice: number; total: number } | null>(null);
   const [salamiLog, setSalamiLog] = useState<{ slice: number; result: TaskResult }[]>([]);
 
-  // Direct API attack state (no LLM)
-  const [directAttackRunning, setDirectAttackRunning] = useState(false);
-  const [directAttackResult, setDirectAttackResult] = useState<BaselineAttackResult | null>(null);
-  const [directAttackSteps, setDirectAttackSteps] = useState<{ label: string; result: BaselineAttackResult | null }[]>([]);
-  const [directAttackId, setDirectAttackId] = useState<string>("1");
-
   const [llmAttackRunning, setLlmAttackRunning] = useState(false);
   const [llmAttackResult, setLlmAttackResult] = useState<RedTeamRunResult | null>(null);
   const [llmAttackId, setLlmAttackId] = useState<string>("1");
   const [llmAttackError, setLlmAttackError] = useState<string | null>(null);
   // Attack 3 config
-  const [claimedLimit, setClaimedLimit] = useState<number>(500);
-  // Attack 6 session
-  const [toctouSessionId, setToctouSessionId] = useState<string | null>(null);
-
+  
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<string>("");
   const [customerOrders, setCustomerOrders] = useState<string[]>([]);
@@ -476,70 +465,6 @@ Correction from our system: order lookup indicates the correct reference for thi
     setSalamiRunning(false);
   }
 
-  async function fireDirectAttack() {
-    if (!defaultOrder || !customerId) return;
-    setDirectAttackRunning(true);
-    setDirectAttackResult(null);
-    setDirectAttackSteps([]);
-    setResult(null);
-    setRevealedCount(0);
-    setSalamiLog([]);
-    setError(null);
-
-    const ref = defaultOrder;
-    const otherRef = String(Number(ref) + 1);  // +1 lands on a real adjacent order owned by another customer
-
-    try {
-      if (directAttackId === "1") {
-        // Token Replay — fire twice, show both results
-        const r1 = await runBaselineReplay(customerId, ref);
-        setDirectAttackSteps([{ label: "Replay attempt 1", result: r1 }]);
-        const r2 = await runBaselineReplay(customerId, ref);
-        setDirectAttackSteps([{ label: "Replay attempt 1", result: r1 }, { label: "Replay attempt 2", result: r2 }]);
-        setDirectAttackResult(r2);
-      } else if (directAttackId === "2") {
-        // Confused Deputy — call delete with refund-scoped session
-        const r = await runBaselineConfusedDeputy(customerId, ref, "delete");
-        setDirectAttackSteps([{ label: "Deputy call with action=delete", result: r }]);
-        setDirectAttackResult(r);
-      } else if (directAttackId === "3") {
-        // Privilege Escalation — claim $500 limit for a high-value order
-        const r = await runBaselinePrivilegeEscalation(customerId, ref, claimedLimit);
-        setDirectAttackSteps([{ label: `Claimed limit: $${claimedLimit}`, result: r }]);
-        setDirectAttackResult(r);
-      } else if (directAttackId === "4") {
-        // IDOR — supply another customer's order, no ownership check
-        const r = await runBaselineIdor(otherRef);
-        setDirectAttackSteps([{ label: `IDOR — requesting order ${otherRef} (not owned by session)`, result: r }]);
-        setDirectAttackResult(r);
-      } else if (directAttackId === "5") {
-        // Cross-Service Reuse — claim premium-desk authorization
-        const r = await runBaselineCrossService(customerId, ref, "premium-partner-desk");
-        setDirectAttackSteps([{ label: "Credential from premium-partner-desk", result: r }]);
-        setDirectAttackResult(r);
-      } else if (directAttackId === "6") {
-        // TOCTOU — create session, revoke, fire refund anyway
-        const s = await createBaselineSession(customerId);
-        const sid = s.sessionId as string;
-        setToctouSessionId(sid);
-        setDirectAttackSteps([{ label: `Session created: ${sid}`, result: s }]);
-        const rev = await revokeBaselineSession(sid);
-        setDirectAttackSteps(prev => [...prev, { label: `Session revoked: ${sid}`, result: rev }]);
-        const r = await runBaselineToctou(customerId, ref, sid);
-        setDirectAttackSteps(prev => [...prev, { label: "Refund with revoked session", result: r }]);
-        setDirectAttackResult(r);
-      } else if (directAttackId === "7") {
-        // Fake Compliance — supply forged policy fields
-        const r = await runBaselineFakeCompliance(customerId, ref, { amount: 50, accountAgeDays: 60, pastRefundCount: 0, transactionAgeDays: 10 });
-        setDirectAttackSteps([{ label: "Forged compliance fields submitted", result: r }]);
-        setDirectAttackResult(r);
-      }
-    } catch (err: any) {
-      setError(err.message ?? "Attack failed");
-    } finally {
-      setDirectAttackRunning(false);
-    }
-  }
 
   async function fireLlmAttack() {
     setLlmAttackRunning(true);
@@ -548,8 +473,6 @@ Correction from our system: order lookup indicates the correct reference for thi
     setResult(null);
     setRevealedCount(0);
     setSalamiLog([]);
-    setDirectAttackResult(null);
-    setDirectAttackSteps([]);
     try {
       const r = await runBaselineRedTeamAgentLive(llmAttackId);
       setLlmAttackResult(r);
@@ -691,70 +614,7 @@ Correction from our system: order lookup indicates the correct reference for thi
             flexShrink: 0,
           }}
         >
-        {/* ── Direct API Attack Panel (mirrors ZK red team — no LLM) ── */}
-        <div
-          style={{
-            padding: "10px 20px",
-            borderBottom: "1px solid rgba(233,228,242,0.08)",
-            backgroundColor: "rgba(225,80,104,0.05)",
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ fontFamily: "var(--font-data)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.2em", color: "#E15068", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#E15068", display: "inline-block", animation: "pulse-dot 1.4s ease-in-out infinite" }} />
-            Direct API Attack Agent — no LLM, raw parameter manipulation [≈ ZK red team]
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <select
-              value={directAttackId}
-              onChange={(e) => { setDirectAttackId(e.target.value); setDirectAttackResult(null); setDirectAttackSteps([]); }}
-              disabled={directAttackRunning}
-              style={{ fontFamily: "var(--font-data)", fontSize: 10, backgroundColor: "#100B20", border: "1px solid rgba(225,80,104,0.4)", borderRadius: 2, color: "#E9E4F2", padding: "3px 8px", outline: "none" }}
-            >
-              <option value="1" style={{ backgroundColor: "#170F26" }}>Attack 1: Token Replay [≈ nonce replay]</option>
-              <option value="2" style={{ backgroundColor: "#170F26" }}>Attack 2: Confused Deputy [scope abuse → delete]</option>
-              <option value="3" style={{ backgroundColor: "#170F26" }}>Attack 3: Privilege Escalation [claimed limit]</option>
-              <option value="4" style={{ backgroundColor: "#170F26" }}>Attack 4: IDOR / Order Swap [no ownership check]</option>
-              <option value="5" style={{ backgroundColor: "#170F26" }}>Attack 5: Cross-Service Reuse [no aud binding]</option>
-              <option value="6" style={{ backgroundColor: "#170F26" }}>Attack 6: TOCTOU / No Revocation [revoked session]</option>
-              <option value="7" style={{ backgroundColor: "#170F26" }}>Attack 7: Fake Compliance Proof [forged fields]</option>
-            </select>
-
-            {directAttackId === "3" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "rgba(233,228,242,0.4)" }}>Claimed limit: $</span>
-                <input
-                  type="number"
-                  value={claimedLimit}
-                  onChange={(e) => setClaimedLimit(Number(e.target.value))}
-                  disabled={directAttackRunning}
-                  style={{ fontFamily: "var(--font-data)", fontSize: 10, width: 60, backgroundColor: "rgba(233,228,242,0.05)", border: "1px solid rgba(233,228,242,0.2)", borderRadius: 2, color: "#E9E4F2", padding: "2px 6px", outline: "none" }}
-                />
-              </div>
-            )}
-
-            <button
-              onClick={fireDirectAttack}
-              disabled={directAttackRunning || !ordersLoaded}
-              style={{
-                fontFamily: "var(--font-data)", fontSize: 9,
-                textTransform: "uppercase", letterSpacing: "0.1em",
-                color: directAttackRunning ? "rgba(225,80,104,0.4)" : "#E15068",
-                border: "1px solid #E15068", borderRadius: 2,
-                backgroundColor: directAttackRunning ? "transparent" : "rgba(225,80,104,0.06)",
-                padding: "4px 12px",
-                cursor: directAttackRunning || !ordersLoaded ? "not-allowed" : "pointer",
-                transition: "all 0.15s",
-              }}
-            >
-              {directAttackRunning ? "Running…" : "Fire Direct Attack →"}
-            </button>
-
-            <span style={{ fontFamily: "var(--font-data)", fontSize: 8, color: "rgba(233,228,242,0.25)", letterSpacing: "0.04em" }}>
-              Calls /attack/* directly — bypasses LLM entirely
-            </span>
-          </div>
-        </div>
+        
 
         {/* ── LLM-Driven Attack Panel (mirrors ZK red-team-agent — LLM in the loop) ── */}
         <div
@@ -970,55 +830,10 @@ Correction from our system: order lookup indicates the correct reference for thi
           <SalamiLog log={salamiLog} />
 
           {result?.toolCalls.slice(0, revealedCount).map((call, i) => (
-            <ToolCallCard key={i} call={call} index={i} visible={i < revealedCount} />
+            <ToolCallCard key={i} call={call} index={i} visible={i < revealedCount} isAttack={attackMode !== "none"} />
           ))}
 
-          {/* Direct API Attack results */}
-          {directAttackSteps.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, animation: "rise-in 0.3s ease-out both" }}>
-              <div style={{ fontFamily: "var(--font-data)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.18em", color: "#E15068", marginBottom: 2 }}>
-                Direct API Attack — Attack {directAttackId} — {directAttackSteps.length} step{directAttackSteps.length > 1 ? "s" : ""}
-              </div>
-              {directAttackSteps.map((step, i) => (
-                <div key={i} style={{ backgroundColor: "#1A1028", border: "1px solid rgba(225,80,104,0.2)", borderLeft: "3px solid #E15068", borderRadius: 3, padding: "10px 14px", animation: "rise-in 0.3s ease-out both" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid rgba(233,228,242,0.06)" }}>
-                    <span style={{ fontFamily: "var(--font-data)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(233,228,242,0.35)" }}>step {i + 1}</span>
-                    <span style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "rgba(233,228,242,0.65)" }}>{step.label}</span>
-                    {step.result && (
-                      <span style={{
-                        marginLeft: "auto",
-                        fontFamily: "var(--font-stamp)", fontSize: 9,
-                        padding: "2px 7px", borderRadius: 2,
-                        border: `1px solid ${step.result.allowed ? "#E15068" : "#54C99A"}`,
-                        color: step.result.allowed ? "#E15068" : "#54C99A",
-                        backgroundColor: step.result.allowed ? "rgba(225,80,104,0.08)" : "rgba(84,201,154,0.08)",
-                        letterSpacing: "0.1em",
-                      }}>
-                        {step.result.allowed ? "⚠ EXPLOITED" : "BLOCKED"}
-                      </span>
-                    )}
-                  </div>
-                  {step.result && (
-                    <>
-                      <pre style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "rgba(233,228,242,0.5)", lineHeight: 1.6, overflow: "auto", whiteSpace: "pre-wrap", margin: "0 0 8px" }}>
-                        {JSON.stringify(step.result, null, 2)}
-                      </pre>
-                      {step.result.vulnerability && (
-                        <div style={{ fontFamily: "var(--font-data)", fontSize: 8, color: "#E15068", lineHeight: 1.5, borderTop: "1px solid rgba(233,228,242,0.06)", paddingTop: 6 }}>
-                          {step.result.vulnerability}
-                        </div>
-                      )}
-                      {step.result.zkDifference && (
-                        <div style={{ fontFamily: "var(--font-data)", fontSize: 8, color: "#54C99A", lineHeight: 1.5, marginTop: 4 }}>
-                          ✓ {step.result.zkDifference}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          
 
           {result && revealedCount >= result.toolCalls.length && (
             <div
