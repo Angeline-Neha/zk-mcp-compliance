@@ -155,10 +155,3 @@ would still independently satisfy policy.
 
 ---
 
-## Reproducing these results
-
-```bash
-# with all services running (see main README's Setup section)
-pnpm --filter attack-scripts test
-# or interactively via the frontend's Auditor Dashboard → Attack Control Panel
-```
