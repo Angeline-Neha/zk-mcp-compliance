@@ -74,8 +74,32 @@ async function main() {
       );
     }
 
+    console.log("Inserting attack-8 intent-injection fixture (cust-ok-2 owns 9102 only)...");
+    await client.query(
+      'INSERT INTO customers (customer_id, account_created_at) VALUES ($1, NOW() - INTERVAL \'60 days\')',
+      ['cust-ok-2']
+    );
+    await client.query(
+      'INSERT INTO orders (order_ref, customer_id, amount, transaction_date) VALUES ($1, $2, $3, NOW() - INTERVAL \'30 days\')',
+      ['9102', 'cust-ok-2', 50]
+    );
+
+    // 9101 must exist and independently pass policy (clean data), owned by a
+    // DIFFERENT customer than cust-ok-2's session commitment — this is what
+    // makes sub-case A a real test of intent binding rather than a 404.
+    // Without this, the attack is blocked by "order not found" instead of
+    // by INTENT_BINDING_FAIL, which proves nothing about the actual defense.
+    await client.query(
+      'INSERT INTO customers (customer_id, account_created_at) VALUES ($1, NOW() - INTERVAL \'60 days\')',
+      ['cust-ok-1']
+    );
+    await client.query(
+      'INSERT INTO orders (order_ref, customer_id, amount, transaction_date) VALUES ($1, $2, $3, NOW() - INTERVAL \'30 days\')',
+      ['9101', 'cust-ok-1', 50]
+    );
+
     await client.query('COMMIT');
-    console.log("Database seeded successfully with 20 compliant, 15 non-compliant customers, and 6 second-order pairs.");
+    console.log("Database seeded successfully with 20 compliant, 15 non-compliant customers, 6 second-order pairs, and the attack-8 fixture.");
     
   } catch (err) {
     await client.query('ROLLBACK');
