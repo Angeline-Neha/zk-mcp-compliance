@@ -58,6 +58,12 @@ Agent (LLM tool-calling loop)
 
 The system is evaluated against 9 attack classes via the red-team agent: replay, confused deputy, privilege escalation via delegation, lateral movement, cross-server credential reuse, TOCTOU/revocation race, fake compliance proof, salami slicing, and intent injection. Results and methodology are in [`docs/threat-model.md`](docs/threat-model.md).
 
+## Tech Stack
+**Agents & LLM:** Groq (`gpt-oss-20b`), `groq-sdk`, `@modelcontextprotocol/sdk` (official MCP SDK)
+**Cryptography:** Circom, snarkjs, Groth16, Sigma/Schnorr (secp256k1)
+**Backend:** TypeScript, PostgreSQL, Redis, pnpm workspaces
+**Frontend:** React, Vite, Tailwind
+
 ## Prerequisites
 
 - Node.js 18+, pnpm
