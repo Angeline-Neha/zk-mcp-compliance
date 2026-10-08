@@ -1,0 +1,344 @@
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index 617bdb1..047df0e 100755
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -80,7 +80,7 @@ export default function App() {
+         highlightExhibits={calmPeriodOver && activeTab !== "exhibits"}
+       />
+ 
+-      <main className={activeTab === "board" || activeTab === "exhibits" ? "zk-main" : "zk-main legacy-dark"}>
++      <main className={["board", "exhibits", "wire"].includes(activeTab) ? "zk-main" : "zk-main legacy-dark"}>
+         {activeTab === "board" && (
+           <BoardView
+             boardState={displayedBoardState}
+diff --git a/frontend/src/components/wire/TeletypeLog.tsx b/frontend/src/components/wire/TeletypeLog.tsx
+index 06798d9..2450395 100755
+--- a/frontend/src/components/wire/TeletypeLog.tsx
++++ b/frontend/src/components/wire/TeletypeLog.tsx
+@@ -8,21 +8,23 @@ interface Props {
+ export function TeletypeLog({ lines, onLineClick }: Props) {
+   return (
+     <div
++      className="zk-wire-scroll"
+       style={{
+         flex: 1,
+         overflowY: 'auto',
+-        padding: '12px 16px',
+-        fontFamily: "'IBM Plex Mono', monospace",
+-        fontSize: 10.5,
+-        lineHeight: 1.7,
+-        color: '#D9A94A',
++        fontFamily: 'var(--zk-mono)',
++        fontSize: 12.5,
++        color: '#0A3323',
+       }}
+-      className="scrollbar-paper"
+     >
+       {lines.length === 0 ? (
+-        <div style={{ opacity: 0.4, paddingTop: 40, textAlign: 'center' }}>
+-          <span style={{ animation: 'cursor-blink 1s step-end infinite', color: '#D9A94A' }}>█</span>
+-          <p style={{ marginTop: 8, letterSpacing: '0.1em' }}>WIRE IDLE — AWAITING TRAFFIC…</p>
++        <div style={{ paddingTop: 48, textAlign: 'center' }}>
++          <p style={{ fontFamily: 'var(--zk-sans)', fontWeight: 600, fontSize: 14, margin: 0, opacity: 0.7 }}>
++            Wire idle
++          </p>
++          <p style={{ margin: '4px 0 0', opacity: 0.5 }}>
++            Awaiting traffic<span className="cursor-blink" />
++          </p>
+         </div>
+       ) : (
+         [...lines].reverse().map((line) => (
+@@ -40,8 +42,9 @@ function TeletypeLine({
+   line: WireLine;
+   onClick?: (requestId: string) => void;
+ }) {
+-  const outcomeColor = line.outcome === 'pass' ? '#6EDBB0' : '#E15068';
+-  const agentShort = line.agent.replace('-agent', '').replace('-service', '').replace('-mcp', '').toUpperCase();
++  const failed = line.outcome === 'fail';
++  const outcomeColor = line.outcome === 'pass' ? '#53662D' : failed ? '#A8362C' : '#5E2750';
++  const agentShort = line.agent.replace('-agent', '').replace('-service', '').replace('-mcp', '');
+ 
+   return (
+     <div
+@@ -49,67 +52,52 @@ function TeletypeLine({
+       tabIndex={onClick ? 0 : undefined}
+       onClick={() => onClick?.(line.requestId)}
+       onKeyDown={(e) => e.key === 'Enter' && onClick?.(line.requestId)}
+-      className="wire-line-row"
+-      style={{
+-        display: 'flex',
+-        gap: 10,
+-        borderBottom: '1px solid rgba(217,169,74,0.06)',
+-        paddingBottom: 1,
+-        marginBottom: 1,
+-        cursor: onClick ? 'pointer' : 'default',
+-        animation: 'rise-in 0.25s ease-out both',
+-      }}
++      className={`wire-line-row zk-wire-grid${failed ? ' wire-line-row--fail' : ''}`}
++      style={{ cursor: onClick ? 'pointer' : 'default' }}
+     >
+-      {/* Timestamp */}
+-      <span style={{ color: 'rgba(217,169,74,0.4)', flexShrink: 0, width: 58 }}>
+-        {line.ts}
+-      </span>
+-
+-      {/* Outcome marker */}
+-      <span style={{ color: outcomeColor, flexShrink: 0, width: 8 }}>
+-        {line.outcome === 'pass' ? '✓' : '✗'}
+-      </span>
+-
+-      {/* Agent */}
+-      <span style={{ color: '#D9A94A', flexShrink: 0, width: 90, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+-        {agentShort}
+-      </span>
++      <span style={{ opacity: 0.55 }}>{line.ts}</span>
+ 
+-      {/* Tool */}
+-      <span style={{ color: 'rgba(217,169,74,0.7)', flexShrink: 0, width: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+-        {line.tool}
++      <span
++        style={{
++          width: 18,
++          height: 18,
++          borderRadius: '50%',
++          display: 'grid',
++          placeItems: 'center',
++          fontSize: 11,
++          fontWeight: 700,
++          color: '#fff',
++          backgroundColor: outcomeColor,
++        }}
++      >
++        {line.outcome === 'pass' ? '✓' : failed ? '✕' : '…'}
+       </span>
+ 
+-      {/* State */}
+-      <span style={{ color: 'rgba(217,169,74,0.45)', flexShrink: 0, width: 110 }}>
++      <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>{agentShort}</span>
++      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{line.tool}</span>
++      <span style={{ opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+         {line.state.replace(/_/g, ' ')}
+       </span>
+ 
+-      {/* Proof hashes — sensitive digest material, live-masked until hovered */}
+-      {(line.proof1 || line.proof2) && (
+-        <span
+-          className="wire-redact-target"
+-          style={{ color: 'rgba(217,169,74,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, position: 'relative' }}
+-        >
+-          <span className="wire-redact-plain">
+-            {line.proof1 ? `p1:${line.proof1.slice(0, 8)}` : ''}
+-            {line.proof1 && line.proof2 ? ' ' : ''}
+-            {line.proof2 ? `p2:${line.proof2.slice(0, 8)}` : ''}
+-          </span>
+-          <span className="wire-redact-mask" aria-hidden="true">
+-            {line.proof1 ? 'p1:████████' : ''}
+-            {line.proof1 && line.proof2 ? ' ' : ''}
+-            {line.proof2 ? 'p2:████████' : ''}
++      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
++        {(line.proof1 || line.proof2) && (
++          <span className="wire-redact-target" style={{ color: '#5E2750' }}>
++            <span className="wire-redact-plain">
++              {line.proof1 ? `p1:${line.proof1.slice(0, 8)}` : ''}
++              {line.proof1 && line.proof2 ? ' ' : ''}
++              {line.proof2 ? `p2:${line.proof2.slice(0, 8)}` : ''}
++            </span>
++            <span className="wire-redact-mask" aria-hidden="true">
++              {line.proof1 ? 'p1:████████' : ''}
++              {line.proof1 && line.proof2 ? ' ' : ''}
++              {line.proof2 ? 'p2:████████' : ''}
++            </span>
+           </span>
+-        </span>
+-      )}
+-
+-      {/* Fail reason */}
+-      {line.reason && line.outcome === 'fail' && (
+-        <span style={{ color: '#E15068', opacity: 0.8, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+-          {line.reason}
+-        </span>
+-      )}
++        )}
++        {line.reason && failed && (
++          <span style={{ color: '#A8362C', marginLeft: line.proof1 || line.proof2 ? 12 : 0 }}>{line.reason}</span>
++        )}
++      </span>
+     </div>
+   );
+ }
+diff --git a/frontend/src/theme.css b/frontend/src/theme.css
+index f75f29e..60f5ab0 100644
+--- a/frontend/src/theme.css
++++ b/frontend/src/theme.css
+@@ -172,3 +172,20 @@
+ .log-payload { display: flex; flex-direction: column; gap: 6px; }
+ .payload-label { font-size: 12px; font-weight: 600; }
+ .payload-json { font: 400 12px/1.6 var(--zk-mono); color: var(--zk-beige); background: var(--zk-ink); border-radius: 6px; padding: 10px 12px; margin: 0; overflow: auto; white-space: pre-wrap; max-height: 280px; }
++
++/* ── The Wire ─────────────────────────────────────────────────── */
++@keyframes rise-in {
++  from { transform: translateY(6px); opacity: 0; }
++  to   { transform: none; opacity: 1; }
++}
++.zk-wire-grid { display: grid; grid-template-columns: 68px 22px 110px 150px 130px minmax(0, 1fr); gap: 10px; align-items: center; min-width: 760px; }
++.zk-wire-scroll { overflow-x: auto; }
++.zk-wire-scroll::-webkit-scrollbar-thumb { background: rgba(10, 51, 35, 0.25); }
++.wire-line-row { padding: 0 16px; height: 36px; border-bottom: 1px solid var(--zk-rule); animation: rise-in 0.25s ease-out both; transition: background 0.12s; }
++.wire-line-row:hover { background: rgba(94, 39, 80, 0.07); }
++.wire-line-row--fail { background: rgba(168, 54, 44, 0.06); }
++.wire-line-row:focus-visible { outline: 3px solid var(--zk-rose); outline-offset: -3px; }
++/* proof digests stay masked until the row is hovered or focused */
++.wire-redact-plain { display: none; }
++.wire-line-row:hover .wire-redact-plain, .wire-line-row:focus-visible .wire-redact-plain { display: inline; }
++.wire-line-row:hover .wire-redact-mask, .wire-line-row:focus-visible .wire-redact-mask { display: none; }
+diff --git a/frontend/src/views/WireView.tsx b/frontend/src/views/WireView.tsx
+index 95b0738..5ddee33 100755
+--- a/frontend/src/views/WireView.tsx
++++ b/frontend/src/views/WireView.tsx
+@@ -6,98 +6,77 @@ interface Props {
+   onLineClick?: (requestId: string) => void;
+ }
+ 
++const COLUMNS = ['Time', '', 'Agent', 'Tool', 'State', 'Proof hashes / reason'];
++
+ export function WireView({ lines, onLineClick }: Props) {
+   const passCount = lines.filter((l) => l.outcome === 'pass').length;
+   const failCount = lines.filter((l) => l.outcome === 'fail').length;
+   const total     = lines.length;
+ 
+   return (
+-    <div
+-      style={{
+-        display: 'flex',
+-        flexDirection: 'column',
+-        height: '100%',
+-        backgroundColor: '#05030A',
+-        overflow: 'hidden',
+-      }}
+-    >
+-      {/* Header */}
++    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'var(--zk-sans)', color: '#0A3323' }}>
++      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16, padding: '16px 22px 10px' }}>
++        <div>
++          <h1 style={{ font: '700 20px var(--zk-sans)', margin: 0, letterSpacing: '-0.01em' }}>The Wire</h1>
++          <p style={{ margin: 0, fontSize: 13, opacity: 0.65 }}>
++            Live verification log. Hover a line to reveal proof digests, click it to inspect.
++          </p>
++        </div>
++        <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
++          <Chip label="total"  value={total}     color="#0A3323" />
++          <Chip label="passed" value={passCount} color="#53662D" />
++          <Chip label="failed" value={failCount} color="#A8362C" />
++        </div>
++      </div>
++
+       <div
+         style={{
+-          padding: '6px 16px',
+-          borderBottom: '1px solid rgba(217,169,74,0.15)',
+-          backgroundColor: '#0D0817',
++          flex: 1,
++          minHeight: 0,
++          margin: '0 22px 18px',
++          border: '1.5px solid #0A3323',
++          borderRadius: 10,
++          overflow: 'hidden',
++          backgroundColor: '#FCFBEA',
+           display: 'flex',
+-          alignItems: 'center',
+-          gap: 16,
+-          flexShrink: 0,
++          flexDirection: 'column',
+         }}
+       >
+-        <span
+-          style={{
+-            fontFamily: "'Special Elite', serif",
+-            fontSize: 11,
+-            color: '#D9A94A',
+-            letterSpacing: '0.2em',
+-          }}
+-        >
+-          THE WIRE
+-        </span>
+-
+-        <div style={{ display: 'flex', gap: 12, marginLeft: 8 }}>
+-          <MetaStat label="TOTAL"  value={String(total)}     color="#D9A94A" />
+-          <MetaStat label="PASS"   value={String(passCount)} color="#6EDBB0" />
+-          <MetaStat label="FAIL"   value={String(failCount)} color="#E15068" />
+-        </div>
+-
+-        {/* Column headers */}
+         <div
++          className="zk-wire-grid"
+           style={{
+-            marginLeft: 'auto',
+-            display: 'flex',
+-            gap: 10,
+-            fontFamily: "'IBM Plex Mono', monospace",
+-            fontSize: 8,
+-            color: 'rgba(217,169,74,0.3)',
+-            letterSpacing: '0.1em',
++            flexShrink: 0,
++            padding: '9px 16px',
++            backgroundColor: '#0A3323',
++            color: '#F7F4D5',
++            font: '500 11.5px var(--zk-sans)',
+           }}
+         >
+-          {['TIME', '', 'AGENT', 'TOOL', 'STATE', 'PROOF HASHES / REASON'].map((h) => (
+-            <span key={h}>{h}</span>
++          {COLUMNS.map((h, i) => (
++            <span key={i} style={{ opacity: 0.75 }}>{h}</span>
+           ))}
+         </div>
++        <TeletypeLog lines={lines} onLineClick={onLineClick} />
+       </div>
+-
+-      {/* Teletype area */}
+-      <TeletypeLog lines={lines} onLineClick={onLineClick} />
+     </div>
+   );
+ }
+ 
+-function MetaStat({ label, value, color }: { label: string; value: string; color: string }) {
++function Chip({ label, value, color }: { label: string; value: number; color: string }) {
+   return (
+-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+-      <span
+-        style={{
+-          fontFamily: "'Archivo', sans-serif",
+-          fontSize: 8,
+-          color: 'rgba(217,169,74,0.4)',
+-          letterSpacing: '0.15em',
+-          textTransform: 'uppercase',
+-        }}
+-      >
+-        {label}
+-      </span>
+-      <span
+-        style={{
+-          fontFamily: "'IBM Plex Mono', monospace",
+-          fontSize: 11,
+-          color,
+-          fontWeight: 600,
+-        }}
+-      >
+-        {value}
+-      </span>
++    <div
++      style={{
++        display: 'flex',
++        alignItems: 'baseline',
++        gap: 7,
++        padding: '5px 12px',
++        backgroundColor: '#FCFBEA',
++        border: '1px solid rgba(10,51,35,0.16)',
++        borderRadius: 8,
++      }}
++    >
++      <b style={{ font: '500 15px var(--zk-mono)', color }}>{value}</b>
++      <span style={{ fontSize: 12, opacity: 0.65 }}>{label}</span>
+     </div>
+   );
+ }

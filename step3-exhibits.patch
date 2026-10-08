@@ -1,0 +1,771 @@
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index 78f74e7..617bdb1 100755
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -80,7 +80,7 @@ export default function App() {
+         highlightExhibits={calmPeriodOver && activeTab !== "exhibits"}
+       />
+ 
+-      <main className={activeTab === "board" ? "zk-main" : "zk-main legacy-dark"}>
++      <main className={activeTab === "board" || activeTab === "exhibits" ? "zk-main" : "zk-main legacy-dark"}>
+         {activeTab === "board" && (
+           <BoardView
+             boardState={displayedBoardState}
+diff --git a/frontend/src/components/exhibits/ExhibitPanel.tsx b/frontend/src/components/exhibits/ExhibitPanel.tsx
+index 2df6ce1..74030a0 100755
+--- a/frontend/src/components/exhibits/ExhibitPanel.tsx
++++ b/frontend/src/components/exhibits/ExhibitPanel.tsx
+@@ -151,12 +151,12 @@ export function ExhibitPanel({ meta }: Props) {
+         </div>
+         {isFinalStep && isBlocked && (
+           <div className="exhibit-verdict exhibit-verdict--blocked">
+-            <span className="verdict-stamp">BLOCKED</span>
++            <span className="verdict-stamp">Blocked</span>
+           </div>
+         )}
+         {isFinalStep && !isBlocked && (
+           <div className="exhibit-verdict exhibit-verdict--pass">
+-            <span className="verdict-stamp">PASSED</span>
++            <span className="verdict-stamp">Passed</span>
+           </div>
+         )}
+       </div>
+@@ -164,7 +164,7 @@ export function ExhibitPanel({ meta }: Props) {
+       {/* ── Configure panel (only when this exhibit exposes params, and before a run starts) ── */}
+       {!run && meta.params && meta.params.length > 0 && (
+         <div className="exhibit-config">
+-          <div className="exhibit-config-header">CONFIGURE THIS RUN</div>
++          <div className="exhibit-config-header">Configure this run</div>
+           <div className="exhibit-config-grid">
+             {meta.params.map((p) => (
+               <div key={p.key} className="exhibit-config-field">
+@@ -220,7 +220,7 @@ export function ExhibitPanel({ meta }: Props) {
+             onClick={startRun}
+             disabled={loading}
+           >
+-            {loading ? "INITIALISING…" : "▶ RUN EXHIBIT"}
++            {loading ? "Initialising…" : "Run exhibit"}
+           </button>
+         ) : (
+           <>
+@@ -231,19 +231,19 @@ export function ExhibitPanel({ meta }: Props) {
+                 disabled={loading}
+               >
+                 {loading
+-                  ? "EXECUTING…"
+-                  : `STEP ${run.currentStep + 1}/${run.steps.length} — ${run.steps[run.currentStep]?.label}`}
++                  ? "Executing…"
++                  : `Step ${run.currentStep + 1}/${run.steps.length}: ${run.steps[run.currentStep]?.label}`}
+               </button>
+             )}
+             <button className="exhibit-btn exhibit-btn--reset" onClick={reset}>
+-              ↺ RESET{meta.params && meta.params.length > 0 ? " & RECONFIGURE" : ""}
++              Reset{meta.params && meta.params.length > 0 ? " and reconfigure" : ""}
+             </button>
+           </>
+         )}
+       </div>
+ 
+       {error && (
+-        <div className="exhibit-error">⚠ {error}</div>
++        <div className="exhibit-error">{error}</div>
+       )}
+ 
+       {/* ── Step progress bar ── */}
+@@ -280,7 +280,7 @@ export function ExhibitPanel({ meta }: Props) {
+                 onClick={() => setExpanded(expanded === i ? null : i)}
+               >
+                 <span className={`log-step-badge ${r.blocked ? "badge--blocked" : "badge--pass"}`}>
+-                  {r.blocked ? "■ BLOCKED" : "● PASS"}
++                  {r.blocked ? "Blocked" : "Passed"}
+                 </span>
+                 <span className="log-step-label">{r.label}</span>
+                 <span className="log-expand-icon">{expanded === i ? "▲" : "▼"}</span>
+@@ -291,13 +291,13 @@ export function ExhibitPanel({ meta }: Props) {
+                   <p className="log-narration">{r.narration}</p>
+                   {!!r.request && (
+                     <div className="log-payload">
+-                      <div className="payload-label">REQUEST</div>
++                      <div className="payload-label">Request</div>
+                       <pre className="payload-json">{JSON.stringify(r.request, null, 2)}</pre>
+                     </div>
+                   )}
+                   {!!r.response && (
+                     <div className="log-payload">
+-                      <div className="payload-label">RESPONSE</div>
++                      <div className="payload-label">Response</div>
+                       <pre className="payload-json">{JSON.stringify(r.response, null, 2)}</pre>
+                     </div>
+                   )}
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+index 780ca15..51917dc 100755
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -278,538 +278,3 @@
+   from { transform: translateX(100%); }
+   to   { transform: translateX(0); }
+ }
+-
+-/* ══════════════════════════════════════════════════════════════════
+-   PHASE 5 — EXHIBITS LAYOUT
+-   ══════════════════════════════════════════════════════════════════ */
+-
+-.exhibits-layout {
+-  display: grid;
+-  grid-template-columns: 240px 1fr;
+-  height: 100%;
+-  overflow: hidden;
+-  background-color: var(--bg, #0D0817);
+-  position: relative;
+-}
+-
+-/* Blueprint grid overlay for exhibits layout */
+-.exhibits-layout::before {
+-  content: '';
+-  position: absolute;
+-  inset: 0;
+-  pointer-events: none;
+-  z-index: 0;
+-  background-image:
+-    repeating-linear-gradient(to right, rgba(42, 32, 68, 0.35) 0, rgba(42, 32, 68, 0.35) 1px, transparent 1px, transparent 32px),
+-    repeating-linear-gradient(to bottom, rgba(42, 32, 68, 0.35) 0, rgba(42, 32, 68, 0.35) 1px, transparent 1px, transparent 32px);
+-  opacity: 0.55;
+-}
+-
+-/* ── Sidebar navigation ── */
+-.exhibits-nav {
+-  display: flex;
+-  flex-direction: column;
+-  border-right: 1px solid var(--line, #2A2044);
+-  background: rgba(23, 15, 38, 0.4);
+-  backdrop-filter: blur(8px);
+-  overflow-y: auto;
+-  padding: 0;
+-  position: relative;
+-  z-index: 2;
+-}
+-
+-.exhibits-nav-header {
+-  padding: 18px 16px 12px;
+-  border-bottom: 1px solid var(--line, #2A2044);
+-  line-height: 1.6;
+-}
+-
+-.exhibit-nav-item {
+-  display: flex;
+-  align-items: flex-start;
+-  gap: 10px;
+-  width: 100%;
+-  padding: 12px 16px;
+-  background: none;
+-  border: none;
+-  border-left: 3px solid transparent;
+-  border-bottom: 1px solid rgba(233, 228, 242, 0.06);
+-  cursor: pointer;
+-  text-align: left;
+-  transition: all 0.15s ease;
+-  color: var(--ink-soft, #7C7099);
+-}
+-
+-.exhibit-nav-item:hover {
+-  background: rgba(139, 127, 224, 0.04);
+-  color: var(--ink, #E9E4F2);
+-}
+-
+-.nav-item--active {
+-  border-left-color: var(--alarm, #E15068);
+-  background: rgba(225, 80, 104, 0.05) !important;
+-  color: var(--ink, #E9E4F2) !important;
+-}
+-
+-.nav-item-number {
+-  font-family: var(--font-stamp, 'Special Elite', serif);
+-  font-size: 11px;
+-  color: var(--alarm, #E15068);
+-  width: 20px;
+-  text-align: right;
+-  flex-shrink: 0;
+-}
+-
+-.nav-item-title {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 10px;
+-  letter-spacing: 0.05em;
+-  font-weight: 500;
+-}
+-
+-.exhibits-nav-footer {
+-  margin-top: auto;
+-  padding: 16px;
+-  border-top: 1px solid var(--line, #2A2044);
+-  display: flex;
+-  flex-direction: column;
+-  gap: 8px;
+-}
+-
+-.nav-legend-row {
+-  display: flex;
+-  align-items: center;
+-  gap: 8px;
+-}
+-
+-.legend-dot {
+-  width: 6px;
+-  height: 6px;
+-  border-radius: 50%;
+-}
+-
+-.dot--blocked {
+-  background-color: var(--alarm, #E15068);
+-  box-shadow: 0 0 8px var(--alarm, #E15068);
+-}
+-
+-.dot--pass {
+-  background-color: var(--verified, #54C99A);
+-  box-shadow: 0 0 8px var(--verified, #54C99A);
+-}
+-
+-.legend-label {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 8px;
+-  text-transform: uppercase;
+-  letter-spacing: 0.15em;
+-  color: var(--ink-soft, #7C7099);
+-}
+-
+-/* ── Main exhibit canvas ── */
+-.exhibits-canvas {
+-  padding: 24px;
+-  overflow-y: auto;
+-  position: relative;
+-  z-index: 2;
+-  height: 100%;
+-}
+-
+-/* ── Exhibit Panel UI ── */
+-.exhibit-panel {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 20px;
+-  max-width: 900px;
+-  margin: 0 auto;
+-}
+-
+-.exhibit-header {
+-  display: flex;
+-  align-items: center;
+-  gap: 16px;
+-  padding-bottom: 16px;
+-  border-bottom: 1px solid var(--line, #2A2044);
+-}
+-
+-.exhibit-number {
+-  font-family: var(--font-stamp, 'Special Elite', serif);
+-  font-size: 32px;
+-  color: var(--alarm, #E15068);
+-  border: 2px solid var(--alarm, #E15068);
+-  padding: 2px 10px;
+-  border-radius: 4px;
+-  transform: rotate(-2deg);
+-}
+-
+-.exhibit-titles {
+-  flex: 1;
+-}
+-
+-.exhibit-title {
+-  font-family: var(--font-stamp, 'Special Elite', serif);
+-  font-size: 20px;
+-  color: var(--ink, #E9E4F2);
+-  margin: 0 0 4px;
+-}
+-
+-.exhibit-tagline {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 10px;
+-  color: var(--ink-soft, #7C7099);
+-  margin: 0;
+-  line-height: 1.5;
+-}
+-
+-.exhibit-verdict {
+-  display: flex;
+-  align-items: center;
+-}
+-
+-.verdict-stamp {
+-  font-family: var(--font-stamp, 'Special Elite', serif);
+-  font-size: 14px;
+-  letter-spacing: 0.18em;
+-  padding: 4px 10px;
+-  border-radius: 3px;
+-  display: inline-block;
+-  animation: stamp-land-overshoot 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+-}
+-
+-.exhibit-verdict--blocked .verdict-stamp {
+-  color: var(--alarm, #E15068);
+-  border: 2px solid var(--alarm, #E15068);
+-  background: rgba(225, 80, 104, 0.08);
+-}
+-
+-.exhibit-verdict--pass .verdict-stamp {
+-  color: var(--verified, #54C99A);
+-  border: 2px solid var(--verified, #54C99A);
+-  background: rgba(84, 201, 154, 0.08);
+-}
+-
+-/* ── Configure panel ── */
+-.exhibit-config {
+-  background: #170F26;
+-  border: 1px solid var(--line, #2A2044);
+-  border-radius: 4px;
+-  padding: 16px;
+-}
+-
+-.exhibit-config-header {
+-  font-family: var(--font-stamp, 'Special Elite', serif);
+-  font-size: 10px;
+-  letter-spacing: 0.2em;
+-  color: var(--gold, #D9A94A);
+-  margin-bottom: 12px;
+-}
+-
+-.exhibit-config-grid {
+-  display: grid;
+-  grid-template-columns: 1fr;
+-  gap: 16px;
+-}
+-
+-@media (min-width: 600px) {
+-  .exhibit-config-grid {
+-    grid-template-columns: 1fr 1fr;
+-  }
+-}
+-
+-.exhibit-config-field {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 6px;
+-}
+-
+-.exhibit-config-label {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 8px;
+-  text-transform: uppercase;
+-  letter-spacing: 0.15em;
+-  color: var(--ink-soft, #7C7099);
+-}
+-
+-.exhibit-config-input {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 11px;
+-  background: rgba(23, 15, 38, 0.4);
+-  border: 1px solid var(--line, #2A2044);
+-  border-radius: 2px;
+-  color: var(--ink, #E9E4F2);
+-  padding: 6px 10px;
+-  outline: none;
+-  transition: border-color 0.15s ease;
+-}
+-
+-.exhibit-config-input:focus {
+-  border-color: var(--gold, #D9A94A);
+-}
+-
+-.exhibit-config-help {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 8px;
+-  color: rgba(233, 228, 242, 0.35);
+-  margin: 0;
+-  line-height: 1.4;
+-}
+-
+-/* ── Controls ── */
+-.exhibit-controls {
+-  display: flex;
+-  gap: 12px;
+-  flex-wrap: wrap;
+-}
+-
+-.exhibit-btn {
+-  font-family: var(--font-stamp, 'Special Elite', serif);
+-  font-size: 11px;
+-  letter-spacing: 0.1em;
+-  padding: 10px 20px;
+-  border-radius: 3px;
+-  cursor: pointer;
+-  transition: all 0.15s ease;
+-}
+-
+-.exhibit-btn--start {
+-  color: var(--gold, #D9A94A);
+-  border: 1px solid var(--gold, #D9A94A);
+-  background: rgba(217, 169, 74, 0.05);
+-}
+-
+-.exhibit-btn--start:hover:not(:disabled) {
+-  background: rgba(217, 169, 74, 0.12);
+-  box-shadow: 0 0 12px var(--gold-glow, rgba(217,169,74,.22));
+-}
+-
+-.exhibit-btn--step {
+-  color: var(--verified, #54C99A);
+-  border: 1px solid var(--verified, #54C99A);
+-  background: rgba(84, 201, 154, 0.05);
+-}
+-
+-.exhibit-btn--step:hover:not(:disabled) {
+-  background: rgba(84, 201, 154, 0.12);
+-  box-shadow: 0 0 12px var(--verified-glow, rgba(84,201,154,.16));
+-}
+-
+-.exhibit-btn--reset {
+-  color: var(--ink-soft, #7C7099);
+-  border: 1px solid var(--line, #2A2044);
+-  background: transparent;
+-}
+-
+-.exhibit-btn--reset:hover {
+-  border-color: var(--line-bright, #3C2E5C);
+-  color: var(--ink, #E9E4F2);
+-}
+-
+-.exhibit-btn:disabled {
+-  opacity: 0.5;
+-  cursor: not-allowed;
+-}
+-
+-.exhibit-error {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 11px;
+-  color: var(--alarm, #E15068);
+-  background: rgba(225, 80, 104, 0.05);
+-  border: 1px solid rgba(225, 80, 104, 0.2);
+-  padding: 10px 14px;
+-  border-radius: 3px;
+-}
+-
+-/* ── Step progress nodes ── */
+-.exhibit-steps {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 16px;
+-  background: #170F26;
+-  border: 1px solid var(--line, #2A2044);
+-  border-radius: 4px;
+-  padding: 16px;
+-}
+-
+-.exhibit-steps-track {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 10px;
+-}
+-
+-.exhibit-step-node {
+-  display: flex;
+-  align-items: center;
+-  gap: 12px;
+-  opacity: 0.35;
+-  transition: all 0.25s ease;
+-}
+-
+-.node--active {
+-  opacity: 1;
+-}
+-
+-.node--done {
+-  opacity: 0.75;
+-}
+-
+-.step-node-idx {
+-  font-family: var(--font-stamp, 'Special Elite', serif);
+-  font-size: 10px;
+-  color: var(--gold, #D9A94A);
+-  border: 1.5px solid var(--gold, #D9A94A);
+-  border-radius: 50%;
+-  width: 18px;
+-  height: 18px;
+-  display: flex;
+-  align-items: center;
+-  justify-content: center;
+-  flex-shrink: 0;
+-}
+-
+-.node--active .step-node-idx {
+-  box-shadow: 0 0 10px var(--gold-glow, rgba(217,169,74,.22));
+-  background: var(--gold-glow, rgba(217,169,74,.22));
+-}
+-
+-.node--done .step-node-idx {
+-  color: var(--verified, #54C99A);
+-  border-color: var(--verified, #54C99A);
+-}
+-
+-.step-node-label {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 10px;
+-  color: var(--ink, #E9E4F2);
+-}
+-
+-.node--done .step-node-label {
+-  color: var(--ink-soft, #7C7099);
+-}
+-
+-/* ── Results log ── */
+-.exhibit-canvas-inner {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 20px;
+-}
+-
+-.exhibit-log {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 10px;
+-}
+-
+-.exhibit-log-entry {
+-  border: 1px solid var(--line, #2A2044);
+-  border-radius: 4px;
+-  overflow: hidden;
+-  background: #1E1530;
+-}
+-
+-.entry--blocked {
+-  border-color: rgba(225, 80, 104, 0.2);
+-  border-left: 3px solid var(--alarm, #E15068);
+-}
+-
+-.entry--pass {
+-  border-color: rgba(84, 201, 154, 0.2);
+-  border-left: 3px solid var(--verified, #54C99A);
+-}
+-
+-.log-entry-header {
+-  display: flex;
+-  align-items: center;
+-  gap: 12px;
+-  padding: 12px 16px;
+-  cursor: pointer;
+-  user-select: none;
+-  transition: background 0.1s ease;
+-  background: rgba(23, 15, 38, 0.2);
+-}
+-
+-.log-entry-header:hover {
+-  background: rgba(139, 127, 224, 0.04);
+-}
+-
+-.log-step-badge {
+-  font-family: var(--font-stamp, 'Special Elite', serif);
+-  font-size: 9px;
+-  letter-spacing: 0.12em;
+-  padding: 2px 6px;
+-  border-radius: 2px;
+-  flex-shrink: 0;
+-  border: 1px solid transparent;
+-}
+-
+-.badge--blocked {
+-  color: var(--alarm, #E15068);
+-  background: rgba(225, 80, 104, 0.06);
+-  border-color: rgba(225, 80, 104, 0.2);
+-}
+-
+-.badge--pass {
+-  color: var(--verified, #54C99A);
+-  background: rgba(84, 201, 154, 0.06);
+-  border-color: rgba(84, 201, 154, 0.2);
+-}
+-
+-.log-step-label {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 11px;
+-  font-weight: 600;
+-  color: var(--ink, #E9E4F2);
+-  flex: 1;
+-}
+-
+-.log-expand-icon {
+-  font-size: 10px;
+-  color: var(--ink-soft, #7C7099);
+-  flex-shrink: 0;
+-}
+-
+-.log-entry-body {
+-  padding: 14px;
+-  border-top: 1px solid var(--line, #2A2044);
+-  display: flex;
+-  flex-direction: column;
+-  gap: 14px;
+-  background: #170F26;
+-}
+-
+-.log-narration {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 10px;
+-  line-height: 1.6;
+-  color: rgba(233, 228, 242, 0.7);
+-  margin: 0;
+-}
+-
+-.log-payload {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 6px;
+-}
+-
+-.payload-label {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 8px;
+-  letter-spacing: 0.15em;
+-  color: var(--gold, #D9A94A);
+-  text-transform: uppercase;
+-}
+-
+-.payload-json {
+-  font-family: var(--font-data, 'IBM Plex Mono', monospace);
+-  font-size: 10px;
+-  line-height: 1.6;
+-  color: rgba(233, 228, 242, 0.65);
+-  background: rgba(13, 8, 23, 0.6);
+-  border: 1px solid var(--line, #2A2044);
+-  border-radius: 3px;
+-  padding: 10px 12px;
+-  margin: 0;
+-  overflow-x: auto;
+-  white-space: pre-wrap;
+-  max-height: 280px;
+-  overflow-y: auto;
+-}
+diff --git a/frontend/src/theme.css b/frontend/src/theme.css
+index 912018f..f75f29e 100644
+--- a/frontend/src/theme.css
++++ b/frontend/src/theme.css
+@@ -95,3 +95,80 @@
+ /* Inspector */
+ .zk-insp .cursor-blink::after { color: var(--zk-pur); }
+ .zk-insp .scrollbar-paper::-webkit-scrollbar-thumb { background: rgba(10, 51, 35, 0.25); }
++
++@keyframes stamp-land-overshoot {
++  0%   { transform: scale(2.2) rotate(-6deg); opacity: 0; }
++  60%  { transform: scale(0.94) rotate(-3deg); opacity: 1; }
++  100% { transform: scale(1) rotate(-3deg); opacity: 1; }
++}
++
++/* ── Exhibits ─────────────────────────────────────────────────── */
++.exhibits-layout { display: grid; grid-template-columns: 240px 1fr; height: 100%; overflow: hidden; font-family: var(--zk-sans); color: var(--zk-ink); }
++.exhibits-nav { display: flex; flex-direction: column; overflow-y: auto; background: var(--zk-paper); border-right: 1px solid var(--zk-rule); }
++.exhibits-nav-header { padding: 18px 16px 12px; border-bottom: 1px solid var(--zk-rule); line-height: 1.4; }
++.exhibit-nav-item { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 11px 16px; background: none; border: 0; border-left: 3px solid transparent; border-bottom: 1px solid var(--zk-rule); cursor: pointer; text-align: left; color: var(--zk-ink); transition: background 0.15s; }
++.exhibit-nav-item:hover { background: rgba(10, 51, 35, 0.05); }
++.exhibit-nav-item.nav-item--active { background: var(--zk-pur-bg); border-left-color: var(--zk-pur); }
++.nav-item-number { font: 500 12px var(--zk-mono); color: var(--zk-pur); width: 30px; flex-shrink: 0; padding-top: 1px; }
++.nav-item-title { font: 500 13px/1.3 var(--zk-sans); }
++.exhibits-nav-footer { margin-top: auto; padding: 16px; border-top: 1px solid var(--zk-rule); display: flex; flex-direction: column; gap: 8px; }
++.nav-legend-row { display: flex; align-items: center; gap: 8px; }
++.legend-dot { width: 9px; height: 9px; border-radius: 50%; }
++.dot--blocked { background: var(--zk-red); }
++.dot--pass { background: var(--zk-moss); }
++.legend-label { font-size: 12px; opacity: 0.75; }
++
++.exhibits-canvas { padding: 22px; overflow-y: auto; height: 100%; }
++.exhibit-panel { display: flex; flex-direction: column; gap: 18px; max-width: 900px; margin: 0 auto; }
++.exhibit-header { display: flex; align-items: center; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--zk-ink); }
++.exhibit-number { font: 500 20px var(--zk-mono); color: var(--zk-pur); border: 1.5px solid var(--zk-pur); border-radius: 8px; padding: 3px 12px; background: var(--zk-paper); }
++.exhibit-titles { flex: 1; min-width: 0; }
++.exhibit-title { font: 700 20px var(--zk-sans); letter-spacing: -0.01em; margin: 0 0 2px; }
++.exhibit-tagline { font-size: 13px; opacity: 0.7; margin: 0; }
++.verdict-stamp { display: inline-block; font: 700 13px var(--zk-sans); letter-spacing: 0.04em; padding: 4px 12px; border: 2px solid; border-radius: 6px; background: var(--zk-paper); animation: stamp-land-overshoot 0.4s cubic-bezier(0.2, 1.5, 0.4, 1) forwards; }
++.exhibit-verdict--blocked .verdict-stamp { color: var(--zk-red); }
++.exhibit-verdict--pass .verdict-stamp { color: var(--zk-mossd); }
++
++.exhibit-config { background: #fff; border: 1px solid var(--zk-rule); border-radius: 10px; padding: 16px; }
++.exhibit-config-header { font-weight: 700; font-size: 13px; margin-bottom: 12px; }
++.exhibit-config-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
++@media (min-width: 700px) { .exhibit-config-grid { grid-template-columns: 1fr 1fr; } }
++.exhibit-config-field { display: flex; flex-direction: column; gap: 6px; }
++.exhibit-config-label { font-size: 12px; font-weight: 600; }
++.exhibit-config-input { font: 400 12.5px var(--zk-mono); background: var(--zk-paper); border: 1px solid var(--zk-rule); border-radius: 6px; color: var(--zk-ink); padding: 8px 10px; outline: none; }
++.exhibit-config-input:focus { border-color: var(--zk-pur); box-shadow: 0 0 0 3px var(--zk-pur-bg); }
++.exhibit-config-help { font-size: 11.5px; opacity: 0.65; margin: 0; line-height: 1.4; }
++
++.exhibit-controls { display: flex; gap: 10px; flex-wrap: wrap; }
++.exhibit-btn { font: 600 13px var(--zk-sans); padding: 10px 18px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: filter 0.15s; }
++.exhibit-btn:hover:not(:disabled) { filter: brightness(0.93); }
++.exhibit-btn:active:not(:disabled) { transform: translateY(1px); }
++.exhibit-btn--start { background: var(--zk-pur); color: #fff; }
++.exhibit-btn--step { background: var(--zk-ink); color: var(--zk-beige); }
++.exhibit-btn--reset { background: transparent; color: var(--zk-ink); border-color: var(--zk-ink); }
++.exhibit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
++.exhibit-btn:focus-visible, .log-entry-header:focus-visible { outline: 3px solid var(--zk-rose); outline-offset: 2px; }
++.exhibit-error { font: 400 12px var(--zk-mono); color: var(--zk-red); background: #F8E6E2; border-left: 3px solid var(--zk-red); padding: 10px 14px; border-radius: 0 6px 6px 0; }
++
++.exhibit-progress { display: flex; gap: 6px; }
++.exhibit-progress-pip { flex: 1; height: 6px; border-radius: 3px; background: rgba(10, 51, 35, 0.15); transition: background 0.2s; }
++.pip--done { background: var(--zk-moss); }
++.pip--blocked { background: var(--zk-red); }
++.pip--active { background: var(--zk-pur); animation: zk-blink 1s ease-in-out infinite; }
++
++.exhibit-log { display: flex; flex-direction: column; gap: 10px; }
++.exhibit-log-entry { background: #fff; border: 1px solid var(--zk-rule); border-radius: 8px; overflow: hidden; }
++.entry--blocked { border-left: 4px solid var(--zk-red); }
++.entry--pass { border-left: 4px solid var(--zk-moss); }
++.log-entry-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; user-select: none; }
++.log-entry-header:hover { background: rgba(10, 51, 35, 0.04); }
++.log-step-badge { font: 600 11.5px var(--zk-sans); padding: 2px 9px; border-radius: 99px; flex-shrink: 0; color: #fff; }
++.badge--blocked { background: var(--zk-red); }
++.badge--pass { background: var(--zk-mossd); }
++.log-step-label { font-weight: 600; font-size: 13.5px; flex: 1; }
++.log-expand-icon { font-size: 10px; opacity: 0.6; }
++.log-entry-body { padding: 14px 16px; border-top: 1px solid var(--zk-rule); display: flex; flex-direction: column; gap: 14px; background: var(--zk-paper); }
++.log-narration { font-size: 13.5px; line-height: 1.6; margin: 0; }
++.log-payload { display: flex; flex-direction: column; gap: 6px; }
++.payload-label { font-size: 12px; font-weight: 600; }
++.payload-json { font: 400 12px/1.6 var(--zk-mono); color: var(--zk-beige); background: var(--zk-ink); border-radius: 6px; padding: 10px 12px; margin: 0; overflow: auto; white-space: pre-wrap; max-height: 280px; }
+diff --git a/frontend/src/views/ExhibitsView.tsx b/frontend/src/views/ExhibitsView.tsx
+index 610c13e..d63a819 100755
+--- a/frontend/src/views/ExhibitsView.tsx
++++ b/frontend/src/views/ExhibitsView.tsx
+@@ -1,5 +1,5 @@
+ /**
+- * ExhibitsView — Phase 5: Nine Attack Exhibits (dark purple theme)
++ * ExhibitsView — Phase 5: Nine Attack Exhibits (light theme)
+  */
+ import { useState } from "react";
+ import { ExhibitPanel, ExhibitMeta } from "../components/exhibits/ExhibitPanel";
+@@ -122,16 +122,8 @@ export function ExhibitsView() {
+       {/* ── Left nav: exhibit index ── */}
+       <nav className="exhibits-nav">
+         <div className="exhibits-nav-header">
+-          <p style={{ fontFamily: "var(--font-data)", fontSize: 8, letterSpacing: "0.25em", color: "#8B7FE0", margin: "0 0 2px", textTransform: "uppercase" }}>
+-            ZK-MCP COMPLIANCE
+-          </p>
+-          <span className="font-stamp" style={{ fontSize: 11, letterSpacing: "0.18em", color: "#E15068" }}>
+-            CASE FILE
+-          </span>
+-          <br />
+-          <span className="font-stamp" style={{ fontSize: 9, letterSpacing: "0.12em", color: "rgba(233,228,242,0.45)" }}>
+-            ATTACK EXHIBITS
+-          </span>
++          <b style={{ fontSize: 15 }}>Attack exhibits</b>
++          <p style={{ fontSize: 12, opacity: 0.65, margin: "2px 0 0" }}>Nine attacks against the gate</p>
+         </div>
+ 
+         {EXHIBITS.map((ex) => (
+@@ -148,11 +140,11 @@ export function ExhibitsView() {
+         <div className="exhibits-nav-footer">
+           <div className="nav-legend-row">
+             <span className="legend-dot dot--blocked" />
+-            <span className="legend-label">Blocked</span>
++            <span className="legend-label">Attack blocked</span>
+           </div>
+           <div className="nav-legend-row">
+             <span className="legend-dot dot--pass" />
+-            <span className="legend-label">Passed</span>
++            <span className="legend-label">Attack passed</span>
+           </div>
+         </div>
+       </nav>

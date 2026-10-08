@@ -9,9 +9,6 @@ const POLL_MS = 2000;
  * tasks/attacks run (attestations issued, nonces burned, refunds written,
  * revocations logged) instead of trusting a static after-the-fact summary.
  *
- * Replaces AuthorityTree + ScopeCoverageMatrix on the auditor dashboard —
- * those show internal data-structure shape; this shows the actual database
- * changing, which is easier for a non-technical viewer to follow.
  */
 export function LiveDatabasePanel() {
   const [snapshot, setSnapshot] = useState<DbSnapshot | null>(null);
@@ -55,71 +52,60 @@ export function LiveDatabasePanel() {
   const columns = activeTable?.latest?.[0] ? Object.keys(activeTable.latest[0]) : [];
 
   return (
-    <div className="bg-[#1E1530] border border-[rgba(233,228,242,0.15)] rounded-sm p-5 h-full">
-      <div className="flex items-center justify-between border-b border-[rgba(233,228,242,0.1)] pb-2 mb-4">
-        <h3 className="font-stamp text-lg text-[#E9E4F2] uppercase tracking-widest">Live Database</h3>
-        <div className="flex items-center gap-2 font-mono-data text-[9px] uppercase text-[#54C99A]">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#54C99A] animate-pulse" />
-          Polling every {POLL_MS / 1000}s
+    <div className="zk-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+        <div>
+          <h3 className="zk-card-title">Live database</h3>
+          <p className="zk-card-sub" style={{ margin: 0 }}>Every table in the Postgres instance, read-only.</p>
         </div>
+        <span className="zk-pill zk-pill--up" style={{ flexShrink: 0 }}>
+          <i />
+          Polling every {POLL_MS / 1000}s
+        </span>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginBottom: 14 }}>
         {(snapshot?.tables ?? []).map((t) => (
           <button
             key={t.key}
             onClick={() => setSelected(t.key)}
-            className={`text-left p-2 rounded-sm border transition-colors ${
-              selected === t.key
-                ? "border-[#54C99A] bg-[rgba(84,201,154,0.08)]"
-                : "border-[rgba(233,228,242,0.12)] hover:bg-[rgba(233,228,242,0.03)]"
-            } ${flashKeys.has(t.key) ? "bg-[rgba(84,201,154,0.18)]" : ""}`}
-            style={{ transition: "background-color 0.3s ease" }}
+            className={`zk-tab${selected === t.key ? " zk-tab--on" : ""}${flashKeys.has(t.key) ? " zk-tab--flash" : ""}`}
           >
-            <div className="font-mono-data text-[9px] uppercase text-[#E9E4F2] opacity-60 truncate">{t.label}</div>
-            <div className="font-stamp text-xl text-[#E9E4F2]">{t.ok ? t.count : "—"}</div>
+            <div style={{ fontSize: 11.5, opacity: 0.65, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</div>
+            <div style={{ font: "500 20px var(--zk-mono)" }}>{t.ok ? t.count : "—"}</div>
           </button>
         ))}
       </div>
 
       {activeTable && (
-        <div className="font-mono-data text-[10px] text-[#E9E4F2] opacity-60 mb-2">
+        <div style={{ font: "400 12px var(--zk-mono)", opacity: 0.65, marginBottom: 8 }}>
           showing {activeTable.latest.length} of {activeTable.count} rows
         </div>
       )}
-      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 420 }}>
-        <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 bg-[#1E1530]">
+      <div style={{ overflow: "auto", maxHeight: 420, border: "1px solid var(--zk-rule)", borderRadius: 8 }}>
+        <table className="zk-table">
+          <thead>
             <tr>
               {columns.map((c) => (
-                <th
-                  key={c}
-                  className="p-2 border-b border-[rgba(233,228,242,0.2)] font-mono-data text-[10px] text-[#E9E4F2] opacity-70 uppercase font-normal whitespace-nowrap px-3"
-                >
-                  {c.replace(/_/g, " ")}
-                </th>
+                <th key={c}>{c.replace(/_/g, " ")}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {activeTable?.ok === false && (
               <tr>
-                <td className="p-3 font-mono-data text-[11px] text-[#E15068]">
-                  table not available yet (migration not run in this environment)
-                </td>
+                <td style={{ color: "#A8362C" }}>table not available yet (migration not run in this environment)</td>
               </tr>
             )}
             {activeTable?.latest.length === 0 && activeTable.ok && (
               <tr>
-                <td className="p-3 font-mono-data text-[11px] text-[#E9E4F2] opacity-50">no rows yet</td>
+                <td style={{ opacity: 0.55 }}>no rows yet</td>
               </tr>
             )}
             {activeTable?.latest.map((row, i) => (
-              <tr key={i} className="border-b border-[rgba(233,228,242,0.05)] hover:bg-[rgba(233,228,242,0.03)]">
+              <tr key={i}>
                 {columns.map((c) => (
-                  <td key={c} className="p-2 font-mono-data text-[11px] text-[#E9E4F2] whitespace-nowrap px-3">
-                    {formatCell(row[c])}
-                  </td>
+                  <td key={c}>{formatCell(row[c])}</td>
                 ))}
               </tr>
             ))}

@@ -30,38 +30,23 @@ export function Telegram({ callSig, x1, y1, x2, y2, t = 0.38, visible }: Telegra
         style={{
           position: 'relative',
           width: w,
-          backgroundColor: '#0D0817',
-          border: '1px solid rgba(233,228,242,0.25)',
-          borderRadius: 2,
+          backgroundColor: '#0A3323',
+          borderRadius: 6,
           padding: '6px 10px',
-          boxShadow: '1px 2px 6px rgba(233,228,242,0.15)',
-          // Torn-edge effect via clip-path on top
-          clipPath:
-            'polygon(0% 8%, 3% 0%, 6% 7%, 9% 1%, 12% 8%, 15% 2%, 18% 8%, 21% 1%, 24% 8%, 27% 2%, 30% 8%, 33% 1%, 36% 8%, 39% 1%, 42% 7%, 45% 0%, 48% 7%, 51% 1%, 54% 7%, 57% 0%, 60% 7%, 63% 1%, 66% 7%, 69% 0%, 72% 7%, 75% 1%, 78% 7%, 81% 0%, 84% 7%, 87% 1%, 90% 7%, 93% 0%, 96% 7%, 100% 2%, 100% 100%, 0% 100%)',
+          boxShadow: '0 4px 12px rgba(10,51,35,0.3)',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-          <span
-            style={{
-              fontFamily: "'Special Elite', serif",
-              fontSize: 8,
-              color: '#D9A94A',
-              letterSpacing: '0.2em',
-              textTransform: 'uppercase',
-            }}
-          >
-            TELEGRAM
-          </span>
-          <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(217,169,74,0.3)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+          <span style={{ fontFamily: 'var(--zk-sans)', fontSize: 10, color: '#D3968C', fontWeight: 600 }}>Call</span>
+          <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(247,244,213,0.25)' }} />
         </div>
-        {/* Call signature */}
         <p
           style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: 8,
-            color: '#E9E4F2',
+            fontFamily: 'var(--zk-mono)',
+            fontSize: 10,
+            color: '#F7F4D5',
             lineHeight: 1.45,
+            margin: 0,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',

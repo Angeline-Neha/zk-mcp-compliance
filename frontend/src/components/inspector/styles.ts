@@ -1,14 +1,14 @@
-const INK = "#E9E4F2";
-const PASS = "#54C99A";
-const FAIL = "#E15068";
-const BRASS = "#D9A94A";
-const PENDING = "rgba(233,228,242,0.35)";
+const INK = "#0A3323";
+const PASS = "#53662D";
+const FAIL = "#A8362C";
+const BRASS = "#5E2750";
+const PENDING = "rgba(10,51,35,0.5)";
 
 import type { CSSProperties } from "react";
 
 export function monoStyle(size = 9): CSSProperties {
   return {
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "var(--zk-mono)",
     fontSize: size,
     color: INK,
     lineHeight: 1.6,
@@ -17,11 +17,10 @@ export function monoStyle(size = 9): CSSProperties {
 
 export function stampStyle(): CSSProperties {
   return {
-    fontFamily: "'Special Elite', serif",
-    fontSize: 10,
-    letterSpacing: "0.15em",
-    textTransform: "uppercase" as const,
-    color: BRASS,
+    fontFamily: "var(--zk-sans)",
+    fontSize: 13,
+    fontWeight: 700,
+    color: INK,
   };
 }
 

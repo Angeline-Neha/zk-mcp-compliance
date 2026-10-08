@@ -19,125 +19,83 @@ export function StatusStrip({
   narrateMode = false,
   onToggleNarrate,
 }: Props) {
-  const caseNumber = "ZK-MCP-0417";
-
   return (
     <header
-      className="col-span-3 flex items-center px-4 gap-0 border-b"
+      className="col-span-3"
       style={{
-        height: 36,
-        backgroundColor: "#170F26",
-        borderColor: "rgba(217,169,74,0.3)",
-        boxShadow: "0 1px 0 rgba(0,0,0,0.4)",
+        display: "flex",
+        alignItems: "center",
+        gap: 26,
+        padding: "0 18px",
+        height: 48,
+        backgroundColor: "#0A3323",
+        color: "#F7F4D5",
+        fontFamily: "var(--zk-sans)",
+        overflowX: "auto",
+        whiteSpace: "nowrap",
         flexShrink: 0,
       }}
     >
-      {/* Project title — stamp face, gold, per layout spec */}
-      <span
-        className="font-stamp text-xs tracking-widest"
-        style={{ color: "#D9A94A", letterSpacing: "0.18em", textShadow: "0 0 12px rgba(217,169,74,0.35)" }}
-      >
-        ZK-MCP AUTH & COMPLIANCE
+      <span style={{ fontWeight: 700 }}>
+        ZK-MCP
+        <span style={{ opacity: 0.55, fontWeight: 500, marginLeft: 6 }}>Auth &amp; Compliance</span>
       </span>
 
-      <Divider />
+      <TelegraphLight connected={connected} />
 
-      <StatItem label="SERVICES ONLINE" value={String(agentsOnline)} />
-      <Divider />
-      <StatItem label="REQUESTS/MIN" value={String(requestsPerMin)} />
-      <Divider />
-      <div className="flex items-center gap-2">
-        <StatItem label="VERIFIED" value={`${verifiedPct}%`} highlight={verifiedPct >= 90} />
+      <StatItem label="services online" value={String(agentsOnline)} />
+      <StatItem label="req / min" value={String(requestsPerMin)} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <StatItem label="verified" value={`${verifiedPct}%`} />
         {history.length > 0 && <Sparkline data={history} />}
       </div>
-      <Divider />
 
-      {/* Live indicator — pulse dot ring, not a static dot */}
-      <span
-        className="font-mono-data text-[10px] tracking-widest flex items-center gap-1.5"
-        style={{ color: connected ? "#6EDBB0" : "#7C7099" }}
+      <button
+        onClick={onToggleNarrate}
+        aria-pressed={narrateMode}
+        title="Narrate mode — slows animation and auto-opens Inspector"
+        style={{
+          marginLeft: "auto",
+          font: "500 12px var(--zk-sans)",
+          color: narrateMode ? "#0A3323" : "#F7F4D5",
+          background: narrateMode ? "#D3968C" : "transparent",
+          border: `1px solid ${narrateMode ? "#D3968C" : "rgba(247,244,213,0.4)"}`,
+          borderRadius: 6,
+          padding: "5px 11px",
+          cursor: "pointer",
+        }}
       >
-        <span className={`live-pulse-dot ${connected ? "live-pulse-dot--verified" : "live-pulse-dot--muted"}`} />
-        LIVE
-      </span>
-
-      <div className="ml-auto flex items-center gap-3">
-        {/* Narrate mode toggle */}
-        <button
-          onClick={onToggleNarrate}
-          className="font-display text-[9px] tracking-widest uppercase px-2 py-0.5 border rounded transition-colors"
-          style={{
-            color: narrateMode ? "#E9E4F2" : "rgba(217,169,74,0.5)",
-            borderColor: narrateMode ? "#D9A94A" : "rgba(217,169,74,0.2)",
-            backgroundColor: narrateMode ? "#D9A94A" : "transparent",
-          }}
-          title="Narrate mode — slows animation and auto-opens Inspector"
-        >
-          NARRATE
-        </button>
-        <TelegraphLight connected={connected} />
-      </div>
+        Narrate
+      </button>
     </header>
   );
 }
 
-function Divider() {
+function StatItem({ label, value }: { label: string; value: string }) {
   return (
-    <span
-      style={{
-        width: 1,
-        height: 14,
-        backgroundColor: "rgba(217,169,74,0.25)",
-        margin: "0 12px",
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
-function StatItem({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <span className="flex items-baseline gap-1.5">
-      <span
-        className="font-display text-[9px] tracking-widest uppercase"
-        style={{ color: "rgba(217,169,74,0.6)" }}
-      >
-        {label}
-      </span>
-      <span
-        className="font-mono-data text-xs"
-        style={{ color: highlight ? "#6EDBB0" : "#E15068" }}
-      >
-        {value}
-      </span>
+    <span style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
+      <b style={{ font: "500 15px var(--zk-mono)" }}>{value}</b>
+      <span style={{ fontSize: 12, opacity: 0.65 }}>{label}</span>
     </span>
   );
 }
 
 function Sparkline({ data }: { data: number[] }) {
-  // Map 0-100 to y=14 to y=0 (14px height)
+  // Map 0-100 to y=20 to y=2 (22px height)
   const pathD = data
     .map((val, i) => {
-      const x = (i / Math.max(1, data.length - 1)) * 40; // 40px width
-      const y = 14 - (val / 100) * 14;
+      const x = (i / Math.max(1, data.length - 1)) * 80;
+      const y = 20 - (val / 100) * 18;
       return `${i === 0 ? "M" : "L"} ${x} ${y}`;
     })
     .join(" ");
 
   const latest = data[data.length - 1];
-  const color = latest >= 90 ? "#6EDBB0" : "#E15068";
+  const color = latest >= 90 ? "#A9C06F" : "#D3968C";
 
   return (
-    <svg width="40" height="14" viewBox="0 0 40 14" className="overflow-visible ml-1">
-      <path
-        d={pathD}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="transition-all duration-300"
-      />
+    <svg width="80" height="22" viewBox="0 0 80 22" style={{ overflow: "visible" }} aria-label="Verified rate history">
+      <path d={pathD} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

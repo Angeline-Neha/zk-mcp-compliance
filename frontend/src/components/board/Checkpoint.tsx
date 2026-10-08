@@ -19,14 +19,14 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
   const cy = pt.y;
   const r = 8;
 
-  const color = state === 'pass' ? '#54C99A' : state === 'fail' ? '#E15068' : '#D9A94A';
+  const color = state === 'pass' ? '#839958' : state === 'fail' ? '#A8362C' : '#5E2750';
+  const filled = state !== 'pending';
   const symbol = state === 'pass' ? '✓' : state === 'fail' ? '✗' : '…';
 
   return (
     <g id={`checkpoint-${id}`}>
       {/* Turnstile gate body */}
-      <circle cx={cx} cy={cy} r={r + 2} fill="#0D0817" stroke={color} strokeWidth={1.5} />
-      <circle cx={cx} cy={cy} r={r} fill={color} opacity={state === 'pending' ? 0.2 : 0.12} />
+      <circle cx={cx} cy={cy} r={r + 2} fill={filled ? color : '#FCFBEA'} stroke={state === 'pass' ? '#53662D' : color} strokeWidth={1.5} />
 
       {/* Symbol */}
       <text
@@ -34,9 +34,9 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
         y={cy + 1}
         textAnchor="middle"
         dominantBaseline="middle"
-        fill={color}
+        fill={filled ? '#FFFFFF' : color}
         style={{
-          fontFamily: "'IBM Plex Mono', monospace",
+          fontFamily: 'var(--zk-mono)',
           fontSize: state === 'pending' ? 8 : 10,
           fontWeight: 600,
         }}
@@ -49,8 +49,8 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
       {/* Turnstile bars (gate metaphor) */}
       {state !== 'pass' && (
         <>
-          <line x1={cx - r - 4} y1={cy} x2={cx - r} y2={cy} stroke={color} strokeWidth={1.5} opacity={0.4} />
-          <line x1={cx + r} y1={cy} x2={cx + r + 4} y2={cy} stroke={color} strokeWidth={1.5} opacity={0.4} />
+          <line x1={cx - r - 4} y1={cy} x2={cx - r} y2={cy} stroke={color} strokeWidth={1.5} opacity={0.5} />
+          <line x1={cx + r} y1={cy} x2={cx + r + 4} y2={cy} stroke={color} strokeWidth={1.5} opacity={0.5} />
         </>
       )}
 
@@ -59,15 +59,15 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
         <foreignObject x={cx - 80} y={cy + r + 6} width={160} height={40}>
           <div
             style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: 8,
-              color: '#E15068',
+              fontFamily: 'var(--zk-mono)',
+              fontSize: 10,
+              color: '#A8362C',
               textAlign: 'center',
               lineHeight: 1.4,
-              backgroundColor: 'rgba(23,15,38,0.95)',
-              padding: '2px 4px',
-              borderRadius: 2,
-              border: '1px solid rgba(225,80,104,0.3)',
+              backgroundColor: '#F8E6E2',
+              padding: '3px 6px',
+              borderRadius: 4,
+              border: '1px solid rgba(168,54,44,0.4)',
             }}
           >
             {reason}

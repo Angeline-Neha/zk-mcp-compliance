@@ -1,6 +1,6 @@
 export type IconType = 'gateway' | 'support' | 'admin-agent' | 'issuer' | 'finance' | 'compliance' | 'admin-mcp';
 
-const ICON_COLOR = '#E9E4F2';
+const ICON_COLOR = '#0A3323';
 
 function GatewayIcon() {
   return (

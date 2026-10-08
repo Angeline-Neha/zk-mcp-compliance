@@ -21,19 +21,19 @@ export interface NodeProps {
 
 const STATE_STYLES: Record<NodeVisualState, React.CSSProperties> = {
   idle: {
-    borderColor: 'rgba(233,228,242,0.18)',
-    boxShadow: '2px 2px 6px rgba(233,228,242,0.10), 0 0 0 0.5px rgba(233,228,242,0.05)',
+    borderColor: 'rgba(10,51,35,0.4)',
+    boxShadow: '0 1px 0 rgba(10,51,35,0.08)',
   },
   active: {
-    borderColor: 'rgba(217,169,74,0.5)',
-    boxShadow: '2px 2px 10px rgba(233,228,242,0.14), 0 0 18px rgba(217,169,74,0.18)',
+    borderColor: '#5E2750',
+    boxShadow: '0 0 0 3px rgba(94,39,80,0.14)',
   },
   targeted: {
-    borderColor: '#D9A94A',
-    boxShadow: '2px 2px 10px rgba(233,228,242,0.14), 0 0 0 2px rgba(217,169,74,0.2)',
+    borderColor: '#5E2750',
+    boxShadow: '0 0 0 4px rgba(94,39,80,0.22)',
   },
   unauthorized: {
-    borderColor: 'rgba(225,80,104,0.3)',
+    borderColor: '#A8362C',
     borderStyle: 'dashed',
     boxShadow: 'none',
   },
@@ -44,7 +44,6 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
   ref
 ) {
   const stateStyle = STATE_STYLES[visualState];
-  const isActive = visualState === 'active' || visualState === 'targeted';
 
   return (
     <div
@@ -54,13 +53,14 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
       className={className}
       style={{
         width: 200,
-        backgroundColor: '#0D0817',
+        backgroundColor: visualState === 'unauthorized' ? '#F8E6E2' : '#FFFFFF',
         border: '1.5px solid',
-        borderRadius: 3,
+        borderRadius: 8,
         cursor: onClick ? 'pointer' : 'default',
         position: 'relative',
         transition: 'box-shadow 0.3s ease, border-color 0.3s ease',
         userSelect: 'none',
+        fontFamily: 'var(--zk-sans)',
         ...stateStyle,
         ...style,
       }}
@@ -70,87 +70,40 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
         <div
           style={{
             position: 'absolute',
-            top: -1,
-            right: -1,
-            backgroundColor: '#1E1530',
-            border: '1px solid rgba(217,169,74,0.3)',
-            borderRadius: '0 3px 0 3px',
-            padding: '2px 6px',
+            top: -1.5,
+            right: -1.5,
+            backgroundColor: '#0A3323',
+            borderRadius: '0 8px 0 6px',
+            padding: '3px 7px',
             lineHeight: 1,
           }}
         >
-          <span
-            style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: 9,
-              color: '#D9A94A',
-              letterSpacing: '0.05em',
-            }}
-          >
-            {port}
-          </span>
+          <span style={{ fontFamily: 'var(--zk-mono)', fontSize: 10, color: '#F7F4D5' }}>{port}</span>
         </div>
       )}
 
-      {/* Active pulse ring */}
-      {isActive && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: -4,
-            borderRadius: 5,
-            border: '1px solid rgba(217,169,74,0.2)',
-            pointerEvents: 'none',
-            animation: 'pulse-seal 2.5s ease-in-out infinite',
-          }}
-        />
-      )}
-
       {/* Card body */}
-      <div style={{ padding: '10px 12px 10px' }}>
-        {/* Role header */}
-        <p
-          style={{
-            fontFamily: "'Archivo', sans-serif",
-            fontSize: 8,
-            letterSpacing: '0.2em',
-            textTransform: 'uppercase',
-            color: 'rgba(233,228,242,0.4)',
-            marginBottom: 6,
-            fontWeight: 600,
-          }}
-        >
-          {role}
-        </p>
+      <div style={{ padding: '11px 12px 10px' }}>
+        <p style={{ fontSize: 11, color: 'rgba(10,51,35,0.6)', margin: '0 0 6px', fontWeight: 500 }}>{role}</p>
 
         {/* Icon + label row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <div style={{ opacity: visualState === 'idle' ? 0.45 : 0.85, flexShrink: 0 }}>
+          <div style={{ opacity: visualState === 'idle' ? 0.6 : 1, flexShrink: 0 }}>
             <AgentIcon type={icon} size={24} />
           </div>
-          <span
-            style={{
-              fontFamily: "'Special Elite', serif",
-              fontSize: 13,
-              color: '#E9E4F2',
-              lineHeight: 1.2,
-              letterSpacing: '0.02em',
-            }}
-          >
-            {label}
-          </span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#0A3323', lineHeight: 1.2 }}>{label}</span>
         </div>
 
         {/* Badge */}
         <p
           style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: 9,
-            color: 'rgba(233,228,242,0.45)',
+            fontFamily: 'var(--zk-mono)',
+            fontSize: 10.5,
+            color: 'rgba(10,51,35,0.7)',
             lineHeight: 1.4,
-            borderTop: '1px solid rgba(233,228,242,0.08)',
+            borderTop: '1px dashed rgba(10,51,35,0.2)',
             paddingTop: 6,
-            marginTop: 2,
+            margin: '2px 0 0',
           }}
         >
           {badge}
@@ -161,46 +114,20 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
           <div
             style={{
               marginTop: 6,
-              padding: '4px 6px',
-              backgroundColor: 'rgba(233,228,242,0.04)',
-              borderLeft: '2px solid rgba(217,169,74,0.4)',
-              borderRadius: '0 2px 2px 0',
+              padding: '4px 7px',
+              backgroundColor: 'rgba(94,39,80,0.08)',
+              borderLeft: '2px solid #5E2750',
+              borderRadius: '0 4px 4px 0',
             }}
           >
-            <p
-              style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 8,
-                color: 'rgba(233,228,242,0.4)',
-                letterSpacing: '0.02em',
-              }}
-            >
+            <p style={{ fontFamily: 'var(--zk-mono)', fontSize: 9, letterSpacing: '-0.03em', color: 'rgba(10,51,35,0.75)', margin: 0, overflowWrap: 'anywhere' }}>
               ↳ {nestedAnnotation}
             </p>
           </div>
         )}
 
-        {/* Vitals sparkline — stub for Phase 2, wired in Phase 6 */}
-        {vitals && (
-          <Sparkline data={vitals.rollingPassRate} />
-        )}
+        {vitals && <Sparkline data={vitals.rollingPassRate} />}
       </div>
-
-      {/* Bottom active indicator bar */}
-      {isActive && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: '20%',
-            right: '20%',
-            height: 2,
-            backgroundColor: '#D9A94A',
-            borderRadius: '0 0 2px 2px',
-            opacity: 0.6,
-          }}
-        />
-      )}
     </div>
   );
 });
@@ -215,11 +142,11 @@ function Sparkline({ data }: { data: number[] }) {
     .join(' ');
   return (
     <div style={{ marginTop: 6 }}>
-      <svg width={w} height={h} style={{ display: 'block', opacity: 0.5 }}>
+      <svg width={w} height={h} style={{ display: 'block', opacity: 0.8 }}>
         <polyline
           points={points}
           fill="none"
-          stroke="#54C99A"
+          stroke="#53662D"
           strokeWidth="1.2"
           strokeLinejoin="round"
           strokeLinecap="round"

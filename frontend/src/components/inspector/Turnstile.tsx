@@ -18,8 +18,8 @@ export function Turnstile({ ok, orderRef, message, visible }: Props) {
         margin: "14px 0",
         padding: "10px 12px",
         border: `2px solid ${color}`,
-        borderRadius: 3,
-        background: ok ? "rgba(84,201,154,0.06)" : "rgba(225,80,104,0.06)",
+        borderRadius: 8,
+        background: ok ? "rgba(131,153,88,0.14)" : "rgba(168,54,44,0.08)",
         position: "relative",
       }}
     >
@@ -35,17 +35,17 @@ export function Turnstile({ ok, orderRef, message, visible }: Props) {
           borderRadius: "0 2px 2px 0",
         }}
       />
-      <p style={{ ...stampStyle(), fontSize: 9, color }}>Turnstile — Intent Checkpoint</p>
-      <p style={{ ...monoStyle(9), marginTop: 6, color }}>
+      <p style={{ ...stampStyle(), fontSize: 12, color }}>Intent check</p>
+      <p style={{ ...monoStyle(12), marginTop: 6, color }}>
         {ok ? (
           <>
-            <span style={{ color: PASS }}>OPEN</span>
+            <span style={{ color: PASS }}>PASS</span>
             {" · "}
             {orderRef ? `"${orderRef}" ∈ authenticated intent` : message}
           </>
         ) : (
           <>
-            <span style={{ color: FAIL }}>SHUT</span>
+            <span style={{ color: FAIL }}>BLOCK</span>
             {" · "}
             {message}
           </>

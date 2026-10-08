@@ -11,6 +11,13 @@ interface Props {
   onVisualize?: () => void;
 }
 
+const headerBtn = {
+  font: "600 12px var(--zk-sans)",
+  borderRadius: 6,
+  padding: "5px 11px",
+  cursor: "pointer",
+} as const;
+
 export function InspectorDrawer({
   open,
   onClose,
@@ -20,6 +27,8 @@ export function InspectorDrawer({
   snapshot,
   onVisualize,
 }: Props) {
+  const canVisualize = !!(onVisualize && requestId && !loading && !error && snapshot);
+
   return (
     <>
       {open && (
@@ -28,7 +37,7 @@ export function InspectorDrawer({
           style={{
             position: "fixed",
             inset: 0,
-            backgroundColor: "rgba(5,3,10,0.55)",
+            backgroundColor: "rgba(10,51,35,0.35)",
             zIndex: 40,
             cursor: "pointer",
           }}
@@ -36,88 +45,81 @@ export function InspectorDrawer({
       )}
 
       <div
+        className="zk-insp"
         style={{
           position: "fixed",
-          top: 36,
+          top: 48,
           right: 0,
           bottom: 0,
-          width: 420,
-          backgroundColor: "#0D0817",
-          borderLeft: "1.5px solid rgba(233,228,242,0.15)",
-          boxShadow: "-4px 0 24px rgba(233,228,242,0.12)",
+          width: 440,
+          maxWidth: "100%",
+          backgroundColor: "#FCFBEA",
+          borderLeft: "1.5px solid #0A3323",
+          boxShadow: "-18px 0 40px -24px rgba(10,51,35,0.5)",
           zIndex: 50,
           display: "flex",
           flexDirection: "column",
+          fontFamily: "var(--zk-sans)",
+          color: "#0A3323",
           transform: open ? "translateX(0)" : "translateX(100%)",
           transition: "transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
         <div
           style={{
-            padding: "12px 16px",
-            borderBottom: "1px solid rgba(217,169,74,0.2)",
-            backgroundColor: "#170F26",
+            padding: "14px 18px",
+            borderBottom: "1px solid var(--zk-rule)",
+            backgroundColor: "#FCFBEA",
             display: "flex",
             alignItems: "center",
-            gap: 12,
+            gap: 10,
             flexShrink: 0,
           }}
         >
-          <div>
-            <p style={{ ...stampStyle(), color: "#D9A94A" }}>Inspector</p>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ ...stampStyle(), margin: 0 }}>Inspector</p>
             {requestId && (
-              <p style={{ ...monoStyle(8), color: "rgba(217,169,74,0.5)", marginTop: 2 }}>
+              <p style={{ ...monoStyle(12), margin: "2px 0 0", opacity: 0.65 }}>
                 {requestId.length > 28 ? `${requestId.slice(0, 12)}…${requestId.slice(-8)}` : requestId}
               </p>
             )}
           </div>
-          {onVisualize && requestId && !loading && !error && snapshot && (
+          {canVisualize && (
             <button
               type="button"
               onClick={onVisualize}
-              style={{
-                marginLeft: "auto",
-                ...monoStyle(9),
-                color: "#D9A94A",
-                background: "none",
-                border: "1px solid rgba(217,169,74,0.4)",
-                borderRadius: 2,
-                padding: "2px 8px",
-                cursor: "pointer",
-              }}
+              style={{ ...headerBtn, marginLeft: "auto", color: "#fff", background: "#5E2750", border: "1px solid #5E2750" }}
             >
-              VISUALIZE ▸
+              Visualize on board
             </button>
           )}
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close inspector"
             style={{
-              marginLeft: onVisualize && requestId && !loading && !error && snapshot ? 8 : "auto",
-              ...monoStyle(9),
-              color: "rgba(217,169,74,0.5)",
-              background: "none",
-              border: "1px solid rgba(217,169,74,0.2)",
-              borderRadius: 2,
-              padding: "2px 8px",
-              cursor: "pointer",
+              ...headerBtn,
+              marginLeft: canVisualize ? 0 : "auto",
+              color: "#0A3323",
+              background: "rgba(10,51,35,0.08)",
+              border: 0,
             }}
           >
-            CLOSE ✕
+            Close
           </button>
         </div>
 
         <div className="scrollbar-paper" style={{ flex: 1, overflowY: "auto", padding: 16 }}>
           {loading && (
-            <p style={{ ...monoStyle(9), opacity: 0.5, paddingTop: 24, textAlign: "center" }}>
+            <p style={{ ...monoStyle(12), opacity: 0.6, paddingTop: 24, textAlign: "center" }}>
               Loading cryptographic trace<span className="cursor-blink" />
             </p>
           )}
           {error && !loading && (
             error === "inspector snapshot not found" ? (
               <div style={{ paddingTop: 24, textAlign: "center" }}>
-                <p style={{ ...stampStyle(), opacity: 0.5 }}>NO SERVER TRACE</p>
-                <p style={{ ...monoStyle(9), color: "rgba(233,228,242,0.5)", marginTop: 8, lineHeight: 1.6, padding: "0 12px" }}>
+                <p style={{ ...stampStyle(), opacity: 0.7 }}>No server trace</p>
+                <p style={{ ...monoStyle(12), opacity: 0.7, marginTop: 8, lineHeight: 1.6, padding: "0 12px" }}>
                   This attempt was rejected at Proof 1 — the sigma-protocol authorization
                   check — and never reached a real MCP server. There's no compliance
                   circuit, policy commitment, or inspector trace to show because the
@@ -125,13 +127,13 @@ export function InspectorDrawer({
                 </p>
               </div>
             ) : (
-              <p style={{ ...monoStyle(9), color: "#E15068", paddingTop: 24 }}>{error}</p>
+              <p style={{ ...monoStyle(12), color: "#A8362C", paddingTop: 24 }}>{error}</p>
             )
           )}
           {!loading && !error && snapshot && <InspectorContent snapshot={snapshot} />}
           {!loading && !error && !snapshot && open && (
-            <p style={{ ...stampStyle(), opacity: 0.4, paddingTop: 40, textAlign: "center" }}>
-              NO REQUEST SELECTED
+            <p style={{ ...stampStyle(), opacity: 0.5, paddingTop: 40, textAlign: "center" }}>
+              No request selected
             </p>
           )}
         </div>

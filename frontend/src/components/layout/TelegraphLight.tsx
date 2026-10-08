@@ -4,24 +4,13 @@ interface Props {
 
 export function TelegraphLight({ connected }: Props) {
   return (
-    <div className="flex items-center gap-1.5" title={connected ? "Wire connected" : "Reconnecting…"}>
-      <div
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          backgroundColor: connected ? "#6EDBB0" : "#D9A94A",
-          boxShadow: connected
-            ? "0 0 6px 2px rgba(74,140,106,0.5)"
-            : "0 0 4px 1px rgba(217,169,74,0.3)",
-          animation: connected ? "none" : "telegraph-blink 0.9s ease-in-out infinite",
-        }}
-      />
-      <span
-        className="font-mono-data"
-        style={{ fontSize: 9, color: "rgba(217,169,74,0.5)", letterSpacing: "0.08em" }}
-      >
-        {connected ? "CONNECTED" : "RECONNECTING"}
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 7 }}
+      title={connected ? "Live stream connected" : "Reconnecting…"}
+    >
+      <span className={`zk-live-dot${connected ? "" : " zk-live-dot--off"}`} />
+      <span style={{ fontSize: 12, color: "#F7F4D5" }}>
+        {connected ? "Live stream connected" : "Reconnecting…"}
       </span>
     </div>
   );

@@ -16,10 +16,10 @@ export interface ThreadProps {
 }
 
 const THREAD_COLORS: Record<ThreadState, string> = {
-  idle:    '#D9A94A',
-  pending: '#D9A94A',
-  pass:    '#54C99A',
-  fail:    '#E15068',
+  idle:    '#9AA58A',
+  pending: '#5E2750',
+  pass:    '#839958',
+  fail:    '#A8362C',
   'no-path': 'transparent',
 };
 
@@ -65,7 +65,7 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
       <path
         d={d}
         fill="none"
-        stroke="rgba(233,228,242,0.08)"
+        stroke="rgba(10,51,35,0.07)"
         strokeWidth={4}
         strokeLinecap="round"
       />
@@ -90,15 +90,15 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
           d={d}
           fill="none"
           stroke={color}
-          strokeWidth={1.5}
+          strokeWidth={2.5}
           strokeLinecap="round"
         />
       )}
 
-      <circle cx={x1} cy={y1} r={pinR} fill="#D9A94A" opacity={0.7} />
-      <circle cx={x1} cy={y1} r={pinR - 1.5} fill="#0D0817" />
-      <circle cx={x2} cy={y2} r={pinR} fill="#D9A94A" opacity={0.7} />
-      <circle cx={x2} cy={y2} r={pinR - 1.5} fill="#0D0817" />
+      <circle cx={x1} cy={y1} r={pinR} fill="#0A3323" opacity={0.55} />
+      <circle cx={x1} cy={y1} r={pinR - 1.5} fill="#FCFBEA" />
+      <circle cx={x2} cy={y2} r={pinR} fill="#0A3323" opacity={0.55} />
+      <circle cx={x2} cy={y2} r={pinR - 1.5} fill="#FCFBEA" />
 
       {/* Single pulse for pass/pending thread state */}
       {showTravel && !hasPulses && (
@@ -122,8 +122,8 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
 function FractureMarker({ x, y }: { x: number; y: number }) {
   return (
     <g opacity={0.7}>
-      <line x1={x - 5} y1={y - 5} x2={x + 5} y2={y + 5} stroke="#E15068" strokeWidth={1.5} strokeLinecap="round" />
-      <line x1={x + 5} y1={y - 5} x2={x - 5} y2={y + 5} stroke="#E15068" strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={x - 5} y1={y - 5} x2={x + 5} y2={y + 5} stroke="#A8362C" strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={x + 5} y1={y - 5} x2={x - 5} y2={y + 5} stroke="#A8362C" strokeWidth={1.5} strokeLinecap="round" />
     </g>
   );
 }

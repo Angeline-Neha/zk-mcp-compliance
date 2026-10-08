@@ -48,11 +48,11 @@ interface Props {
 // Each entry maps node ID → CSS position within the board container
 const NODE_POSITIONS: Record<NodeId, React.CSSProperties> = {
   'gateway':       { top: '3%',  left: '50%', transform: 'translateX(-50%)' },
-  'support-agent': { top: '30%', left: '50%', transform: 'translateX(-50%)' },
+  'support-agent': { top: '32%', left: '50%', transform: 'translateX(-50%)' },
   'admin-agent':   { top: '30%', left: '7%' },
-  'issuer':        { top: '60%', left: '27%' },
-  'finance':       { top: '60%', left: '55%' },
-  'compliance':    { top: '80%', left: '55%' },
+  'issuer':        { top: '55%', left: '27%' },
+  'finance':       { top: '55%', left: '55%' },
+  'compliance':    { top: '81%', left: '55%' },
   'admin-mcp':     { top: '60%', left: '7%' },
 };
 
@@ -95,56 +95,18 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
   return (
     <div
       ref={containerRef}
+      className="zk-board-grid"
       style={{
         position: 'relative',
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        backgroundColor: '#0D0817',
       }}
     >
-      {/* ── Blueprint grid overlay (forensic cryptography backdrop) ── */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            'repeating-linear-gradient(to right, rgba(233,228,242,0.05) 0, rgba(233,228,242,0.05) 1px, transparent 1px, transparent 32px), repeating-linear-gradient(to bottom, rgba(233,228,242,0.05) 0, rgba(233,228,242,0.05) 1px, transparent 1px, transparent 32px)',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            'radial-gradient(circle at 8% 6%, rgba(217,169,74,0.05) 0%, transparent 30%), radial-gradient(circle at 94% 90%, rgba(139,127,224,0.05) 0%, transparent 32%)',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      />
-
       {/* ── Section label ── */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 8,
-          left: 12,
-          zIndex: 2,
-          pointerEvents: 'none',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "'Special Elite', serif",
-            fontSize: 10,
-            color: 'rgba(233,228,242,0.2)',
-            letterSpacing: '0.25em',
-            textTransform: 'uppercase',
-          }}
-        >
-          CASE BOARD — AGENT TOPOLOGY
+      <div style={{ position: 'absolute', top: 10, left: 14, zIndex: 2, pointerEvents: 'none' }}>
+        <span style={{ fontFamily: 'var(--zk-mono)', fontSize: 11, color: 'rgba(10,51,35,0.5)' }}>
+          agent topology
         </span>
       </div>
 
@@ -256,19 +218,19 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
               >
                 <div
                   style={{
-                    fontFamily: "'Special Elite', serif",
-                    fontSize: 13,
-                    color: ns.stamp.state === 'pass' ? '#54C99A' : '#E15068',
-                    border: `2.5px solid ${ns.stamp.state === 'pass' ? '#54C99A' : '#E15068'}`,
+                    fontFamily: 'var(--zk-sans)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    color: ns.stamp.state === 'pass' ? '#53662D' : '#A8362C',
+                    border: `2px solid ${ns.stamp.state === 'pass' ? '#53662D' : '#A8362C'}`,
+                    backgroundColor: '#FCFBEA',
                     padding: '2px 8px',
-                    borderRadius: 2,
-                    letterSpacing: '0.12em',
+                    borderRadius: 6,
                     display: 'inline-block',
-                    opacity: 0.92,
-                    transform: 'rotate(-4deg)',
+                    transform: 'rotate(-3deg)',
                     animation: 'stamp-land-overshoot 0.5s cubic-bezier(.2,1.6,.4,1) forwards',
                     textTransform: 'uppercase',
-                    boxShadow: `0 0 16px 2px ${ns.stamp.state === 'pass' ? 'rgba(84,201,154,0.35)' : 'rgba(225,80,104,0.35)'}`,
                   }}
                 >
                   {ns.stamp.state === 'pass' ? 'APPROVED' : 'BLOCKED'}

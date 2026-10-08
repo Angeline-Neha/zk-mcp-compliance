@@ -1,0 +1,1470 @@
+diff --git a/frontend/index.html b/frontend/index.html
+index 2b059ee..b12e256 100755
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -4,14 +4,14 @@
+     <meta charset="UTF-8" />
+     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+-    <meta name="description" content="ZK-MCP Auth Compliance — Detective case board for live cryptographic proof verification across multi-agent systems." />
++    <meta name="description" content="ZK-MCP Auth Compliance — Live topology and cryptographic proof verification across multi-agent systems." />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+-      href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
++      href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+       rel="stylesheet"
+     />
+-    <title>ZK-MCP — Case Board</title>
++    <title>ZK-MCP — Compliance Gate</title>
+   </head>
+   <body>
+     <div id="root"></div>
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index 173e61c..78f74e7 100755
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -55,14 +55,13 @@ export default function App() {
+ 
+   return (
+     <div
+-      className={`live-backdrop${narrateMode ? " narrate-mode" : ""}`}
++      className={`zk-shell${narrateMode ? " narrate-mode" : ""}`}
+       style={{
+         display: "grid",
+-        gridTemplateColumns: "52px 1fr 240px",
+-        gridTemplateRows: "36px 1fr",
++        gridTemplateColumns: "78px 1fr 264px",
++        gridTemplateRows: "48px 1fr",
+         height: "100vh",
+         overflow: "hidden",
+-        backgroundColor: "#0D0817",
+       }}
+     >
+       <StatusStrip
+@@ -81,7 +80,7 @@ export default function App() {
+         highlightExhibits={calmPeriodOver && activeTab !== "exhibits"}
+       />
+ 
+-      <main style={{ overflow: "hidden", display: "flex", flexDirection: "column", gridColumn: 2, gridRow: 2 }}>
++      <main className={activeTab === "board" ? "zk-main" : "zk-main legacy-dark"}>
+         {activeTab === "board" && (
+           <BoardView
+             boardState={displayedBoardState}
+diff --git a/frontend/src/components/board/CaseBoard.tsx b/frontend/src/components/board/CaseBoard.tsx
+index 99bee31..cd20a78 100755
+--- a/frontend/src/components/board/CaseBoard.tsx
++++ b/frontend/src/components/board/CaseBoard.tsx
+@@ -48,11 +48,11 @@ interface Props {
+ // Each entry maps node ID → CSS position within the board container
+ const NODE_POSITIONS: Record<NodeId, React.CSSProperties> = {
+   'gateway':       { top: '3%',  left: '50%', transform: 'translateX(-50%)' },
+-  'support-agent': { top: '30%', left: '50%', transform: 'translateX(-50%)' },
++  'support-agent': { top: '32%', left: '50%', transform: 'translateX(-50%)' },
+   'admin-agent':   { top: '30%', left: '7%' },
+-  'issuer':        { top: '60%', left: '27%' },
+-  'finance':       { top: '60%', left: '55%' },
+-  'compliance':    { top: '80%', left: '55%' },
++  'issuer':        { top: '55%', left: '27%' },
++  'finance':       { top: '55%', left: '55%' },
++  'compliance':    { top: '81%', left: '55%' },
+   'admin-mcp':     { top: '60%', left: '7%' },
+ };
+ 
+@@ -95,56 +95,18 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+   return (
+     <div
+       ref={containerRef}
++      className="zk-board-grid"
+       style={{
+         position: 'relative',
+         width: '100%',
+         height: '100%',
+         overflow: 'hidden',
+-        backgroundColor: '#0D0817',
+       }}
+     >
+-      {/* ── Blueprint grid overlay (forensic cryptography backdrop) ── */}
+-      <div
+-        style={{
+-          position: 'absolute',
+-          inset: 0,
+-          backgroundImage:
+-            'repeating-linear-gradient(to right, rgba(233,228,242,0.05) 0, rgba(233,228,242,0.05) 1px, transparent 1px, transparent 32px), repeating-linear-gradient(to bottom, rgba(233,228,242,0.05) 0, rgba(233,228,242,0.05) 1px, transparent 1px, transparent 32px)',
+-          pointerEvents: 'none',
+-          zIndex: 0,
+-        }}
+-      />
+-      <div
+-        style={{
+-          position: 'absolute',
+-          inset: 0,
+-          backgroundImage:
+-            'radial-gradient(circle at 8% 6%, rgba(217,169,74,0.05) 0%, transparent 30%), radial-gradient(circle at 94% 90%, rgba(139,127,224,0.05) 0%, transparent 32%)',
+-          pointerEvents: 'none',
+-          zIndex: 0,
+-        }}
+-      />
+-
+       {/* ── Section label ── */}
+-      <div
+-        style={{
+-          position: 'absolute',
+-          top: 8,
+-          left: 12,
+-          zIndex: 2,
+-          pointerEvents: 'none',
+-        }}
+-      >
+-        <span
+-          style={{
+-            fontFamily: "'Special Elite', serif",
+-            fontSize: 10,
+-            color: 'rgba(233,228,242,0.2)',
+-            letterSpacing: '0.25em',
+-            textTransform: 'uppercase',
+-          }}
+-        >
+-          CASE BOARD — AGENT TOPOLOGY
++      <div style={{ position: 'absolute', top: 10, left: 14, zIndex: 2, pointerEvents: 'none' }}>
++        <span style={{ fontFamily: 'var(--zk-mono)', fontSize: 11, color: 'rgba(10,51,35,0.5)' }}>
++          agent topology
+         </span>
+       </div>
+ 
+@@ -256,19 +218,19 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+               >
+                 <div
+                   style={{
+-                    fontFamily: "'Special Elite', serif",
+-                    fontSize: 13,
+-                    color: ns.stamp.state === 'pass' ? '#54C99A' : '#E15068',
+-                    border: `2.5px solid ${ns.stamp.state === 'pass' ? '#54C99A' : '#E15068'}`,
++                    fontFamily: 'var(--zk-sans)',
++                    fontSize: 12,
++                    fontWeight: 700,
++                    letterSpacing: '0.06em',
++                    color: ns.stamp.state === 'pass' ? '#53662D' : '#A8362C',
++                    border: `2px solid ${ns.stamp.state === 'pass' ? '#53662D' : '#A8362C'}`,
++                    backgroundColor: '#FCFBEA',
+                     padding: '2px 8px',
+-                    borderRadius: 2,
+-                    letterSpacing: '0.12em',
++                    borderRadius: 6,
+                     display: 'inline-block',
+-                    opacity: 0.92,
+-                    transform: 'rotate(-4deg)',
++                    transform: 'rotate(-3deg)',
+                     animation: 'stamp-land-overshoot 0.5s cubic-bezier(.2,1.6,.4,1) forwards',
+                     textTransform: 'uppercase',
+-                    boxShadow: `0 0 16px 2px ${ns.stamp.state === 'pass' ? 'rgba(84,201,154,0.35)' : 'rgba(225,80,104,0.35)'}`,
+                   }}
+                 >
+                   {ns.stamp.state === 'pass' ? 'APPROVED' : 'BLOCKED'}
+diff --git a/frontend/src/components/board/Checkpoint.tsx b/frontend/src/components/board/Checkpoint.tsx
+index 751fcb8..d4b4a64 100755
+--- a/frontend/src/components/board/Checkpoint.tsx
++++ b/frontend/src/components/board/Checkpoint.tsx
+@@ -19,14 +19,14 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
+   const cy = pt.y;
+   const r = 8;
+ 
+-  const color = state === 'pass' ? '#54C99A' : state === 'fail' ? '#E15068' : '#D9A94A';
++  const color = state === 'pass' ? '#839958' : state === 'fail' ? '#A8362C' : '#5E2750';
++  const filled = state !== 'pending';
+   const symbol = state === 'pass' ? '✓' : state === 'fail' ? '✗' : '…';
+ 
+   return (
+     <g id={`checkpoint-${id}`}>
+       {/* Turnstile gate body */}
+-      <circle cx={cx} cy={cy} r={r + 2} fill="#0D0817" stroke={color} strokeWidth={1.5} />
+-      <circle cx={cx} cy={cy} r={r} fill={color} opacity={state === 'pending' ? 0.2 : 0.12} />
++      <circle cx={cx} cy={cy} r={r + 2} fill={filled ? color : '#FCFBEA'} stroke={state === 'pass' ? '#53662D' : color} strokeWidth={1.5} />
+ 
+       {/* Symbol */}
+       <text
+@@ -34,9 +34,9 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
+         y={cy + 1}
+         textAnchor="middle"
+         dominantBaseline="middle"
+-        fill={color}
++        fill={filled ? '#FFFFFF' : color}
+         style={{
+-          fontFamily: "'IBM Plex Mono', monospace",
++          fontFamily: 'var(--zk-mono)',
+           fontSize: state === 'pending' ? 8 : 10,
+           fontWeight: 600,
+         }}
+@@ -49,8 +49,8 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
+       {/* Turnstile bars (gate metaphor) */}
+       {state !== 'pass' && (
+         <>
+-          <line x1={cx - r - 4} y1={cy} x2={cx - r} y2={cy} stroke={color} strokeWidth={1.5} opacity={0.4} />
+-          <line x1={cx + r} y1={cy} x2={cx + r + 4} y2={cy} stroke={color} strokeWidth={1.5} opacity={0.4} />
++          <line x1={cx - r - 4} y1={cy} x2={cx - r} y2={cy} stroke={color} strokeWidth={1.5} opacity={0.5} />
++          <line x1={cx + r} y1={cy} x2={cx + r + 4} y2={cy} stroke={color} strokeWidth={1.5} opacity={0.5} />
+         </>
+       )}
+ 
+@@ -59,15 +59,15 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
+         <foreignObject x={cx - 80} y={cy + r + 6} width={160} height={40}>
+           <div
+             style={{
+-              fontFamily: "'IBM Plex Mono', monospace",
+-              fontSize: 8,
+-              color: '#E15068',
++              fontFamily: 'var(--zk-mono)',
++              fontSize: 10,
++              color: '#A8362C',
+               textAlign: 'center',
+               lineHeight: 1.4,
+-              backgroundColor: 'rgba(23,15,38,0.95)',
+-              padding: '2px 4px',
+-              borderRadius: 2,
+-              border: '1px solid rgba(225,80,104,0.3)',
++              backgroundColor: '#F8E6E2',
++              padding: '3px 6px',
++              borderRadius: 4,
++              border: '1px solid rgba(168,54,44,0.4)',
+             }}
+           >
+             {reason}
+diff --git a/frontend/src/components/board/Node.tsx b/frontend/src/components/board/Node.tsx
+index a6ecaf4..8f7864d 100755
+--- a/frontend/src/components/board/Node.tsx
++++ b/frontend/src/components/board/Node.tsx
+@@ -21,19 +21,19 @@ export interface NodeProps {
+ 
+ const STATE_STYLES: Record<NodeVisualState, React.CSSProperties> = {
+   idle: {
+-    borderColor: 'rgba(233,228,242,0.18)',
+-    boxShadow: '2px 2px 6px rgba(233,228,242,0.10), 0 0 0 0.5px rgba(233,228,242,0.05)',
++    borderColor: 'rgba(10,51,35,0.4)',
++    boxShadow: '0 1px 0 rgba(10,51,35,0.08)',
+   },
+   active: {
+-    borderColor: 'rgba(217,169,74,0.5)',
+-    boxShadow: '2px 2px 10px rgba(233,228,242,0.14), 0 0 18px rgba(217,169,74,0.18)',
++    borderColor: '#5E2750',
++    boxShadow: '0 0 0 3px rgba(94,39,80,0.14)',
+   },
+   targeted: {
+-    borderColor: '#D9A94A',
+-    boxShadow: '2px 2px 10px rgba(233,228,242,0.14), 0 0 0 2px rgba(217,169,74,0.2)',
++    borderColor: '#5E2750',
++    boxShadow: '0 0 0 4px rgba(94,39,80,0.22)',
+   },
+   unauthorized: {
+-    borderColor: 'rgba(225,80,104,0.3)',
++    borderColor: '#A8362C',
+     borderStyle: 'dashed',
+     boxShadow: 'none',
+   },
+@@ -44,7 +44,6 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
+   ref
+ ) {
+   const stateStyle = STATE_STYLES[visualState];
+-  const isActive = visualState === 'active' || visualState === 'targeted';
+ 
+   return (
+     <div
+@@ -54,13 +53,14 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
+       className={className}
+       style={{
+         width: 200,
+-        backgroundColor: '#0D0817',
++        backgroundColor: visualState === 'unauthorized' ? '#F8E6E2' : '#FFFFFF',
+         border: '1.5px solid',
+-        borderRadius: 3,
++        borderRadius: 8,
+         cursor: onClick ? 'pointer' : 'default',
+         position: 'relative',
+         transition: 'box-shadow 0.3s ease, border-color 0.3s ease',
+         userSelect: 'none',
++        fontFamily: 'var(--zk-sans)',
+         ...stateStyle,
+         ...style,
+       }}
+@@ -70,87 +70,40 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
+         <div
+           style={{
+             position: 'absolute',
+-            top: -1,
+-            right: -1,
+-            backgroundColor: '#1E1530',
+-            border: '1px solid rgba(217,169,74,0.3)',
+-            borderRadius: '0 3px 0 3px',
+-            padding: '2px 6px',
++            top: -1.5,
++            right: -1.5,
++            backgroundColor: '#0A3323',
++            borderRadius: '0 8px 0 6px',
++            padding: '3px 7px',
+             lineHeight: 1,
+           }}
+         >
+-          <span
+-            style={{
+-              fontFamily: "'IBM Plex Mono', monospace",
+-              fontSize: 9,
+-              color: '#D9A94A',
+-              letterSpacing: '0.05em',
+-            }}
+-          >
+-            {port}
+-          </span>
++          <span style={{ fontFamily: 'var(--zk-mono)', fontSize: 10, color: '#F7F4D5' }}>{port}</span>
+         </div>
+       )}
+ 
+-      {/* Active pulse ring */}
+-      {isActive && (
+-        <div
+-          style={{
+-            position: 'absolute',
+-            inset: -4,
+-            borderRadius: 5,
+-            border: '1px solid rgba(217,169,74,0.2)',
+-            pointerEvents: 'none',
+-            animation: 'pulse-seal 2.5s ease-in-out infinite',
+-          }}
+-        />
+-      )}
+-
+       {/* Card body */}
+-      <div style={{ padding: '10px 12px 10px' }}>
+-        {/* Role header */}
+-        <p
+-          style={{
+-            fontFamily: "'Archivo', sans-serif",
+-            fontSize: 8,
+-            letterSpacing: '0.2em',
+-            textTransform: 'uppercase',
+-            color: 'rgba(233,228,242,0.4)',
+-            marginBottom: 6,
+-            fontWeight: 600,
+-          }}
+-        >
+-          {role}
+-        </p>
++      <div style={{ padding: '11px 12px 10px' }}>
++        <p style={{ fontSize: 11, color: 'rgba(10,51,35,0.6)', margin: '0 0 6px', fontWeight: 500 }}>{role}</p>
+ 
+         {/* Icon + label row */}
+         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+-          <div style={{ opacity: visualState === 'idle' ? 0.45 : 0.85, flexShrink: 0 }}>
++          <div style={{ opacity: visualState === 'idle' ? 0.6 : 1, flexShrink: 0 }}>
+             <AgentIcon type={icon} size={24} />
+           </div>
+-          <span
+-            style={{
+-              fontFamily: "'Special Elite', serif",
+-              fontSize: 13,
+-              color: '#E9E4F2',
+-              lineHeight: 1.2,
+-              letterSpacing: '0.02em',
+-            }}
+-          >
+-            {label}
+-          </span>
++          <span style={{ fontSize: 14, fontWeight: 600, color: '#0A3323', lineHeight: 1.2 }}>{label}</span>
+         </div>
+ 
+         {/* Badge */}
+         <p
+           style={{
+-            fontFamily: "'IBM Plex Mono', monospace",
+-            fontSize: 9,
+-            color: 'rgba(233,228,242,0.45)',
++            fontFamily: 'var(--zk-mono)',
++            fontSize: 10.5,
++            color: 'rgba(10,51,35,0.7)',
+             lineHeight: 1.4,
+-            borderTop: '1px solid rgba(233,228,242,0.08)',
++            borderTop: '1px dashed rgba(10,51,35,0.2)',
+             paddingTop: 6,
+-            marginTop: 2,
++            margin: '2px 0 0',
+           }}
+         >
+           {badge}
+@@ -161,46 +114,20 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
+           <div
+             style={{
+               marginTop: 6,
+-              padding: '4px 6px',
+-              backgroundColor: 'rgba(233,228,242,0.04)',
+-              borderLeft: '2px solid rgba(217,169,74,0.4)',
+-              borderRadius: '0 2px 2px 0',
++              padding: '4px 7px',
++              backgroundColor: 'rgba(94,39,80,0.08)',
++              borderLeft: '2px solid #5E2750',
++              borderRadius: '0 4px 4px 0',
+             }}
+           >
+-            <p
+-              style={{
+-                fontFamily: "'IBM Plex Mono', monospace",
+-                fontSize: 8,
+-                color: 'rgba(233,228,242,0.4)',
+-                letterSpacing: '0.02em',
+-              }}
+-            >
++            <p style={{ fontFamily: 'var(--zk-mono)', fontSize: 9, letterSpacing: '-0.03em', color: 'rgba(10,51,35,0.75)', margin: 0, overflowWrap: 'anywhere' }}>
+               ↳ {nestedAnnotation}
+             </p>
+           </div>
+         )}
+ 
+-        {/* Vitals sparkline — stub for Phase 2, wired in Phase 6 */}
+-        {vitals && (
+-          <Sparkline data={vitals.rollingPassRate} />
+-        )}
++        {vitals && <Sparkline data={vitals.rollingPassRate} />}
+       </div>
+-
+-      {/* Bottom active indicator bar */}
+-      {isActive && (
+-        <div
+-          style={{
+-            position: 'absolute',
+-            bottom: 0,
+-            left: '20%',
+-            right: '20%',
+-            height: 2,
+-            backgroundColor: '#D9A94A',
+-            borderRadius: '0 0 2px 2px',
+-            opacity: 0.6,
+-          }}
+-        />
+-      )}
+     </div>
+   );
+ });
+@@ -215,11 +142,11 @@ function Sparkline({ data }: { data: number[] }) {
+     .join(' ');
+   return (
+     <div style={{ marginTop: 6 }}>
+-      <svg width={w} height={h} style={{ display: 'block', opacity: 0.5 }}>
++      <svg width={w} height={h} style={{ display: 'block', opacity: 0.8 }}>
+         <polyline
+           points={points}
+           fill="none"
+-          stroke="#54C99A"
++          stroke="#53662D"
+           strokeWidth="1.2"
+           strokeLinejoin="round"
+           strokeLinecap="round"
+diff --git a/frontend/src/components/board/Telegram.tsx b/frontend/src/components/board/Telegram.tsx
+index 261707f..29e8d7a 100755
+--- a/frontend/src/components/board/Telegram.tsx
++++ b/frontend/src/components/board/Telegram.tsx
+@@ -30,38 +30,23 @@ export function Telegram({ callSig, x1, y1, x2, y2, t = 0.38, visible }: Telegra
+         style={{
+           position: 'relative',
+           width: w,
+-          backgroundColor: '#0D0817',
+-          border: '1px solid rgba(233,228,242,0.25)',
+-          borderRadius: 2,
++          backgroundColor: '#0A3323',
++          borderRadius: 6,
+           padding: '6px 10px',
+-          boxShadow: '1px 2px 6px rgba(233,228,242,0.15)',
+-          // Torn-edge effect via clip-path on top
+-          clipPath:
+-            'polygon(0% 8%, 3% 0%, 6% 7%, 9% 1%, 12% 8%, 15% 2%, 18% 8%, 21% 1%, 24% 8%, 27% 2%, 30% 8%, 33% 1%, 36% 8%, 39% 1%, 42% 7%, 45% 0%, 48% 7%, 51% 1%, 54% 7%, 57% 0%, 60% 7%, 63% 1%, 66% 7%, 69% 0%, 72% 7%, 75% 1%, 78% 7%, 81% 0%, 84% 7%, 87% 1%, 90% 7%, 93% 0%, 96% 7%, 100% 2%, 100% 100%, 0% 100%)',
++          boxShadow: '0 4px 12px rgba(10,51,35,0.3)',
+         }}
+       >
+-        {/* Header */}
+-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+-          <span
+-            style={{
+-              fontFamily: "'Special Elite', serif",
+-              fontSize: 8,
+-              color: '#D9A94A',
+-              letterSpacing: '0.2em',
+-              textTransform: 'uppercase',
+-            }}
+-          >
+-            TELEGRAM
+-          </span>
+-          <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(217,169,74,0.3)' }} />
++        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
++          <span style={{ fontFamily: 'var(--zk-sans)', fontSize: 10, color: '#D3968C', fontWeight: 600 }}>Call</span>
++          <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(247,244,213,0.25)' }} />
+         </div>
+-        {/* Call signature */}
+         <p
+           style={{
+-            fontFamily: "'IBM Plex Mono', monospace",
+-            fontSize: 8,
+-            color: '#E9E4F2',
++            fontFamily: 'var(--zk-mono)',
++            fontSize: 10,
++            color: '#F7F4D5',
+             lineHeight: 1.45,
++            margin: 0,
+             whiteSpace: 'nowrap',
+             overflow: 'hidden',
+             textOverflow: 'ellipsis',
+diff --git a/frontend/src/components/board/Thread.tsx b/frontend/src/components/board/Thread.tsx
+index c248785..54c37fd 100755
+--- a/frontend/src/components/board/Thread.tsx
++++ b/frontend/src/components/board/Thread.tsx
+@@ -16,10 +16,10 @@ export interface ThreadProps {
+ }
+ 
+ const THREAD_COLORS: Record<ThreadState, string> = {
+-  idle:    '#D9A94A',
+-  pending: '#D9A94A',
+-  pass:    '#54C99A',
+-  fail:    '#E15068',
++  idle:    '#9AA58A',
++  pending: '#5E2750',
++  pass:    '#839958',
++  fail:    '#A8362C',
+   'no-path': 'transparent',
+ };
+ 
+@@ -65,7 +65,7 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
+       <path
+         d={d}
+         fill="none"
+-        stroke="rgba(233,228,242,0.08)"
++        stroke="rgba(10,51,35,0.07)"
+         strokeWidth={4}
+         strokeLinecap="round"
+       />
+@@ -90,15 +90,15 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
+           d={d}
+           fill="none"
+           stroke={color}
+-          strokeWidth={1.5}
++          strokeWidth={2.5}
+           strokeLinecap="round"
+         />
+       )}
+ 
+-      <circle cx={x1} cy={y1} r={pinR} fill="#D9A94A" opacity={0.7} />
+-      <circle cx={x1} cy={y1} r={pinR - 1.5} fill="#0D0817" />
+-      <circle cx={x2} cy={y2} r={pinR} fill="#D9A94A" opacity={0.7} />
+-      <circle cx={x2} cy={y2} r={pinR - 1.5} fill="#0D0817" />
++      <circle cx={x1} cy={y1} r={pinR} fill="#0A3323" opacity={0.55} />
++      <circle cx={x1} cy={y1} r={pinR - 1.5} fill="#FCFBEA" />
++      <circle cx={x2} cy={y2} r={pinR} fill="#0A3323" opacity={0.55} />
++      <circle cx={x2} cy={y2} r={pinR - 1.5} fill="#FCFBEA" />
+ 
+       {/* Single pulse for pass/pending thread state */}
+       {showTravel && !hasPulses && (
+@@ -122,8 +122,8 @@ export function Thread({ id, fromRect, toRect, state, pulses }: ThreadProps) {
+ function FractureMarker({ x, y }: { x: number; y: number }) {
+   return (
+     <g opacity={0.7}>
+-      <line x1={x - 5} y1={y - 5} x2={x + 5} y2={y + 5} stroke="#E15068" strokeWidth={1.5} strokeLinecap="round" />
+-      <line x1={x + 5} y1={y - 5} x2={x - 5} y2={y + 5} stroke="#E15068" strokeWidth={1.5} strokeLinecap="round" />
++      <line x1={x - 5} y1={y - 5} x2={x + 5} y2={y + 5} stroke="#A8362C" strokeWidth={1.5} strokeLinecap="round" />
++      <line x1={x + 5} y1={y - 5} x2={x - 5} y2={y + 5} stroke="#A8362C" strokeWidth={1.5} strokeLinecap="round" />
+     </g>
+   );
+ }
+diff --git a/frontend/src/components/board/icons.tsx b/frontend/src/components/board/icons.tsx
+index f4478ee..860507c 100755
+--- a/frontend/src/components/board/icons.tsx
++++ b/frontend/src/components/board/icons.tsx
+@@ -1,6 +1,6 @@
+ export type IconType = 'gateway' | 'support' | 'admin-agent' | 'issuer' | 'finance' | 'compliance' | 'admin-mcp';
+ 
+-const ICON_COLOR = '#E9E4F2';
++const ICON_COLOR = '#0A3323';
+ 
+ function GatewayIcon() {
+   return (
+diff --git a/frontend/src/components/board/topology.ts b/frontend/src/components/board/topology.ts
+index b9d966a..29793a7 100755
+--- a/frontend/src/components/board/topology.ts
++++ b/frontend/src/components/board/topology.ts
+@@ -47,7 +47,7 @@ export const NODES: NodeDef[] = [
+     label: 'Demo Gateway',
+     port: ':4006',
+     badge: 'entry point · owns session',
+-    role: 'INTAKE & ROUTING',
++    role: 'Intake & routing',
+     icon: 'gateway',
+   },
+   {
+@@ -55,7 +55,7 @@ export const NODES: NodeDef[] = [
+     label: 'Support Agent',
+     port: ':4004',
+     badge: 'handles issue_refund',
+-    role: 'REFUNDS DESK',
++    role: 'Refund handling',
+     icon: 'support',
+   },
+   {
+@@ -63,7 +63,7 @@ export const NODES: NodeDef[] = [
+     label: 'Admin Agent',
+     port: ':4005',
+     badge: 'handles delete/export',
+-    role: 'RECORDS & DELETION',
++    role: 'Deletion handling',
+     icon: 'admin-agent',
+   },
+   {
+@@ -71,7 +71,7 @@ export const NODES: NodeDef[] = [
+     label: 'Issuer Service',
+     port: ':4001',
+     badge: 'issues, verifies Proof 1',
+-    role: 'NOTARY & CREDENTIALING',
++    role: 'Credential issuer',
+     icon: 'issuer',
+   },
+   {
+@@ -79,7 +79,7 @@ export const NODES: NodeDef[] = [
+     label: 'Finance MCP',
+     port: ':4003',
+     badge: 'runs the gate · executes refunds',
+-    role: 'THE VAULT',
++    role: 'Policy gate',
+     icon: 'finance',
+   },
+   {
+@@ -87,7 +87,7 @@ export const NODES: NodeDef[] = [
+     label: 'Compliance Prover',
+     port: ':4002',
+     badge: 'generates Groth16 proofs',
+-    role: 'THE CRIME LAB',
++    role: 'Proof generation',
+     icon: 'compliance',
+   },
+   {
+@@ -95,7 +95,7 @@ export const NODES: NodeDef[] = [
+     label: 'Admin MCP',
+     port: ':4005',
+     badge: 'runs the gate for deletions',
+-    role: 'THE ARCHIVES',
++    role: 'Deletion gate',
+     icon: 'admin-mcp',
+   },
+ ];
+diff --git a/frontend/src/components/layout/Docket.tsx b/frontend/src/components/layout/Docket.tsx
+index eaa15fc..d68240c 100755
+--- a/frontend/src/components/layout/Docket.tsx
++++ b/frontend/src/components/layout/Docket.tsx
+@@ -14,9 +14,15 @@ interface Props {
+   selectedId?: string;
+ }
+ 
+-const ROW_HEIGHT = 44; // Matches the height of DocketRow
++const ROW_HEIGHT = 52; // Matches the height of DocketRow
+ const OVERSCAN = 10;
+ 
++const OUTCOME_COLOR = {
++  pass: "#839958",
++  fail: "#E4604E",
++  pending: "#D5B893",
++} as const;
++
+ export function Docket({ entries = [], onSelect, selectedId }: Props) {
+   const [scrollTop, setScrollTop] = useState(0);
+   const [containerHeight, setContainerHeight] = useState(0);
+@@ -24,8 +30,8 @@ export function Docket({ entries = [], onSelect, selectedId }: Props) {
+ 
+   useEffect(() => {
+     if (!containerRef.current) return;
+-    const observer = new ResizeObserver((entries) => {
+-      setContainerHeight(entries[0].contentRect.height);
++    const observer = new ResizeObserver((obs) => {
++      setContainerHeight(obs[0].contentRect.height);
+     });
+     observer.observe(containerRef.current);
+     return () => observer.disconnect();
+@@ -42,69 +48,41 @@ export function Docket({ entries = [], onSelect, selectedId }: Props) {
+ 
+   return (
+     <aside
+-      className="flex flex-col border-l overflow-hidden"
+       style={{
+-        width: 240,
+-        borderColor: "rgba(233,228,242,0.12)",
+-        backgroundColor: "rgba(23,15,38,0.4)",
++        display: "flex",
++        flexDirection: "column",
++        overflow: "hidden",
++        minHeight: 0,
++        backgroundColor: "#0A3323",
++        color: "#F7F4D5",
++        fontFamily: "var(--zk-sans)",
++        gridColumn: 3,
++        gridRow: 2,
+       }}
+     >
+-      {/* Header */}
+-      <div
+-        className="px-3 py-2 border-b flex items-center gap-2"
+-        style={{ borderColor: "rgba(233,228,242,0.12)" }}
+-      >
+-        <span
+-          className="font-stamp text-[10px] tracking-widest uppercase"
+-          style={{ color: "#D9A94A", letterSpacing: "0.2em" }}
+-        >
+-          Docket
+-        </span>
+-        <span
+-          className="ml-auto font-mono-data"
+-          style={{ fontSize: 9, color: "rgba(233,228,242,0.35)" }}
+-        >
+-          {entries.length} entries
+-        </span>
+-      </div>
+-
+-      {/* Column headers */}
+       <div
+-        className="px-3 py-1 flex items-center gap-2 border-b"
+         style={{
+-          borderColor: "rgba(233,228,242,0.08)",
+-          backgroundColor: "rgba(233,228,242,0.04)",
++          display: "flex",
++          justifyContent: "space-between",
++          alignItems: "baseline",
++          padding: "14px 16px 10px",
++          borderBottom: "1px solid rgba(247,244,213,0.18)",
+         }}
+       >
+-        {["TIME", "AGENT", "TOOL", ""].map((h) => (
+-          <span
+-            key={h}
+-            className="font-display text-[8px] tracking-widest uppercase flex-1"
+-            style={{ color: "rgba(233,228,242,0.3)" }}
+-          >
+-            {h}
+-          </span>
+-        ))}
++        <b style={{ fontSize: 14 }}>Docket</b>
++        <span style={{ font: "400 12px var(--zk-mono)", opacity: 0.6 }}>{entries.length} entries</span>
+       </div>
+ 
+-      {/* Entries */}
+-      <div 
++      <div
+         ref={containerRef}
+-        className="flex-1 overflow-y-auto scrollbar-paper"
++        className="zk-docket-scroll"
++        style={{ flex: 1, overflowY: "auto" }}
+         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+       >
+         {entries.length === 0 ? (
+-          <div className="p-4 text-center">
+-            <p
+-              className="font-stamp text-xs"
+-              style={{ color: "rgba(233,228,242,0.25)", letterSpacing: "0.1em" }}
+-            >
+-              NO ENTRIES
+-            </p>
+-            <p
+-              className="font-mono-data mt-1"
+-              style={{ fontSize: 9, color: "rgba(233,228,242,0.2)" }}
+-            >
++          <div style={{ padding: 20, textAlign: "center" }}>
++            <p style={{ fontSize: 13, fontWeight: 600, margin: 0, opacity: 0.7 }}>No entries</p>
++            <p style={{ font: "400 12px var(--zk-mono)", margin: "4px 0 0", opacity: 0.45 }}>
+               Awaiting first request…
+             </p>
+           </div>
+@@ -113,14 +91,14 @@ export function Docket({ entries = [], onSelect, selectedId }: Props) {
+             {visibleEntries.map((entry, index) => {
+               const actualIndex = startIndex + index;
+               return (
+-                <div 
+-                  key={entry.id} 
+-                  style={{ 
+-                    position: "absolute", 
++                <div
++                  key={entry.id}
++                  style={{
++                    position: "absolute",
+                     top: actualIndex * ROW_HEIGHT,
+                     left: 0,
+                     right: 0,
+-                    height: ROW_HEIGHT 
++                    height: ROW_HEIGHT,
+                   }}
+                 >
+                   <DocketRow
+@@ -147,64 +125,54 @@ function DocketRow({
+   isSelected: boolean;
+   onClick: () => void;
+ }) {
+-  const outcomeColor = {
+-    pass: "#54C99A",
+-    fail: "#E15068",
+-    pending: "#D9A94A",
+-  }[entry.outcome];
++  const color = OUTCOME_COLOR[entry.outcome];
+ 
+   return (
+     <button
+       onClick={onClick}
+-      className="w-full flex items-center gap-2 px-0 py-1.5 border-b text-left transition-colors hover:bg-white/5"
++      className="zk-docket-row"
+       style={{
+-        borderColor: "rgba(233,228,242,0.07)",
+-        backgroundColor: isSelected ? "rgba(217,169,74,0.1)" : "transparent",
+-        paddingLeft: 0,
++        display: "grid",
++        gridTemplateColumns: "10px 1fr auto",
++        gap: 10,
++        alignItems: "center",
++        width: "100%",
++        height: ROW_HEIGHT,
++        padding: "0 16px",
++        textAlign: "left",
++        color: "inherit",
++        font: "inherit",
++        cursor: "pointer",
++        border: 0,
++        borderBottom: "1px solid rgba(247,244,213,0.12)",
++        backgroundColor: isSelected ? "rgba(211,150,140,0.16)" : "transparent",
++        boxShadow: isSelected ? "inset 3px 0 0 #D3968C" : "none",
+       }}
+     >
+-      {/* Outcome tab on left edge */}
+-      <div
+-        style={{
+-          width: 3,
+-          height: 28,
+-          backgroundColor: outcomeColor,
+-          flexShrink: 0,
+-          opacity: 0.8,
+-        }}
+-      />
+-
+-      <div className="flex-1 min-w-0 pr-2">
+-        <div className="flex items-center gap-1">
+-          <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(233,228,242,0.45)" }}>
+-            {entry.timestamp}
+-          </span>
+-        </div>
+-        <div className="flex items-baseline gap-1 mt-0.5">
+-          <span
+-            className="font-mono-data truncate"
+-            style={{ fontSize: 9, color: "#E9E4F2", fontWeight: 500 }}
+-          >
+-            {entry.agent}
+-          </span>
+-          <span className="font-mono-data truncate" style={{ fontSize: 8, color: "rgba(233,228,242,0.4)" }}>
+-            /{entry.tool}
+-          </span>
+-        </div>
+-      </div>
+-
+-      {/* Pass/fail dot */}
+-      <div
++      <span
+         style={{
+-          width: 6,
+-          height: 6,
++          width: 10,
++          height: 10,
+           borderRadius: "50%",
+-          backgroundColor: outcomeColor,
+-          flexShrink: 0,
+-          marginRight: 8,
+-          opacity: 0.7,
++          backgroundColor: color,
++          animation: entry.outcome === "pending" ? "zk-blink 1s ease-in-out infinite" : "none",
+         }}
+       />
++      <span style={{ minWidth: 0 }}>
++        <span
++          style={{
++            display: "block",
++            font: "500 13px var(--zk-mono)",
++            whiteSpace: "nowrap",
++            overflow: "hidden",
++            textOverflow: "ellipsis",
++          }}
++        >
++          {entry.tool}
++        </span>
++        <span style={{ fontSize: 11.5, opacity: 0.6 }}>{entry.agent}</span>
++      </span>
++      <span style={{ font: "400 11px var(--zk-mono)", opacity: 0.55 }}>{entry.timestamp}</span>
+     </button>
+   );
+ }
+diff --git a/frontend/src/components/layout/Sidebar.tsx b/frontend/src/components/layout/Sidebar.tsx
+index a23d866..5042a34 100755
+--- a/frontend/src/components/layout/Sidebar.tsx
++++ b/frontend/src/components/layout/Sidebar.tsx
+@@ -1,12 +1,35 @@
++import type { ReactNode } from "react";
++
+ export type SidebarTab = "board" | "exhibits" | "wire" | "auditor" | "intake" | "baseline";
+ 
+-const TABS: { id: SidebarTab; label: string; abbr: string }[] = [
+-  { id: "board",    label: "THE BOARD",  abbr: "B" },
+-  { id: "exhibits", label: "EXHIBITS",   abbr: "E" },
+-  { id: "wire",     label: "THE WIRE",   abbr: "W" },
+-  { id: "auditor",  label: "AUDITOR",    abbr: "A" },
+-  { id: "intake",   label: "INTAKE",     abbr: "I" },
+-  { id: "baseline", label: "BASELINE",   abbr: "X" },
++const ICONS: Record<SidebarTab, ReactNode> = {
++  board: (
++    <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5" /><circle cx="19" cy="5" r="2.5" /><circle cx="19" cy="19" r="2.5" /><path d="M7.5 12L16.5 6M7.5 12l9 6" /></svg>
++  ),
++  exhibits: (
++    <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></svg>
++  ),
++  wire: (
++    <svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" /></svg>
++  ),
++  auditor: (
++    <svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" /><path d="M8.5 12l2.5 2.5 4.5-5" /></svg>
++  ),
++  intake: (
++    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h6" /><path d="M17 14l3 3-3 3" /></svg>
++  ),
++  baseline: (
++    <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
++  ),
++};
++
++const TABS: { id: SidebarTab; label: string }[] = [
++  { id: "board",    label: "The Board" },
++  { id: "exhibits", label: "Exhibits" },
++  { id: "wire",     label: "The Wire" },
++  { id: "auditor",  label: "Auditor" },
++  { id: "intake",   label: "Intake" },
++  { id: "baseline", label: "Baseline" },
+ ];
+ 
+ interface Props {
+@@ -17,9 +40,17 @@ interface Props {
+ 
+ export function Sidebar({ active, onChange, highlightExhibits = false }: Props) {
+   return (
+-    <aside
+-      className="flex flex-col items-center py-3 gap-1 border-r ink-rule"
+-      style={{ backgroundColor: "rgba(23,15,38,0.5)", borderColor: "rgba(233,228,242,0.12)", width: 52 }}
++    <nav
++      aria-label="Views"
++      style={{
++        display: "flex",
++        flexDirection: "column",
++        gap: 2,
++        padding: "10px 6px",
++        backgroundColor: "#3F1735",
++        gridColumn: 1,
++        gridRow: 2,
++      }}
+     >
+       {TABS.map((tab) => {
+         const isActive = tab.id === active;
+@@ -29,64 +60,14 @@ export function Sidebar({ active, onChange, highlightExhibits = false }: Props)
+             key={tab.id}
+             title={tab.label}
+             onClick={() => onChange(tab.id)}
+-            className="relative group sidebar-tab-btn"
+-            style={{ width: 40 }}
++            aria-current={isActive ? "page" : undefined}
++            className={`zk-rail-btn${isHighlight ? " zk-rail-btn--hl" : ""}`}
+           >
+-            {/* The folder tab */}
+-            <div
+-              className={`flex items-center justify-center transition-all duration-200 ${isActive ? "folder-tab-active" : ""} ${isHighlight ? "animate-pulse" : ""}`}
+-              style={{
+-                height: 44,
+-                width: 40,
+-                backgroundColor: isActive ? "#0D0817" : isHighlight ? "rgba(225,80,104, 0.1)" : "rgba(23,15,38,0.35)",
+-                border: isActive ? "1.5px solid rgba(217,169,74,0.45)" : "1.5px solid rgba(233,228,242,0.15)",
+-                borderRadius: "3px 3px 0 0",
+-                borderBottom: isActive ? "1.5px solid #0D0817" : "1.5px solid rgba(233,228,242,0.15)",
+-              }}
+-            >
+-              <span
+-                className="font-stamp text-center leading-none sidebar-tab-label"
+-                style={{
+-                  fontSize: 10,
+-                  color: isActive ? "#F0C874" : isHighlight ? "#E15068" : "rgba(233,228,242,0.45)",
+-                  textShadow: isActive ? "0 0 10px rgba(217,169,74,0.4)" : "none",
+-                  writingMode: "vertical-lr",
+-                  textOrientation: "mixed",
+-                  transform: "rotate(180deg)",
+-                  letterSpacing: "0.12em",
+-                }}
+-              >
+-                {tab.label}
+-              </span>
+-            </div>
+-            {/* Active indicator tab strip */}
+-            {isActive && (
+-              <div
+-                style={{
+-                  position: "absolute",
+-                  left: -2,
+-                  top: "50%",
+-                  transform: "translateY(-50%)",
+-                  width: 3,
+-                  height: 24,
+-                  backgroundColor: "#D9A94A",
+-                  borderRadius: "0 2px 2px 0",
+-                }}
+-              />
+-            )}
++            {ICONS[tab.id]}
++            {tab.label}
+           </button>
+         );
+       })}
+-
+-      {/* Bottom: case file icon */}
+-      <div className="mt-auto mb-1 opacity-30">
+-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+-          <rect x="3" y="4" width="14" height="13" rx="1" stroke="#E9E4F2" strokeWidth="1.2"/>
+-          <path d="M7 4V2h6v2" stroke="#E9E4F2" strokeWidth="1.2"/>
+-          <line x1="6" y1="9" x2="14" y2="9" stroke="#E9E4F2" strokeWidth="1"/>
+-          <line x1="6" y1="12" x2="12" y2="12" stroke="#E9E4F2" strokeWidth="1"/>
+-        </svg>
+-      </div>
+-    </aside>
++    </nav>
+   );
+ }
+diff --git a/frontend/src/components/layout/StatusStrip.tsx b/frontend/src/components/layout/StatusStrip.tsx
+index 13e437a..984effc 100755
+--- a/frontend/src/components/layout/StatusStrip.tsx
++++ b/frontend/src/components/layout/StatusStrip.tsx
+@@ -19,125 +19,83 @@ export function StatusStrip({
+   narrateMode = false,
+   onToggleNarrate,
+ }: Props) {
+-  const caseNumber = "ZK-MCP-0417";
+-
+   return (
+     <header
+-      className="col-span-3 flex items-center px-4 gap-0 border-b"
++      className="col-span-3"
+       style={{
+-        height: 36,
+-        backgroundColor: "#170F26",
+-        borderColor: "rgba(217,169,74,0.3)",
+-        boxShadow: "0 1px 0 rgba(0,0,0,0.4)",
++        display: "flex",
++        alignItems: "center",
++        gap: 26,
++        padding: "0 18px",
++        height: 48,
++        backgroundColor: "#0A3323",
++        color: "#F7F4D5",
++        fontFamily: "var(--zk-sans)",
++        overflowX: "auto",
++        whiteSpace: "nowrap",
+         flexShrink: 0,
+       }}
+     >
+-      {/* Project title — stamp face, gold, per layout spec */}
+-      <span
+-        className="font-stamp text-xs tracking-widest"
+-        style={{ color: "#D9A94A", letterSpacing: "0.18em", textShadow: "0 0 12px rgba(217,169,74,0.35)" }}
+-      >
+-        ZK-MCP AUTH & COMPLIANCE
++      <span style={{ fontWeight: 700 }}>
++        ZK-MCP
++        <span style={{ opacity: 0.55, fontWeight: 500, marginLeft: 6 }}>Auth &amp; Compliance</span>
+       </span>
+ 
+-      <Divider />
++      <TelegraphLight connected={connected} />
+ 
+-      <StatItem label="SERVICES ONLINE" value={String(agentsOnline)} />
+-      <Divider />
+-      <StatItem label="REQUESTS/MIN" value={String(requestsPerMin)} />
+-      <Divider />
+-      <div className="flex items-center gap-2">
+-        <StatItem label="VERIFIED" value={`${verifiedPct}%`} highlight={verifiedPct >= 90} />
++      <StatItem label="services online" value={String(agentsOnline)} />
++      <StatItem label="req / min" value={String(requestsPerMin)} />
++      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
++        <StatItem label="verified" value={`${verifiedPct}%`} />
+         {history.length > 0 && <Sparkline data={history} />}
+       </div>
+-      <Divider />
+ 
+-      {/* Live indicator — pulse dot ring, not a static dot */}
+-      <span
+-        className="font-mono-data text-[10px] tracking-widest flex items-center gap-1.5"
+-        style={{ color: connected ? "#6EDBB0" : "#7C7099" }}
++      <button
++        onClick={onToggleNarrate}
++        aria-pressed={narrateMode}
++        title="Narrate mode — slows animation and auto-opens Inspector"
++        style={{
++          marginLeft: "auto",
++          font: "500 12px var(--zk-sans)",
++          color: narrateMode ? "#0A3323" : "#F7F4D5",
++          background: narrateMode ? "#D3968C" : "transparent",
++          border: `1px solid ${narrateMode ? "#D3968C" : "rgba(247,244,213,0.4)"}`,
++          borderRadius: 6,
++          padding: "5px 11px",
++          cursor: "pointer",
++        }}
+       >
+-        <span className={`live-pulse-dot ${connected ? "live-pulse-dot--verified" : "live-pulse-dot--muted"}`} />
+-        LIVE
+-      </span>
+-
+-      <div className="ml-auto flex items-center gap-3">
+-        {/* Narrate mode toggle */}
+-        <button
+-          onClick={onToggleNarrate}
+-          className="font-display text-[9px] tracking-widest uppercase px-2 py-0.5 border rounded transition-colors"
+-          style={{
+-            color: narrateMode ? "#E9E4F2" : "rgba(217,169,74,0.5)",
+-            borderColor: narrateMode ? "#D9A94A" : "rgba(217,169,74,0.2)",
+-            backgroundColor: narrateMode ? "#D9A94A" : "transparent",
+-          }}
+-          title="Narrate mode — slows animation and auto-opens Inspector"
+-        >
+-          NARRATE
+-        </button>
+-        <TelegraphLight connected={connected} />
+-      </div>
++        Narrate
++      </button>
+     </header>
+   );
+ }
+ 
+-function Divider() {
+-  return (
+-    <span
+-      style={{
+-        width: 1,
+-        height: 14,
+-        backgroundColor: "rgba(217,169,74,0.25)",
+-        margin: "0 12px",
+-        flexShrink: 0,
+-      }}
+-    />
+-  );
+-}
+-
+-function StatItem({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
++function StatItem({ label, value }: { label: string; value: string }) {
+   return (
+-    <span className="flex items-baseline gap-1.5">
+-      <span
+-        className="font-display text-[9px] tracking-widest uppercase"
+-        style={{ color: "rgba(217,169,74,0.6)" }}
+-      >
+-        {label}
+-      </span>
+-      <span
+-        className="font-mono-data text-xs"
+-        style={{ color: highlight ? "#6EDBB0" : "#E15068" }}
+-      >
+-        {value}
+-      </span>
++    <span style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
++      <b style={{ font: "500 15px var(--zk-mono)" }}>{value}</b>
++      <span style={{ fontSize: 12, opacity: 0.65 }}>{label}</span>
+     </span>
+   );
+ }
+ 
+ function Sparkline({ data }: { data: number[] }) {
+-  // Map 0-100 to y=14 to y=0 (14px height)
++  // Map 0-100 to y=20 to y=2 (22px height)
+   const pathD = data
+     .map((val, i) => {
+-      const x = (i / Math.max(1, data.length - 1)) * 40; // 40px width
+-      const y = 14 - (val / 100) * 14;
++      const x = (i / Math.max(1, data.length - 1)) * 80;
++      const y = 20 - (val / 100) * 18;
+       return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+     })
+     .join(" ");
+ 
+   const latest = data[data.length - 1];
+-  const color = latest >= 90 ? "#6EDBB0" : "#E15068";
++  const color = latest >= 90 ? "#A9C06F" : "#D3968C";
+ 
+   return (
+-    <svg width="40" height="14" viewBox="0 0 40 14" className="overflow-visible ml-1">
+-      <path
+-        d={pathD}
+-        fill="none"
+-        stroke={color}
+-        strokeWidth="1.5"
+-        strokeLinecap="round"
+-        strokeLinejoin="round"
+-        className="transition-all duration-300"
+-      />
++    <svg width="80" height="22" viewBox="0 0 80 22" style={{ overflow: "visible" }} aria-label="Verified rate history">
++      <path d={pathD} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+     </svg>
+   );
+ }
+diff --git a/frontend/src/components/layout/TelegraphLight.tsx b/frontend/src/components/layout/TelegraphLight.tsx
+index bd29e2a..2fc0b52 100755
+--- a/frontend/src/components/layout/TelegraphLight.tsx
++++ b/frontend/src/components/layout/TelegraphLight.tsx
+@@ -4,24 +4,13 @@ interface Props {
+ 
+ export function TelegraphLight({ connected }: Props) {
+   return (
+-    <div className="flex items-center gap-1.5" title={connected ? "Wire connected" : "Reconnecting…"}>
+-      <div
+-        style={{
+-          width: 8,
+-          height: 8,
+-          borderRadius: "50%",
+-          backgroundColor: connected ? "#6EDBB0" : "#D9A94A",
+-          boxShadow: connected
+-            ? "0 0 6px 2px rgba(74,140,106,0.5)"
+-            : "0 0 4px 1px rgba(217,169,74,0.3)",
+-          animation: connected ? "none" : "telegraph-blink 0.9s ease-in-out infinite",
+-        }}
+-      />
+-      <span
+-        className="font-mono-data"
+-        style={{ fontSize: 9, color: "rgba(217,169,74,0.5)", letterSpacing: "0.08em" }}
+-      >
+-        {connected ? "CONNECTED" : "RECONNECTING"}
++    <div
++      style={{ display: "flex", alignItems: "center", gap: 7 }}
++      title={connected ? "Live stream connected" : "Reconnecting…"}
++    >
++      <span className={`zk-live-dot${connected ? "" : " zk-live-dot--off"}`} />
++      <span style={{ fontSize: 12, color: "#F7F4D5" }}>
++        {connected ? "Live stream connected" : "Reconnecting…"}
+       </span>
+     </div>
+   );
+diff --git a/frontend/src/main.tsx b/frontend/src/main.tsx
+index 8a6b696..8c047a9 100755
+--- a/frontend/src/main.tsx
++++ b/frontend/src/main.tsx
+@@ -2,6 +2,7 @@ import React from 'react'
+ import ReactDOM from 'react-dom/client'
+ import App from './App.tsx'
+ import './index.css'
++import './theme.css'
+ 
+ ReactDOM.createRoot(document.getElementById('root')!).render(
+   <React.StrictMode>
+diff --git a/frontend/src/theme.css b/frontend/src/theme.css
+new file mode 100644
+index 0000000..d181ee2
+--- /dev/null
++++ b/frontend/src/theme.css
+@@ -0,0 +1,93 @@
++/* ══════════════════════════════════════════════════════════════════
++   LIGHT THEME — design tokens and shell styles
++   Pages not yet migrated are wrapped in .legacy-dark and keep the
++   old dark look until their redesign step lands.
++   ══════════════════════════════════════════════════════════════════ */
++:root {
++  --zk-sage:   #D5DCB4;
++  --zk-beige:  #F7F4D5;
++  --zk-paper:  #FCFBEA;
++  --zk-ink:    #0A3323;
++  --zk-deep:   #3F1735;
++  --zk-pur:    #5E2750;
++  --zk-pur-bg: rgba(94, 39, 80, 0.10);
++  --zk-moss:   #839958;
++  --zk-mossd:  #53662D;
++  --zk-rose:   #D3968C;
++  --zk-red:    #A8362C;
++  --zk-tan:    #D5B893;
++  --zk-rule:   rgba(10, 51, 35, 0.16);
++  --zk-sans:   'Geist', system-ui, sans-serif;
++  --zk-mono:   'Geist Mono', ui-monospace, monospace;
++}
++
++.zk-shell {
++  position: relative;
++  background-color: var(--zk-sage);
++  color: var(--zk-ink);
++  font-family: var(--zk-sans);
++  font-size: 14px;
++  line-height: 1.45;
++  color-scheme: light;
++}
++
++.zk-main {
++  display: flex;
++  flex-direction: column;
++  min-width: 0;
++  min-height: 0;
++  overflow: hidden;
++  grid-column: 2;
++  grid-row: 2;
++}
++
++/* Pages awaiting their redesign keep the previous dark surface */
++.legacy-dark {
++  background-color: #0D0817;
++  color: #E9E4F2;
++  font-family: var(--font-data, 'IBM Plex Mono', monospace);
++}
++
++/* Status strip */
++.zk-live-dot {
++  width: 8px; height: 8px; border-radius: 50%;
++  background: var(--zk-moss);
++  box-shadow: 0 0 0 3px rgba(131, 153, 88, 0.3);
++}
++.zk-live-dot--off {
++  background: var(--zk-tan);
++  box-shadow: 0 0 0 3px rgba(213, 184, 147, 0.3);
++  animation: zk-blink 0.9s ease-in-out infinite;
++}
++@keyframes zk-blink { 50% { opacity: 0.3; } }
++
++/* Left rail */
++.zk-rail-btn {
++  display: flex; flex-direction: column; align-items: center; gap: 3px;
++  width: 100%; padding: 9px 2px; border: 0; border-radius: 8px;
++  background: transparent; color: var(--zk-beige); opacity: 0.75;
++  font: 500 10.5px var(--zk-sans); text-align: center; cursor: pointer;
++  transition: background 0.15s, opacity 0.15s;
++}
++.zk-rail-btn:hover { background: rgba(247, 244, 213, 0.12); opacity: 1; }
++.zk-rail-btn[aria-current="page"] { background: var(--zk-moss); color: var(--zk-ink); opacity: 1; font-weight: 700; }
++.zk-rail-btn--hl { outline: 2px solid var(--zk-rose); outline-offset: -2px; animation: zk-blink 1.4s ease-in-out infinite; }
++.zk-rail-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.6; }
++
++/* Focus */
++.zk-shell button:focus-visible { outline: 3px solid var(--zk-rose); outline-offset: 2px; }
++
++/* Docket */
++.zk-docket-scroll::-webkit-scrollbar-thumb { background: rgba(247, 244, 213, 0.25); }
++.zk-docket-scroll::-webkit-scrollbar-track { background: transparent; }
++.zk-docket-row:hover { background: rgba(247, 244, 213, 0.07); }
++
++/* Board */
++.zk-board-grid {
++  background-color: var(--zk-paper);
++  background-image:
++    linear-gradient(var(--zk-rule) 1px, transparent 1px),
++    linear-gradient(90deg, var(--zk-rule) 1px, transparent 1px);
++  background-size: 28px 28px;
++  background-position: -1px -1px;
++}
+diff --git a/frontend/src/views/BoardView.tsx b/frontend/src/views/BoardView.tsx
+index fb16c17..77f8849 100755
+--- a/frontend/src/views/BoardView.tsx
++++ b/frontend/src/views/BoardView.tsx
+@@ -8,47 +8,89 @@ interface Props {
+   onReturnToLive?: () => void;
+ }
+ 
++const LEGEND: { label: string; color: string }[] = [
++  { label: 'idle', color: '#9AA58A' },
++  { label: 'request in flight', color: '#5E2750' },
++  { label: 'proof verified', color: '#839958' },
++  { label: 'proof failed', color: '#A8362C' },
++];
++
+ export function BoardView({ boardState, agentVitals, onInspectRequest, viewingSnapshot, onReturnToLive }: Props) {
+   return (
+-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
++    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'var(--zk-sans)', color: '#0A3323' }}>
++      <div style={{ flexShrink: 0, padding: '16px 22px 10px' }}>
++        <h1 style={{ font: '700 20px var(--zk-sans)', margin: 0, letterSpacing: '-0.01em' }}>The Board</h1>
++        <p style={{ margin: 0, fontSize: 13, opacity: 0.65 }}>
++          Live request topology across the services. Proof 1 gates the agent, Proof 2 gates the tool.
++        </p>
++      </div>
++
+       {viewingSnapshot && (
+         <div
+           style={{
+             flexShrink: 0,
+             display: 'flex',
+             alignItems: 'center',
+-            justifyContent: 'center',
+-            gap: 10,
+-            padding: '6px 10px',
+-            borderBottom: '1px solid rgba(217,169,74,0.3)',
+-            backgroundColor: '#1E1530',
+-            fontFamily: "'IBM Plex Mono', monospace",
+-            fontSize: 9,
+-            letterSpacing: '0.08em',
+-            color: '#D9A94A',
++            gap: 12,
++            margin: '0 22px 10px',
++            padding: '7px 12px',
++            borderRadius: 8,
++            backgroundColor: 'rgba(94,39,80,0.12)',
++            borderLeft: '3px solid #5E2750',
++            fontSize: 13,
+           }}
+         >
+-          VIEWING PINNED REQUEST — LIVE UPDATES PAUSED
++          <span>Viewing a pinned request. Live updates are paused.</span>
+           <button
+             type="button"
+             onClick={onReturnToLive}
+             style={{
+-              fontSize: 9,
+-              color: '#D9A94A',
+-              background: 'none',
+-              border: '1px solid rgba(217,169,74,0.4)',
+-              borderRadius: 2,
+-              padding: '1px 6px',
++              marginLeft: 'auto',
++              font: '600 12px var(--zk-sans)',
++              color: '#fff',
++              background: '#5E2750',
++              border: 0,
++              borderRadius: 6,
++              padding: '5px 11px',
+               cursor: 'pointer',
+             }}
+           >
+-            ● RETURN TO LIVE
++            Return to live
+           </button>
+         </div>
+       )}
+-      <div style={{ flex: 1, minHeight: 0 }}>
++
++      <div
++        style={{
++          flex: 1,
++          minHeight: 0,
++          margin: '0 22px',
++          border: '1.5px solid #0A3323',
++          borderRadius: 10,
++          overflow: 'hidden',
++        }}
++      >
+         <CaseBoard boardState={boardState} agentVitals={agentVitals} onInspectRequest={onInspectRequest} />
+       </div>
++
++      <div style={{ flexShrink: 0, display: 'flex', flexWrap: 'wrap', gap: 18, padding: '10px 24px 14px', fontSize: 12, opacity: 0.8 }}>
++        {LEGEND.map((l) => (
++          <span key={l.label}>
++            <span
++              style={{
++                display: 'inline-block',
++                width: 18,
++                height: 3,
++                marginRight: 7,
++                verticalAlign: 3,
++                borderRadius: 2,
++                backgroundColor: l.color,
++              }}
++            />
++            {l.label}
++          </span>
++        ))}
++      </div>
+     </div>
+   );
+-}
+\ No newline at end of file
++}

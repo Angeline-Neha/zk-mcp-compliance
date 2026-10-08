@@ -1,5 +1,5 @@
 /**
- * ExhibitsView — Phase 5: Nine Attack Exhibits (dark purple theme)
+ * ExhibitsView — Phase 5: Nine Attack Exhibits (light theme)
  */
 import { useState } from "react";
 import { ExhibitPanel, ExhibitMeta } from "../components/exhibits/ExhibitPanel";
@@ -122,16 +122,8 @@ export function ExhibitsView() {
       {/* ── Left nav: exhibit index ── */}
       <nav className="exhibits-nav">
         <div className="exhibits-nav-header">
-          <p style={{ fontFamily: "var(--font-data)", fontSize: 8, letterSpacing: "0.25em", color: "#8B7FE0", margin: "0 0 2px", textTransform: "uppercase" }}>
-            ZK-MCP COMPLIANCE
-          </p>
-          <span className="font-stamp" style={{ fontSize: 11, letterSpacing: "0.18em", color: "#E15068" }}>
-            CASE FILE
-          </span>
-          <br />
-          <span className="font-stamp" style={{ fontSize: 9, letterSpacing: "0.12em", color: "rgba(233,228,242,0.45)" }}>
-            ATTACK EXHIBITS
-          </span>
+          <b style={{ fontSize: 15 }}>Attack exhibits</b>
+          <p style={{ fontSize: 12, opacity: 0.65, margin: "2px 0 0" }}>Nine attacks against the gate</p>
         </div>
 
         {EXHIBITS.map((ex) => (
@@ -148,11 +140,11 @@ export function ExhibitsView() {
         <div className="exhibits-nav-footer">
           <div className="nav-legend-row">
             <span className="legend-dot dot--blocked" />
-            <span className="legend-label">Blocked</span>
+            <span className="legend-label">Attack blocked</span>
           </div>
           <div className="nav-legend-row">
             <span className="legend-dot dot--pass" />
-            <span className="legend-label">Passed</span>
+            <span className="legend-label">Attack passed</span>
           </div>
         </div>
       </nav>

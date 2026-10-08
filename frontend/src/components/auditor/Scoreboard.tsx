@@ -13,10 +13,10 @@ const ATTACKS: { id: string; name: string }[] = [
   { id: "9", name: "Salami Slicing" },
 ];
 
-const BADGE_STYLES: Record<AttackOutcome["status"], { bg: string; fg: string; border: string; label: string }> = {
-  not_run: { bg: "rgba(233,228,242,0.04)", fg: "rgba(233,228,242,0.45)", border: "rgba(233,228,242,0.25)", label: "NOT RUN" },
-  blocked: { bg: "rgba(84,201,154,0.1)", fg: "#54C99A", border: "#54C99A", label: "BLOCKED — DEFENDED" },
-  passed: { bg: "rgba(225,80,104,0.12)", fg: "#E15068", border: "#E15068", label: "EXECUTED — VULNERABLE" },
+const BADGE_STYLES: Record<AttackOutcome["status"], { bg: string; fg: string; bar: string; label: string }> = {
+  not_run: { bg: "rgba(10,51,35,0.07)", fg: "rgba(10,51,35,0.6)", bar: "rgba(10,51,35,0.2)", label: "Not run" },
+  blocked: { bg: "rgba(131,153,88,0.22)", fg: "#53662D", bar: "#839958", label: "Blocked, defended" },
+  passed:  { bg: "rgba(168,54,44,0.12)", fg: "#A8362C", bar: "#A8362C", label: "Executed, vulnerable" },
 };
 
 export function Scoreboard() {
@@ -25,7 +25,7 @@ export function Scoreboard() {
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      fetchAttackResults().then((o) => !cancelled && setOutcomes(o));
+      fetchAttackResults().then((o) => !cancelled && setOutcomes(o)).catch(() => {});
     };
     load();
     const interval = setInterval(load, 5000); // pick up runs completed from the Exhibits tab
@@ -36,35 +36,34 @@ export function Scoreboard() {
   }, []);
 
   return (
-    <div className="bg-[#1E1530] border border-[rgba(233,228,242,0.15)] rounded-sm p-5">
-      <h3 className="font-stamp text-lg mb-4 text-[#E9E4F2] uppercase tracking-widest border-b border-[rgba(233,228,242,0.1)] pb-2">
-        Red Team Attack Outcomes
-      </h3>
-      <p className="font-mono-data text-[10px] opacity-50 mb-3" style={{ color: "#E9E4F2" }}>
-        Reflects attacks you've actually run this session — via Exhibits or the Intake Desk red-team agent.
-      </p>
-      <div className="flex flex-col gap-2">
+    <div className="zk-card" style={{ height: "100%" }}>
+      <h3 className="zk-card-title">Red team attack outcomes</h3>
+      <p className="zk-card-sub">Attacks you have run this session, via Exhibits or the Intake red-team agent.</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {ATTACKS.map((a, i) => {
           const outcome = outcomes[a.id] ?? { status: "not_run" as const, lastRunAt: null, lastReason: null };
-          const style = BADGE_STYLES[outcome.status];
+          const s = BADGE_STYLES[outcome.status];
           return (
             <div
               key={a.id}
-              className="flex justify-between items-center py-2 px-3 bg-[rgba(233,228,242,0.03)] border-l-2 transition-colors"
-              style={{
-                borderLeftColor: outcome.status === "not_run" ? "rgba(233,228,242,0.2)" : style.fg,
-                animation: `rise-in 0.3s ease-out ${i * 0.05}s both`,
-              }}
               title={outcome.lastReason ?? undefined}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                padding: "8px 12px",
+                background: "var(--zk-paper)",
+                borderLeft: `3px solid ${s.bar}`,
+                borderRadius: "0 6px 6px 0",
+                animation: `rise-in 0.3s ease-out ${i * 0.04}s both`,
+              }}
             >
-              <span className="font-mono-data text-xs uppercase" style={{ color: "#E9E4F2" }}>
-                [{String(i + 1).padStart(2, "0")}] {a.name}
+              <span style={{ font: "500 12.5px var(--zk-mono)" }}>
+                {String(i + 1).padStart(2, "0")} · {a.name}
               </span>
-              <span
-                className="font-stamp text-xs px-2 py-1 rounded-sm border"
-                style={{ backgroundColor: style.bg, color: style.fg, borderColor: style.border }}
-              >
-                {style.label}
+              <span style={{ font: "600 11.5px var(--zk-sans)", padding: "2px 10px", borderRadius: 99, background: s.bg, color: s.fg, whiteSpace: "nowrap" }}>
+                {s.label}
               </span>
             </div>
           );

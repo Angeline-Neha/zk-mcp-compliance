@@ -1,0 +1,1333 @@
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index 047df0e..64f584f 100755
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -80,7 +80,7 @@ export default function App() {
+         highlightExhibits={calmPeriodOver && activeTab !== "exhibits"}
+       />
+ 
+-      <main className={["board", "exhibits", "wire"].includes(activeTab) ? "zk-main" : "zk-main legacy-dark"}>
++      <main className={["board", "exhibits", "wire", "auditor"].includes(activeTab) ? "zk-main" : "zk-main legacy-dark"}>
+         {activeTab === "board" && (
+           <BoardView
+             boardState={displayedBoardState}
+diff --git a/frontend/src/components/auditor/AuditInsights.tsx b/frontend/src/components/auditor/AuditInsights.tsx
+new file mode 100644
+index 0000000..511bee3
+--- /dev/null
++++ b/frontend/src/components/auditor/AuditInsights.tsx
+@@ -0,0 +1,140 @@
++import { useEffect, useState } from "react";
++import { fetchAuditLog, AuditEntry } from "../../lib/api";
++
++/** Last 200 audit-log rows, refreshed every 6 seconds. `error` is true if the issuer is unreachable. */
++export function useAuditEntries(intervalMs = 6000) {
++  const [entries, setEntries] = useState<AuditEntry[] | null>(null);
++  const [error, setError] = useState(false);
++
++  useEffect(() => {
++    let cancelled = false;
++    const load = () => {
++      fetchAuditLog(200)
++        .then((e) => {
++          if (cancelled) return;
++          setEntries(e);
++          setError(false);
++        })
++        .catch(() => !cancelled && setError(true));
++    };
++    load();
++    const iv = setInterval(load, intervalMs);
++    return () => {
++      cancelled = true;
++      clearInterval(iv);
++    };
++  }, [intervalMs]);
++
++  return { entries, error };
++}
++
++interface CardProps {
++  entries: AuditEntry[] | null;
++  error: boolean;
++}
++
++function Empty({ entries, error }: CardProps) {
++  return (
++    <p style={{ fontSize: 13, opacity: 0.6, margin: "8px 0 0" }}>
++      {error && !entries ? "Audit log unavailable. Is the issuer service running?" : entries === null ? "Loading…" : "No audit entries yet."}
++    </p>
++  );
++}
++
++export function LatestDecisions({ entries, error }: CardProps) {
++  const rows = (entries ?? []).slice(0, 8);
++  return (
++    <div className="zk-card" style={{ height: "100%" }}>
++      <h3 className="zk-card-title">Latest decisions</h3>
++      <p className="zk-card-sub">Most recent audit-log entries.</p>
++      {rows.length === 0 && <Empty entries={entries} error={error} />}
++      {rows.map((e) => (
++        <div
++          key={e.id}
++          style={{
++            display: "grid",
++            gridTemplateColumns: "10px minmax(0, 1fr) auto",
++            gap: 10,
++            alignItems: "center",
++            padding: "8px 0",
++            borderTop: "1px solid var(--zk-rule)",
++          }}
++        >
++          <i style={{ width: 10, height: 10, borderRadius: "50%", background: e.pass ? "#839958" : "#A8362C" }} />
++          <span style={{ minWidth: 0 }}>
++            <span style={{ display: "block", font: "500 12.5px var(--zk-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
++              {e.toolName}
++            </span>
++            <span style={{ display: "block", fontSize: 11.5, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={e.reason ?? undefined}>
++              {e.agentId}
++              {!e.pass && e.reason ? ` · ${e.reason}` : ""}
++            </span>
++          </span>
++          <span style={{ font: "400 11px var(--zk-mono)", opacity: 0.55 }}>
++            {new Date(e.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
++          </span>
++        </div>
++      ))}
++    </div>
++  );
++}
++
++export function BlockedReasons({ entries, error }: CardProps) {
++  const counts = new Map<string, number>();
++  (entries ?? []).filter((e) => !e.pass).forEach((e) => {
++    const k = e.reason?.trim() || "unspecified";
++    counts.set(k, (counts.get(k) ?? 0) + 1);
++  });
++  const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
++  const max = rows[0]?.[1] ?? 1;
++
++  return (
++    <div className="zk-card" style={{ height: "100%" }}>
++      <h3 className="zk-card-title">Why requests were blocked</h3>
++      <p className="zk-card-sub">Failure reasons across the last {entries?.length ?? 0} audit entries.</p>
++      {rows.length === 0 && (entries === null || error ? <Empty entries={entries} error={error} /> : <p style={{ fontSize: 13, opacity: 0.6, margin: 0 }}>No blocked requests yet.</p>)}
++      {rows.map(([reason, n]) => (
++        <div key={reason} style={{ marginBottom: 12 }}>
++          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12.5, marginBottom: 4 }}>
++            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={reason}>{reason}</span>
++            <b style={{ font: "500 12.5px var(--zk-mono)" }}>{n}</b>
++          </div>
++          <div className="zk-bar"><span style={{ width: `${(n / max) * 100}%`, background: "#A8362C" }} /></div>
++        </div>
++      ))}
++    </div>
++  );
++}
++
++export function AgentPassRates({ entries, error }: CardProps) {
++  const byAgent = new Map<string, { pass: number; fail: number }>();
++  (entries ?? []).forEach((e) => {
++    const a = byAgent.get(e.agentId) ?? { pass: 0, fail: 0 };
++    e.pass ? a.pass++ : a.fail++;
++    byAgent.set(e.agentId, a);
++  });
++  const rows = [...byAgent.entries()].sort((a, b) => b[1].pass + b[1].fail - (a[1].pass + a[1].fail));
++
++  return (
++    <div className="zk-card" style={{ height: "100%" }}>
++      <h3 className="zk-card-title">Pass rate by agent</h3>
++      <p className="zk-card-sub">Verified versus blocked requests per agent.</p>
++      {rows.length === 0 && <Empty entries={entries} error={error} />}
++      {rows.map(([agent, c]) => {
++        const total = c.pass + c.fail;
++        return (
++          <div key={agent} style={{ marginBottom: 12 }}>
++            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12.5, marginBottom: 4 }}>
++              <span style={{ font: "500 12.5px var(--zk-mono)" }}>{agent}</span>
++              <span style={{ font: "400 12px var(--zk-mono)", opacity: 0.7 }}>{c.pass}/{total} passed</span>
++            </div>
++            <div className="zk-bar">
++              <span style={{ width: `${(c.pass / total) * 100}%`, background: "#839958" }} />
++              <span style={{ width: `${(c.fail / total) * 100}%`, background: "#A8362C" }} />
++            </div>
++          </div>
++        );
++      })}
++    </div>
++  );
++}
+diff --git a/frontend/src/components/auditor/BreachComparison.tsx b/frontend/src/components/auditor/BreachComparison.tsx
+deleted file mode 100755
+index 6e7d5f8..0000000
+--- a/frontend/src/components/auditor/BreachComparison.tsx
++++ /dev/null
+@@ -1,62 +0,0 @@
+-export function BreachComparison() {
+-  return (
+-    <div className="bg-[#1E1530] border border-[rgba(233,228,242,0.15)] rounded-sm p-5">
+-      <h3 className="font-stamp text-lg mb-4 text-[#E9E4F2] uppercase tracking-widest border-b border-[rgba(233,228,242,0.1)] pb-2">
+-        Breach Comparison: Intent Binding vs Baseline
+-      </h3>
+-      
+-      <div className="grid grid-cols-2 gap-6">
+-        {/* Baseline (OAuth/JWT) */}
+-        <div className="flex flex-col">
+-          <div className="bg-[rgba(225,80,104,0.05)] border border-[rgba(225,80,104,0.3)] p-4 rounded-sm flex-1">
+-            <h4 className="font-mono-data text-[10px] text-[#E15068] uppercase mb-3 tracking-widest">
+-              Standard Architecture (OAuth/JWT)
+-            </h4>
+-            <div className="font-mono-data text-[9px] text-[#E9E4F2] opacity-70 whitespace-pre overflow-x-auto">
+-{`[API Gateway] POST /refund HTTP/1.1
+-Authorization: Bearer eyJhbGci... (Valid Support JWT)
+-
+-{ "orderRef": "9101", "amount": 50, "reason": "damaged" }
+-
+-[Access Control] Token valid. Scope: "refund:issue" matches.
+-[Execution] Refund 9101 processed successfully.
+-
+-[!] FATAL: Support agent hijacked by prompt injection.
+-[!] Attacker successfully refunded arbitrary compliant order.`}
+-            </div>
+-            <div className="mt-4 border-t border-[rgba(225,80,104,0.2)] pt-3 text-[#E15068] font-stamp text-xs text-center uppercase">
+-              Result: Catastrophic Success
+-            </div>
+-          </div>
+-        </div>
+-
+-        {/* ZK-MCP */}
+-        <div className="flex flex-col">
+-          <div className="bg-[rgba(84,201,154,0.05)] border border-[rgba(84,201,154,0.3)] p-4 rounded-sm flex-1">
+-            <h4 className="font-mono-data text-[10px] text-[#54C99A] uppercase mb-3 tracking-widest">
+-              Zero-Trust Architecture (ZK-MCP)
+-            </h4>
+-            <div className="font-mono-data text-[9px] text-[#E9E4F2] opacity-70 whitespace-pre overflow-x-auto">
+-{`[Finance Gate] Evaluating MCP Tool Call: "issue_refund"
+-
+-[Check 1] Attestation valid?        [PASS]
+-[Check 2] Proof 1 (Sigma) valid?    [PASS]
+-[Check 3] Proof 2 (Groth16) valid?  [PASS] (9101 is compliant)
+-[Check 4] Intent Binding...
+-
+-Expected Intent Hash:  8e2f1a3b... (Order 9102)
+-Target Order Ref:      9101
+-Hash(9101, nonce):     4c9f001a... 
+-
+-[!] MISMATCH: Intent does not match cryptographic commitment.
+-[Execution] HALTED.`}
+-            </div>
+-            <div className="mt-4 border-t border-[rgba(84,201,154,0.2)] pt-3 text-[#54C99A] font-stamp text-xs text-center uppercase">
+-              Result: Blocked by Cryptography
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-    </div>
+-  );
+-}
+diff --git a/frontend/src/components/auditor/CheckpointFunnel.tsx b/frontend/src/components/auditor/CheckpointFunnel.tsx
+deleted file mode 100755
+index 01cf189..0000000
+--- a/frontend/src/components/auditor/CheckpointFunnel.tsx
++++ /dev/null
+@@ -1,96 +0,0 @@
+-import { useEffect, useState } from "react";
+-import { fetchVerificationFunnel, FunnelStage } from "../../lib/api";
+-
+-const COLORS: Record<string, string> = {
+-  Executed: "#54C99A",
+-};
+-
+-export function CheckpointFunnel() {
+-  const [stages, setStages] = useState<FunnelStage[] | null>(null);
+-  const [error, setError] = useState(false);
+-
+-  useEffect(() => {
+-    let cancelled = false;
+-    const load = () => {
+-      fetchVerificationFunnel()
+-        .then((s) => !cancelled && setStages(s))
+-        .catch(() => !cancelled && setError(true));
+-    };
+-    load();
+-    const interval = setInterval(load, 5000); // refresh while the dashboard is open
+-    return () => {
+-      cancelled = true;
+-      clearInterval(interval);
+-    };
+-  }, []);
+-
+-  return (
+-    <div className="bg-[#1E1530] border border-[rgba(233,228,242,0.15)] rounded-sm p-5 h-full">
+-      <h3 className="font-stamp text-lg mb-4 text-[#E9E4F2] uppercase tracking-widest border-b border-[rgba(233,228,242,0.1)] pb-2">
+-        Verification Funnel
+-      </h3>
+-
+-      {error && (
+-        <p className="font-mono-data text-xs opacity-60" style={{ color: "#E15068" }}>
+-          Couldn't reach the audit log — is issuer-service running?
+-        </p>
+-      )}
+-
+-      {!error && stages && stages[0].count === 0 && (
+-        <p className="font-mono-data text-xs opacity-60 mt-4" style={{ color: "#E9E4F2" }}>
+-          No real gate traffic yet. This fills in once requests are sent through
+-          the Task Interface or an exhibit that hits the actual finance/admin
+-          gate (5, 7, 8, 9).
+-        </p>
+-      )}
+-
+-      {!error && stages && stages[0].count > 0 && (
+-        <div className="flex flex-col gap-3 mt-6">
+-          {stages.map((s, i) => {
+-            const max = stages[0].count || 1;
+-            const widthPct = (s.count / max) * 100;
+-            const color = COLORS[s.name] ?? "#E9E4F2";
+-            const isGreen = !!COLORS[s.name];
+-            return (
+-              <div
+-                key={i}
+-                className="flex flex-col"
+-                style={{ animation: `rise-in 0.35s ease-out ${i * 0.12}s both` }}
+-              >
+-                <div className="flex justify-between items-end mb-1">
+-                  <span className="font-mono-data text-[10px] uppercase opacity-70" style={{ color: "#E9E4F2" }}>
+-                    {s.name}
+-                  </span>
+-                  <span className="font-stamp text-xs" style={{ color }}>
+-                    {s.count.toLocaleString()}
+-                  </span>
+-                </div>
+-                <div className="h-4 bg-[rgba(233,228,242,0.05)] w-full rounded-sm overflow-hidden relative border border-[rgba(233,228,242,0.1)]">
+-                  <div
+-                    className="absolute top-0 left-0 h-full"
+-                    style={{
+-                      width: widthPct + "%",
+-                      backgroundColor: isGreen ? "rgba(84,201,154,0.25)" : "rgba(233,228,242,0.15)",
+-                      borderRight: "2px solid " + (isGreen ? "#54C99A" : "rgba(233,228,242,0.3)"),
+-                      transition: "width 0.6s cubic-bezier(0.16,1,0.3,1)",
+-                      transitionDelay: `${i * 0.12}s`,
+-                      boxShadow: isGreen ? "0 0 10px rgba(84,201,154,0.25)" : "none",
+-                    }}
+-                  />
+-                </div>
+-                {i < stages.length - 1 && stages[i + 1] && (
+-                  <span
+-                    className="font-mono-data text-[8px] uppercase self-end mt-0.5"
+-                    style={{ color: "rgba(225,80,104,0.6)" }}
+-                  >
+-                    −{(100 - (stages[i + 1].count / (s.count || 1)) * 100).toFixed(1)}% drop-off
+-                  </span>
+-                )}
+-              </div>
+-            );
+-          })}
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
+diff --git a/frontend/src/components/auditor/LiveDatabasePanel.tsx b/frontend/src/components/auditor/LiveDatabasePanel.tsx
+index 697069d..d5d3753 100644
+--- a/frontend/src/components/auditor/LiveDatabasePanel.tsx
++++ b/frontend/src/components/auditor/LiveDatabasePanel.tsx
+@@ -9,9 +9,6 @@ const POLL_MS = 2000;
+  * tasks/attacks run (attestations issued, nonces burned, refunds written,
+  * revocations logged) instead of trusting a static after-the-fact summary.
+  *
+- * Replaces AuthorityTree + ScopeCoverageMatrix on the auditor dashboard —
+- * those show internal data-structure shape; this shows the actual database
+- * changing, which is easier for a non-technical viewer to follow.
+  */
+ export function LiveDatabasePanel() {
+   const [snapshot, setSnapshot] = useState<DbSnapshot | null>(null);
+@@ -55,71 +52,60 @@ export function LiveDatabasePanel() {
+   const columns = activeTable?.latest?.[0] ? Object.keys(activeTable.latest[0]) : [];
+ 
+   return (
+-    <div className="bg-[#1E1530] border border-[rgba(233,228,242,0.15)] rounded-sm p-5 h-full">
+-      <div className="flex items-center justify-between border-b border-[rgba(233,228,242,0.1)] pb-2 mb-4">
+-        <h3 className="font-stamp text-lg text-[#E9E4F2] uppercase tracking-widest">Live Database</h3>
+-        <div className="flex items-center gap-2 font-mono-data text-[9px] uppercase text-[#54C99A]">
+-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#54C99A] animate-pulse" />
+-          Polling every {POLL_MS / 1000}s
++    <div className="zk-card">
++      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
++        <div>
++          <h3 className="zk-card-title">Live database</h3>
++          <p className="zk-card-sub" style={{ margin: 0 }}>Every table in the Postgres instance, read-only.</p>
+         </div>
++        <span className="zk-pill zk-pill--up" style={{ flexShrink: 0 }}>
++          <i />
++          Polling every {POLL_MS / 1000}s
++        </span>
+       </div>
+ 
+-      <div className="grid grid-cols-4 gap-2 mb-4">
++      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginBottom: 14 }}>
+         {(snapshot?.tables ?? []).map((t) => (
+           <button
+             key={t.key}
+             onClick={() => setSelected(t.key)}
+-            className={`text-left p-2 rounded-sm border transition-colors ${
+-              selected === t.key
+-                ? "border-[#54C99A] bg-[rgba(84,201,154,0.08)]"
+-                : "border-[rgba(233,228,242,0.12)] hover:bg-[rgba(233,228,242,0.03)]"
+-            } ${flashKeys.has(t.key) ? "bg-[rgba(84,201,154,0.18)]" : ""}`}
+-            style={{ transition: "background-color 0.3s ease" }}
++            className={`zk-tab${selected === t.key ? " zk-tab--on" : ""}${flashKeys.has(t.key) ? " zk-tab--flash" : ""}`}
+           >
+-            <div className="font-mono-data text-[9px] uppercase text-[#E9E4F2] opacity-60 truncate">{t.label}</div>
+-            <div className="font-stamp text-xl text-[#E9E4F2]">{t.ok ? t.count : "—"}</div>
++            <div style={{ fontSize: 11.5, opacity: 0.65, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</div>
++            <div style={{ font: "500 20px var(--zk-mono)" }}>{t.ok ? t.count : "—"}</div>
+           </button>
+         ))}
+       </div>
+ 
+       {activeTable && (
+-        <div className="font-mono-data text-[10px] text-[#E9E4F2] opacity-60 mb-2">
++        <div style={{ font: "400 12px var(--zk-mono)", opacity: 0.65, marginBottom: 8 }}>
+           showing {activeTable.latest.length} of {activeTable.count} rows
+         </div>
+       )}
+-      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 420 }}>
+-        <table className="w-full text-left border-collapse">
+-          <thead className="sticky top-0 bg-[#1E1530]">
++      <div style={{ overflow: "auto", maxHeight: 420, border: "1px solid var(--zk-rule)", borderRadius: 8 }}>
++        <table className="zk-table">
++          <thead>
+             <tr>
+               {columns.map((c) => (
+-                <th
+-                  key={c}
+-                  className="p-2 border-b border-[rgba(233,228,242,0.2)] font-mono-data text-[10px] text-[#E9E4F2] opacity-70 uppercase font-normal whitespace-nowrap px-3"
+-                >
+-                  {c.replace(/_/g, " ")}
+-                </th>
++                <th key={c}>{c.replace(/_/g, " ")}</th>
+               ))}
+             </tr>
+           </thead>
+           <tbody>
+             {activeTable?.ok === false && (
+               <tr>
+-                <td className="p-3 font-mono-data text-[11px] text-[#E15068]">
+-                  table not available yet (migration not run in this environment)
+-                </td>
++                <td style={{ color: "#A8362C" }}>table not available yet (migration not run in this environment)</td>
+               </tr>
+             )}
+             {activeTable?.latest.length === 0 && activeTable.ok && (
+               <tr>
+-                <td className="p-3 font-mono-data text-[11px] text-[#E9E4F2] opacity-50">no rows yet</td>
++                <td style={{ opacity: 0.55 }}>no rows yet</td>
+               </tr>
+             )}
+             {activeTable?.latest.map((row, i) => (
+-              <tr key={i} className="border-b border-[rgba(233,228,242,0.05)] hover:bg-[rgba(233,228,242,0.03)]">
++              <tr key={i}>
+                 {columns.map((c) => (
+-                  <td key={c} className="p-2 font-mono-data text-[11px] text-[#E9E4F2] whitespace-nowrap px-3">
+-                    {formatCell(row[c])}
+-                  </td>
++                  <td key={c}>{formatCell(row[c])}</td>
+                 ))}
+               </tr>
+             ))}
+diff --git a/frontend/src/components/auditor/Oscilloscope.tsx b/frontend/src/components/auditor/Oscilloscope.tsx
+deleted file mode 100755
+index 785cc9b..0000000
+--- a/frontend/src/components/auditor/Oscilloscope.tsx
++++ /dev/null
+@@ -1,50 +0,0 @@
+-import { useEffect, useState } from "react";
+-
+-export function Oscilloscope() {
+-  const [points, setPoints] = useState<number[]>(Array(50).fill(50));
+-
+-  useEffect(() => {
+-    const interval = setInterval(() => {
+-      setPoints((prev) => {
+-        const next = [...prev.slice(1)];
+-        const rand = Math.random();
+-        if (rand > 0.9) {
+-          next.push(Math.random() * 40 + 60); // Spike
+-        } else if (rand > 0.95) {
+-          next.push(Math.random() * 20);       // Dip
+-        } else {
+-          next.push(50 + (Math.random() * 10 - 5)); // Noise
+-        }
+-        return next;
+-      });
+-    }, 100);
+-    return () => clearInterval(interval);
+-  }, []);
+-
+-  const pathD = points
+-    .map((p, i) => {
+-      const x = i * 4;
+-      const y = 100 - p;
+-      return (i === 0 ? "M" : "L") + " " + x + " " + y;
+-    })
+-    .join(" ");
+-
+-  return (
+-    <div className="flex flex-col items-end">
+-      <div className="font-mono-data text-[10px] uppercase text-[#E9E4F2] opacity-60 mb-1">
+-        Session Heartbeat
+-      </div>
+-      <div className="w-[200px] h-[30px] bg-[rgba(233,228,242,0.03)] border border-[rgba(233,228,242,0.1)] rounded-sm overflow-hidden flex items-center">
+-        <svg width="200" height="30" viewBox="0 0 200 100" preserveAspectRatio="none">
+-          <path
+-            d={pathD}
+-            fill="none"
+-            stroke="#D9A94A"
+-            strokeWidth="3"
+-            vectorEffect="non-scaling-stroke"
+-          />
+-        </svg>
+-      </div>
+-    </div>
+-  );
+-}
+diff --git a/frontend/src/components/auditor/ProofLatencyStrip.tsx b/frontend/src/components/auditor/ProofLatencyStrip.tsx
+index 76fd385..0ccf2df 100755
+--- a/frontend/src/components/auditor/ProofLatencyStrip.tsx
++++ b/frontend/src/components/auditor/ProofLatencyStrip.tsx
+@@ -1,8 +1,7 @@
+ import { useState, useRef, useEffect } from "react";
+ 
+-/* Real proportions: Sigma ~1ms vs Groth16 ~210ms — on-screen race
+-   duration is compressed for legibility but keeps a wide gap between
+-   the two runners so the ~200x latency difference is felt, not just read. */
++/* Proportions: Sigma ~1ms vs Groth16 ~210ms. On-screen race duration is
++   compressed for legibility but keeps a wide gap between the two runners. */
+ const SIGMA_MS = 1;
+ const GROTH16_MS = 210;
+ const SIGMA_RACE_MS = 320;
+@@ -11,47 +10,24 @@ const GROTH16_RACE_MS = 1650;
+ export function ProofLatencyStrip() {
+   const [runId, setRunId] = useState(0);
+ 
+-  function replay() {
+-    setRunId((n) => n + 1);
+-  }
+-
+   return (
+-    <div className="bg-[#1E1530] border border-[rgba(233,228,242,0.15)] rounded-sm p-5">
+-      <h3 className="font-stamp text-lg mb-4 text-[#E9E4F2] uppercase tracking-widest border-b border-[rgba(233,228,242,0.1)] pb-2 flex justify-between items-center">
+-        <span>Proof Latency — Photo Finish</span>
+-        <button
+-          type="button"
+-          onClick={replay}
+-          className="font-mono-data text-[9px] uppercase tracking-wider px-2 py-1 border rounded-sm transition-colors charge-sweep"
+-          style={{ color: "#D9A94A", borderColor: "rgba(217,169,74,0.4)" }}
+-          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(217,169,74,0.08)")}
+-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+-        >
+-          &#9656; Replay Race
++    <div className="zk-card">
++      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
++        <div>
++          <h3 className="zk-card-title">Proof latency</h3>
++          <p className="zk-card-sub">Sigma protocol versus Groth16 zk-SNARK, same finish line.</p>
++        </div>
++        <button type="button" className="zk-btn-ghost" onClick={() => setRunId((n) => n + 1)}>
++          Replay race
+         </button>
+-      </h3>
++      </div>
+ 
+-      <div className="relative pt-2 pb-1">
+-        <RaceLane
+-          key={`sigma-${runId}`}
+-          label="Proof 1 — Sigma Protocol"
+-          time={`${SIGMA_MS}ms`}
+-          color="#D9A94A"
+-          durationMs={SIGMA_RACE_MS}
+-        />
+-        <RaceLane
+-          key={`groth-${runId}`}
+-          label="Proof 2 — Groth16 zk-SNARK"
+-          time={`${GROTH16_MS}ms`}
+-          color="#54C99A"
+-          durationMs={GROTH16_RACE_MS}
+-          isLast
+-        />
++      <div style={{ paddingTop: 4 }}>
++        <RaceLane key={`sigma-${runId}`} label="Proof 1: Sigma protocol" time={`${SIGMA_MS} ms`} color="#5E2750" durationMs={SIGMA_RACE_MS} />
++        <RaceLane key={`groth-${runId}`} label="Proof 2: Groth16 zk-SNARK" time={`${GROTH16_MS} ms`} color="#53662D" durationMs={GROTH16_RACE_MS} isLast />
+ 
+-        <div className="mt-5 text-center">
+-          <span className="font-stamp text-xs text-[#E15068] bg-[rgba(225,80,104,0.05)] px-3 py-1 border border-[rgba(225,80,104,0.2)] rounded-sm inline-block">
+-            Proof 2 is ~200x slower. This is why Intent Binding MUST run before it.
+-          </span>
++        <div style={{ marginTop: 16, padding: "8px 12px", background: "#F8E6E2", borderLeft: "3px solid #A8362C", borderRadius: "0 6px 6px 0", fontSize: 13 }}>
++          Proof 2 is about 200x slower, which is why intent binding must run before it.
+         </div>
+       </div>
+     </div>
+@@ -85,63 +61,57 @@ function RaceLane({
+   }, [durationMs]);
+ 
+   return (
+-    <div className={isLast ? "" : "mb-6"}>
+-      <div className="flex justify-between items-baseline mb-1.5">
+-        <span className="font-mono-data text-[10px] uppercase tracking-wider" style={{ color }}>
+-          {label}
+-        </span>
+-        <span
+-          className="font-stamp text-xs transition-opacity duration-300"
+-          style={{ color, opacity: finished ? 1 : 0.25 }}
+-        >
+-          {time}
+-        </span>
++    <div style={{ marginBottom: isLast ? 0 : 20 }}>
++      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
++        <span style={{ fontSize: 12.5, fontWeight: 600, color }}>{label}</span>
++        <span style={{ font: "500 13px var(--zk-mono)", color, opacity: finished ? 1 : 0.3, transition: "opacity 0.3s" }}>{time}</span>
+       </div>
+ 
+-      {/* Track */}
+       <div
+         ref={trackRef}
+-        className="relative h-6 rounded-sm border overflow-hidden"
+         style={{
+-          background:
+-            "repeating-linear-gradient(90deg, rgba(233,228,242,0.02) 0 24px, rgba(233,228,242,0.05) 24px 25px)",
+-          borderColor: finished ? color : "rgba(233,228,242,0.12)",
++          position: "relative",
++          height: 26,
++          borderRadius: 6,
++          border: `1px solid ${finished ? color : "rgba(10,51,35,0.16)"}`,
++          overflow: "hidden",
++          background: "repeating-linear-gradient(90deg, rgba(10,51,35,0.02) 0 24px, rgba(10,51,35,0.06) 24px 25px)",
+           transition: "border-color 0.3s",
+         }}
+       >
+-        {/* Finish line */}
+         <div
+-          className="absolute top-0 bottom-0"
+           style={{
++            position: "absolute",
++            top: 0,
++            bottom: 0,
+             right: 10,
+             width: 2,
+-            background: "repeating-linear-gradient(180deg, #E9E4F2 0 3px, transparent 3px 6px)",
+-            opacity: 0.4,
++            background: "repeating-linear-gradient(180deg, #0A3323 0 3px, transparent 3px 6px)",
++            opacity: 0.45,
+           }}
+         />
+-
+-        {/* Runner */}
+         <div
+-          className="absolute top-1/2 rounded-full"
+           style={{
++            position: "absolute",
++            top: "50%",
+             width: 14,
+             height: 14,
+             marginTop: -7,
++            borderRadius: "50%",
+             background: color,
+-            boxShadow: finished ? `0 0 10px 2px ${color}` : `0 0 6px 1px ${color}88`,
+             left: started ? "calc(100% - 22px)" : 2,
+             transition: `left ${durationMs}ms cubic-bezier(0.3,0,0.2,1)`,
+           }}
+         />
+-
+-        {/* Finished checkmark stamp */}
+         {finished && (
+           <div
+-            className="absolute top-1/2 font-stamp text-[10px] uppercase tracking-wider"
+             style={{
+-              color,
++              position: "absolute",
++              top: "50%",
+               right: 14,
+-              marginTop: -6,
++              marginTop: -9,
++              fontWeight: 700,
++              color,
+               animation: "stamp-land-overshoot 0.4s cubic-bezier(.2,1.6,.4,1) forwards",
+             }}
+           >
+diff --git a/frontend/src/components/auditor/Scoreboard.tsx b/frontend/src/components/auditor/Scoreboard.tsx
+index ee2ad1b..71a14ff 100755
+--- a/frontend/src/components/auditor/Scoreboard.tsx
++++ b/frontend/src/components/auditor/Scoreboard.tsx
+@@ -13,10 +13,10 @@ const ATTACKS: { id: string; name: string }[] = [
+   { id: "9", name: "Salami Slicing" },
+ ];
+ 
+-const BADGE_STYLES: Record<AttackOutcome["status"], { bg: string; fg: string; border: string; label: string }> = {
+-  not_run: { bg: "rgba(233,228,242,0.04)", fg: "rgba(233,228,242,0.45)", border: "rgba(233,228,242,0.25)", label: "NOT RUN" },
+-  blocked: { bg: "rgba(84,201,154,0.1)", fg: "#54C99A", border: "#54C99A", label: "BLOCKED — DEFENDED" },
+-  passed: { bg: "rgba(225,80,104,0.12)", fg: "#E15068", border: "#E15068", label: "EXECUTED — VULNERABLE" },
++const BADGE_STYLES: Record<AttackOutcome["status"], { bg: string; fg: string; bar: string; label: string }> = {
++  not_run: { bg: "rgba(10,51,35,0.07)", fg: "rgba(10,51,35,0.6)", bar: "rgba(10,51,35,0.2)", label: "Not run" },
++  blocked: { bg: "rgba(131,153,88,0.22)", fg: "#53662D", bar: "#839958", label: "Blocked, defended" },
++  passed:  { bg: "rgba(168,54,44,0.12)", fg: "#A8362C", bar: "#A8362C", label: "Executed, vulnerable" },
+ };
+ 
+ export function Scoreboard() {
+@@ -25,7 +25,7 @@ export function Scoreboard() {
+   useEffect(() => {
+     let cancelled = false;
+     const load = () => {
+-      fetchAttackResults().then((o) => !cancelled && setOutcomes(o));
++      fetchAttackResults().then((o) => !cancelled && setOutcomes(o)).catch(() => {});
+     };
+     load();
+     const interval = setInterval(load, 5000); // pick up runs completed from the Exhibits tab
+@@ -36,35 +36,34 @@ export function Scoreboard() {
+   }, []);
+ 
+   return (
+-    <div className="bg-[#1E1530] border border-[rgba(233,228,242,0.15)] rounded-sm p-5">
+-      <h3 className="font-stamp text-lg mb-4 text-[#E9E4F2] uppercase tracking-widest border-b border-[rgba(233,228,242,0.1)] pb-2">
+-        Red Team Attack Outcomes
+-      </h3>
+-      <p className="font-mono-data text-[10px] opacity-50 mb-3" style={{ color: "#E9E4F2" }}>
+-        Reflects attacks you've actually run this session — via Exhibits or the Intake Desk red-team agent.
+-      </p>
+-      <div className="flex flex-col gap-2">
++    <div className="zk-card" style={{ height: "100%" }}>
++      <h3 className="zk-card-title">Red team attack outcomes</h3>
++      <p className="zk-card-sub">Attacks you have run this session, via Exhibits or the Intake red-team agent.</p>
++      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+         {ATTACKS.map((a, i) => {
+           const outcome = outcomes[a.id] ?? { status: "not_run" as const, lastRunAt: null, lastReason: null };
+-          const style = BADGE_STYLES[outcome.status];
++          const s = BADGE_STYLES[outcome.status];
+           return (
+             <div
+               key={a.id}
+-              className="flex justify-between items-center py-2 px-3 bg-[rgba(233,228,242,0.03)] border-l-2 transition-colors"
++              title={outcome.lastReason ?? undefined}
+               style={{
+-                borderLeftColor: outcome.status === "not_run" ? "rgba(233,228,242,0.2)" : style.fg,
+-                animation: `rise-in 0.3s ease-out ${i * 0.05}s both`,
++                display: "flex",
++                justifyContent: "space-between",
++                alignItems: "center",
++                gap: 12,
++                padding: "8px 12px",
++                background: "var(--zk-paper)",
++                borderLeft: `3px solid ${s.bar}`,
++                borderRadius: "0 6px 6px 0",
++                animation: `rise-in 0.3s ease-out ${i * 0.04}s both`,
+               }}
+-              title={outcome.lastReason ?? undefined}
+             >
+-              <span className="font-mono-data text-xs uppercase" style={{ color: "#E9E4F2" }}>
+-                [{String(i + 1).padStart(2, "0")}] {a.name}
++              <span style={{ font: "500 12.5px var(--zk-mono)" }}>
++                {String(i + 1).padStart(2, "0")} · {a.name}
+               </span>
+-              <span
+-                className="font-stamp text-xs px-2 py-1 rounded-sm border"
+-                style={{ backgroundColor: style.bg, color: style.fg, borderColor: style.border }}
+-              >
+-                {style.label}
++              <span style={{ font: "600 11.5px var(--zk-sans)", padding: "2px 10px", borderRadius: 99, background: s.bg, color: s.fg, whiteSpace: "nowrap" }}>
++                {s.label}
+               </span>
+             </div>
+           );
+diff --git a/frontend/src/components/auditor/ServiceHealth.tsx b/frontend/src/components/auditor/ServiceHealth.tsx
+new file mode 100644
+index 0000000..c842104
+--- /dev/null
++++ b/frontend/src/components/auditor/ServiceHealth.tsx
+@@ -0,0 +1,43 @@
++import { useEffect, useState } from "react";
++import { checkAllHealth, ServiceHealth } from "../../lib/api";
++
++/** Polls every service's /health endpoint. `null` until the first result arrives. */
++export function useServiceHealth(intervalMs = 6000): ServiceHealth[] | null {
++  const [health, setHealth] = useState<ServiceHealth[] | null>(null);
++
++  useEffect(() => {
++    let cancelled = false;
++    const load = () => {
++      checkAllHealth()
++        .then((h) => !cancelled && setHealth(h))
++        .catch(() => {});
++    };
++    load();
++    const iv = setInterval(load, intervalMs);
++    return () => {
++      cancelled = true;
++      clearInterval(iv);
++    };
++  }, [intervalMs]);
++
++  return health;
++}
++
++export function ServiceHealthStrip({ health }: { health: ServiceHealth[] | null }) {
++  return (
++    <div className="zk-card">
++      <h3 className="zk-card-title">Service health</h3>
++      <p className="zk-card-sub">Live /health check for each service, refreshed every 6 seconds.</p>
++      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
++        {health === null && <span className="zk-pill"><i />Checking…</span>}
++        {health?.map((s) => (
++          <span key={s.name} className={`zk-pill ${s.up ? "zk-pill--up" : "zk-pill--down"}`} title={s.url}>
++            <i />
++            {s.name}
++            <span style={{ opacity: 0.6 }}>{s.up ? "up" : "down"}</span>
++          </span>
++        ))}
++      </div>
++    </div>
++  );
++}
+diff --git a/frontend/src/theme.css b/frontend/src/theme.css
+index 60f5ab0..03c5916 100644
+--- a/frontend/src/theme.css
++++ b/frontend/src/theme.css
+@@ -189,3 +189,32 @@
+ .wire-redact-plain { display: none; }
+ .wire-line-row:hover .wire-redact-plain, .wire-line-row:focus-visible .wire-redact-plain { display: inline; }
+ .wire-line-row:hover .wire-redact-mask, .wire-line-row:focus-visible .wire-redact-mask { display: none; }
++
++/* ── Auditor ──────────────────────────────────────────────────── */
++.zk-page { height: 100%; overflow-y: auto; padding: 16px 22px 32px; font-family: var(--zk-sans); color: var(--zk-ink); }
++.zk-page::-webkit-scrollbar-thumb { background: rgba(10, 51, 35, 0.25); }
++.zk-card { background: #fff; border: 1px solid var(--zk-rule); border-radius: 10px; padding: 16px 18px; min-width: 0; }
++.zk-card-title { font: 700 14px var(--zk-sans); margin: 0 0 2px; }
++.zk-card-sub { font-size: 12px; opacity: 0.65; margin: 0 0 12px; }
++.zk-grid-8-4 { display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); gap: 16px; }
++.zk-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
++.zk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
++.zk-section { margin-bottom: 16px; }
++@media (max-width: 1100px) { .zk-grid-8-4, .zk-grid-2 { grid-template-columns: minmax(0, 1fr); } }
++.zk-pill { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--zk-sans); padding: 4px 11px; border-radius: 99px; border: 1px solid var(--zk-rule); background: var(--zk-paper); }
++.zk-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--zk-tan); }
++.zk-pill--up i { background: var(--zk-moss); }
++.zk-pill--down { border-color: var(--zk-red); color: var(--zk-red); }
++.zk-pill--down i { background: var(--zk-red); }
++.zk-bar { height: 8px; border-radius: 4px; background: rgba(10, 51, 35, 0.1); overflow: hidden; display: flex; }
++.zk-bar > span { display: block; height: 100%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
++.zk-table { width: 100%; border-collapse: collapse; text-align: left; }
++.zk-table th { position: sticky; top: 0; background: var(--zk-paper); font: 500 12px var(--zk-sans); padding: 8px 12px; border-bottom: 1px solid var(--zk-ink); white-space: nowrap; }
++.zk-table td { font: 400 12px var(--zk-mono); padding: 7px 12px; border-bottom: 1px solid var(--zk-rule); white-space: nowrap; }
++.zk-table tr:hover td { background: rgba(94, 39, 80, 0.05); }
++.zk-tab { text-align: left; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--zk-rule); background: var(--zk-paper); cursor: pointer; color: var(--zk-ink); transition: background 0.3s, border-color 0.15s; }
++.zk-tab:hover { border-color: var(--zk-pur); }
++.zk-tab--on { border-color: var(--zk-pur); box-shadow: inset 0 0 0 1px var(--zk-pur); background: var(--zk-pur-bg); }
++.zk-tab--flash { background: rgba(131, 153, 88, 0.35); }
++.zk-btn-ghost { font: 600 12px var(--zk-sans); color: var(--zk-ink); background: transparent; border: 1px solid var(--zk-ink); border-radius: 6px; padding: 5px 11px; cursor: pointer; }
++.zk-btn-ghost:hover { background: rgba(10, 51, 35, 0.07); }
+diff --git a/frontend/src/views/AuditorView.tsx b/frontend/src/views/AuditorView.tsx
+index 5bec622..95ac999 100755
+--- a/frontend/src/views/AuditorView.tsx
++++ b/frontend/src/views/AuditorView.tsx
+@@ -1,28 +1,18 @@
+ import { useEffect, useState } from "react";
+ import { Scoreboard } from "../components/auditor/Scoreboard";
+-import { BreachComparison } from "../components/auditor/BreachComparison";
+-import { CheckpointFunnel } from "../components/auditor/CheckpointFunnel";
+ import { ProofLatencyStrip } from "../components/auditor/ProofLatencyStrip";
+ import { LiveDatabasePanel } from "../components/auditor/LiveDatabasePanel";
+-import { Oscilloscope } from "../components/auditor/Oscilloscope";
++import { ServiceHealthStrip, useServiceHealth } from "../components/auditor/ServiceHealth";
++import { AgentPassRates, BlockedReasons, LatestDecisions, useAuditEntries } from "../components/auditor/AuditInsights";
+ import { fetchAttackResults } from "../lib/api";
+ 
+-/* ── Animated stat card ─────────────────────────────────────────── */
+-function StatCard({
+-  label,
+-  value,
+-  sub,
+-  accent,
+-  pulse,
+-  delay = 0,
+-}: {
+-  label: string;
+-  value: string | number;
+-  sub?: string;
+-  accent: string;
+-  pulse?: boolean;
+-  delay?: number;
+-}) {
++const INK = "#0A3323";
++const MOSS = "#53662D";
++const RED = "#A8362C";
++const PURPLE = "#5E2750";
++
++/* ── Stat card ──────────────────────────────────────────────────── */
++function StatCard({ label, value, sub, accent, delay = 0 }: { label: string; value: string | number; sub?: string; accent: string; delay?: number }) {
+   const [visible, setVisible] = useState(false);
+   useEffect(() => {
+     const t = setTimeout(() => setVisible(true), delay);
+@@ -31,247 +21,67 @@ function StatCard({
+ 
+   return (
+     <div
++      className="zk-card"
+       style={{
+-        backgroundColor: "#170F26",
+-        border: `1px solid ${accent}40`,
+-        borderLeft: `3px solid ${accent}`,
+-        borderRadius: 3,
+-        padding: "14px 18px",
+-        display: "flex",
+-        flexDirection: "column",
+-        gap: 6,
+-        position: "relative",
+-        overflow: "hidden",
++        borderLeft: `4px solid ${accent}`,
+         opacity: visible ? 1 : 0,
+-        transform: visible ? "translateY(0)" : "translateY(10px)",
++        transform: visible ? "none" : "translateY(8px)",
+         transition: "opacity 0.4s ease, transform 0.4s ease",
+       }}
+     >
+-      {/* glow blob */}
+-      <div
+-        style={{
+-          position: "absolute",
+-          top: -20,
+-          right: -20,
+-          width: 80,
+-          height: 80,
+-          borderRadius: "50%",
+-          background: `radial-gradient(circle, ${accent}22, transparent 70%)`,
+-          pointerEvents: "none",
+-        }}
+-      />
+-      <div
+-        style={{
+-          display: "flex",
+-          alignItems: "center",
+-          gap: 6,
+-          fontFamily: "var(--font-data)",
+-          fontSize: 9,
+-          letterSpacing: "0.15em",
+-          textTransform: "uppercase",
+-          color: "rgba(233,228,242,0.45)",
+-        }}
+-      >
+-        {pulse && (
+-          <span
+-            style={{
+-              width: 7,
+-              height: 7,
+-              borderRadius: "50%",
+-              backgroundColor: accent,
+-              display: "inline-block",
+-              animation: "pulse-dot 1.6s ease-in-out infinite",
+-            }}
+-          />
+-        )}
+-        {label}
+-      </div>
+-      <div
+-        style={{
+-          fontFamily: "var(--font-stamp)",
+-          fontSize: 28,
+-          color: accent,
+-          lineHeight: 1,
+-          letterSpacing: "0.05em",
+-        }}
+-      >
+-        {value}
+-      </div>
+-      {sub && (
+-        <div
+-          style={{
+-            fontFamily: "var(--font-data)",
+-            fontSize: 9,
+-            color: "rgba(233,228,242,0.35)",
+-            letterSpacing: "0.08em",
+-          }}
+-        >
+-          {sub}
+-        </div>
+-      )}
++      <div style={{ fontSize: 12, opacity: 0.65 }}>{label}</div>
++      <div style={{ font: "500 28px var(--zk-mono)", color: accent, lineHeight: 1.2, margin: "4px 0 0" }}>{value}</div>
++      {sub && <div style={{ fontSize: 11.5, opacity: 0.55, marginTop: 2 }}>{sub}</div>}
+     </div>
+   );
+ }
+ 
+-/* ── Threat level indicator ─────────────────────────────────────── */
++/* ── Threat level ───────────────────────────────────────────────── */
+ function ThreatLevel({ blockedCount, totalRun }: { blockedCount: number; totalRun: number }) {
+   const pct = totalRun === 0 ? 100 : Math.round((blockedCount / totalRun) * 100);
+-  const level = pct >= 80 ? "LOW" : pct >= 50 ? "MEDIUM" : "HIGH";
+-  const levelColor = pct >= 80 ? "#54C99A" : pct >= 50 ? "#D9A94A" : "#E15068";
++  const level = pct >= 80 ? "Low" : pct >= 50 ? "Medium" : "High";
++  const color = pct >= 80 ? MOSS : pct >= 50 ? PURPLE : RED;
+ 
+   return (
+-    <div
+-      style={{
+-        backgroundColor: "#170F26",
+-        border: `1px solid rgba(233,228,242,0.1)`,
+-        borderRadius: 3,
+-        padding: "14px 18px",
+-        display: "flex",
+-        alignItems: "center",
+-        gap: 16,
+-      }}
+-    >
++    <div className="zk-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 16px" }}>
+       <div
+         style={{
+-          width: 48,
+-          height: 48,
++          width: 54,
++          height: 54,
+           borderRadius: "50%",
+-          border: `2px solid ${levelColor}`,
+-          display: "flex",
+-          alignItems: "center",
+-          justifyContent: "center",
++          border: `3px solid ${color}`,
++          display: "grid",
++          placeItems: "center",
+           flexShrink: 0,
+-          boxShadow: `0 0 16px ${levelColor}44`,
+-          animation: level === "HIGH" ? "pulse-dot 1.2s ease-in-out infinite" : "none",
++          font: "600 12px var(--zk-sans)",
++          color,
+         }}
+       >
+-        <span style={{ fontFamily: "var(--font-stamp)", fontSize: 11, color: levelColor, letterSpacing: "0.05em" }}>
+-          {level}
+-        </span>
++        {level}
+       </div>
+       <div>
+-        <div style={{ fontFamily: "var(--font-data)", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(233,228,242,0.45)", marginBottom: 4 }}>
+-          Threat Level
+-        </div>
+-        <div style={{ fontFamily: "var(--font-data)", fontSize: 11, color: "rgba(233,228,242,0.7)" }}>
++        <div style={{ fontWeight: 600, fontSize: 13 }}>Threat level</div>
++        <div style={{ font: "400 12px var(--zk-mono)", opacity: 0.7 }}>
+           {blockedCount}/{totalRun} attacks blocked
+         </div>
+-        {/* progress bar */}
+-        <div style={{ marginTop: 6, width: 140, height: 3, backgroundColor: "rgba(233,228,242,0.08)", borderRadius: 2, overflow: "hidden" }}>
+-          <div
+-            style={{
+-              height: "100%",
+-              width: `${pct}%`,
+-              backgroundColor: levelColor,
+-              borderRadius: 2,
+-              transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)",
+-            }}
+-          />
++        <div className="zk-bar" style={{ width: 140, marginTop: 6 }}>
++          <span style={{ width: `${pct}%`, background: color }} />
+         </div>
+       </div>
+     </div>
+   );
+ }
+ 
+-/* ── Section heading ────────────────────────────────────────────── */
+-function SectionHeading({ children }: { children: React.ReactNode }) {
+-  return (
+-    <div
+-      style={{
+-        fontFamily: "var(--font-data)",
+-        fontSize: 9,
+-        letterSpacing: "0.2em",
+-        textTransform: "uppercase",
+-        color: "rgba(233,228,242,0.35)",
+-        borderLeft: "2px solid #8B7FE0",
+-        paddingLeft: 8,
+-        marginBottom: 12,
+-      }}
+-    >
+-      {children}
+-    </div>
+-  );
+-}
+-
+-/* ── System integrity badge strip ───────────────────────────────── */
+-const CHECKS = [
+-  { label: "Issuer MCP", ok: true },
+-  { label: "Finance Gate", ok: true },
+-  { label: "Admin Gate", ok: true },
+-  { label: "ZK Circuits", ok: true },
+-  { label: "Proof Verifier", ok: true },
+-  { label: "Intent Binding", ok: true },
+-];
+-
+-function IntegrityStrip() {
+-  const [revealed, setRevealed] = useState(0);
+-  useEffect(() => {
+-    CHECKS.forEach((_, i) => {
+-      setTimeout(() => setRevealed((c) => Math.max(c, i + 1)), 300 + i * 180);
+-    });
+-  }, []);
+-
+-  return (
+-    <div
+-      style={{
+-        backgroundColor: "#170F26",
+-        border: "1px solid rgba(233,228,242,0.1)",
+-        borderRadius: 3,
+-        padding: "14px 18px",
+-      }}
+-    >
+-      <div
+-        style={{
+-          fontFamily: "var(--font-data)",
+-          fontSize: 9,
+-          letterSpacing: "0.15em",
+-          textTransform: "uppercase",
+-          color: "rgba(233,228,242,0.4)",
+-          marginBottom: 10,
+-        }}
+-      >
+-        System Integrity
+-      </div>
+-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+-        {CHECKS.map((c, i) => (
+-          <div
+-            key={c.label}
+-            style={{
+-              fontFamily: "var(--font-data)",
+-              fontSize: 9,
+-              padding: "3px 8px",
+-              border: `1px solid ${i < revealed ? "rgba(84,201,154,0.4)" : "rgba(233,228,242,0.1)"}`,
+-              borderRadius: 2,
+-              color: i < revealed ? "#54C99A" : "rgba(233,228,242,0.25)",
+-              backgroundColor: i < revealed ? "rgba(84,201,154,0.06)" : "transparent",
+-              letterSpacing: "0.08em",
+-              transition: "all 0.3s ease",
+-              display: "flex",
+-              alignItems: "center",
+-              gap: 5,
+-            }}
+-          >
+-            {i < revealed && (
+-              <span style={{ fontSize: 8 }}>●</span>
+-            )}
+-            {c.label}
+-          </div>
+-        ))}
+-      </div>
+-    </div>
+-  );
+-}
+-
+ /* ── Main view ──────────────────────────────────────────────────── */
+ export function AuditorView() {
+   const [outcomes, setOutcomes] = useState<Record<string, { status: "not_run" | "blocked" | "passed" }>>({});
+-  const [tick, setTick] = useState(0);
++  const health = useServiceHealth();
++  const { entries, error } = useAuditEntries();
+ 
+   useEffect(() => {
+     fetchAttackResults().then(setOutcomes).catch(() => {});
+     const iv = setInterval(() => {
+       fetchAttackResults().then(setOutcomes).catch(() => {});
+-      setTick((t) => t + 1);
+     }, 6000);
+     return () => clearInterval(iv);
+   }, []);
+@@ -280,157 +90,51 @@ export function AuditorView() {
+   const blocked = allRun.filter((o) => o.status === "blocked").length;
+   const passed = allRun.filter((o) => o.status === "passed").length;
+   const notRun = 9 - allRun.length;
++  const upCount = health?.filter((s) => s.up).length ?? 0;
+ 
+   return (
+-    <div
+-      className="h-full overflow-y-auto"
+-      style={{ backgroundColor: "#0D0817", position: "relative" }}
+-    >
+-      {/* Blueprint grid overlay */}
+-      <div
+-        style={{
+-          position: "fixed",
+-          inset: 0,
+-          pointerEvents: "none",
+-          zIndex: 0,
+-          backgroundImage:
+-            "repeating-linear-gradient(to right,rgba(42,32,68,0.4) 0,rgba(42,32,68,0.4) 1px,transparent 1px,transparent 32px),repeating-linear-gradient(to bottom,rgba(42,32,68,0.4) 0,rgba(42,32,68,0.4) 1px,transparent 1px,transparent 32px)",
+-          opacity: 0.5,
+-        }}
+-      />
+-      {/* Corner glows */}
+-      <div
+-        style={{
+-          position: "fixed",
+-          inset: 0,
+-          pointerEvents: "none",
+-          zIndex: 0,
+-          backgroundImage:
+-            "radial-gradient(circle at 4% 2%,rgba(217,169,74,0.18) 0%,transparent 32%),radial-gradient(circle at 98% 3%,rgba(139,127,224,0.18) 0%,transparent 30%)",
+-        }}
+-      />
+-
+-      <div style={{ position: "relative", zIndex: 1, padding: "32px 40px 64px" }}>
+-        {/* ── Header ── */}
+-        <div
+-          style={{
+-            display: "flex",
+-            alignItems: "flex-end",
+-            justifyContent: "space-between",
+-            borderBottom: "2px solid rgba(233,228,242,0.12)",
+-            paddingBottom: 20,
+-            marginBottom: 32,
+-          }}
+-        >
+-          <div>
+-            <p
+-              style={{
+-                fontFamily: "var(--font-data)",
+-                fontSize: 9,
+-                letterSpacing: "0.25em",
+-                textTransform: "uppercase",
+-                color: "#8B7FE0",
+-                margin: "0 0 6px",
+-              }}
+-            >
+-              ZK-MCP COMPLIANCE SYSTEM
+-            </p>
+-            <h1
+-              style={{
+-                fontFamily: "var(--font-stamp)",
+-                fontSize: 36,
+-                color: "#E9E4F2",
+-                margin: 0,
+-                textTransform: "uppercase",
+-                letterSpacing: "0.05em",
+-              }}
+-            >
+-              Auditor Dashboard
+-            </h1>
+-            <p
+-              style={{
+-                fontFamily: "var(--font-data)",
+-                fontSize: 9,
+-                marginTop: 6,
+-                color: "rgba(233,228,242,0.4)",
+-                textTransform: "uppercase",
+-                letterSpacing: "0.15em",
+-              }}
+-            >
+-              Cryptographic Integrity & Baseline Comparison — Live
+-            </p>
+-          </div>
+-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+-            <ThreatLevel blockedCount={blocked} totalRun={allRun.length} />
+-            <Oscilloscope />
+-          </div>
+-        </div>
+-
+-        {/* ── Top stat cards ── */}
+-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 28 }}>
+-          <StatCard label="Attacks Blocked" value={blocked} accent="#54C99A" pulse delay={0} />
+-          <StatCard label="Attacks Passed" value={passed} accent="#E15068" delay={100} />
+-          <StatCard label="Not Yet Run" value={notRun} accent="rgba(233,228,242,0.35)" delay={200} />
+-          <StatCard label="Block Rate" value={allRun.length ? `${Math.round((blocked / allRun.length) * 100)}%` : "—"} accent="#D9A94A" delay={300} />
+-          <StatCard label="ZK Circuits" value="Online" sub="Groth16 + Sigma" accent="#8B7FE0" pulse delay={400} />
+-        </div>
+-
+-        {/* ── Integrity strip ── */}
+-        <div style={{ marginBottom: 28 }}>
+-          <IntegrityStrip />
++    <div className="zk-page">
++      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 16 }}>
++        <div>
++          <h1 style={{ font: "700 20px var(--zk-sans)", margin: 0, letterSpacing: "-0.01em" }}>Auditor</h1>
++          <p style={{ margin: 0, fontSize: 13, opacity: 0.65 }}>Cryptographic integrity and attack outcomes, live.</p>
+         </div>
++        <ThreatLevel blockedCount={blocked} totalRun={allRun.length} />
++      </div>
+ 
+-        {/* ── Scoreboard + Funnel ── */}
+-        <SectionHeading>Attack Outcomes</SectionHeading>
+-        <div style={{ display: "grid", gridTemplateColumns: "8fr 4fr", gap: 20, marginBottom: 28 }}>
+-          <Scoreboard />
+-          <CheckpointFunnel />
+-        </div>
++      <div className="zk-stats zk-section">
++        <StatCard label="Attacks blocked" value={blocked} accent={MOSS} delay={0} />
++        <StatCard label="Attacks passed" value={passed} accent={RED} delay={80} />
++        <StatCard label="Not yet run" value={notRun} accent="rgba(10,51,35,0.4)" delay={160} />
++        <StatCard label="Block rate" value={allRun.length ? `${Math.round((blocked / allRun.length) * 100)}%` : "—"} accent={PURPLE} delay={240} />
++        <StatCard
++          label="Services up"
++          value={health ? `${upCount}/${health.length}` : "—"}
++          sub={health ? (upCount === health.length ? "All healthy" : "Some services are down") : "Checking…"}
++          accent={health && upCount < health.length ? RED : INK}
++          delay={320}
++        />
++      </div>
+ 
+-        {/* ── Proof latency ── */}
+-        <SectionHeading>Proof Latency</SectionHeading>
+-        <div style={{ marginBottom: 28 }}>
+-          <ProofLatencyStrip />
+-        </div>
++      <div className="zk-section">
++        <ServiceHealthStrip health={health} />
++      </div>
+ 
+-        {/* ── Breach comparison ── */}
+-        <SectionHeading>Architecture Comparison</SectionHeading>
+-        <div style={{ marginBottom: 28 }}>
+-          <BreachComparison />
+-        </div>
++      <div className="zk-grid-8-4 zk-section">
++        <Scoreboard />
++        <LatestDecisions entries={entries} error={error} />
++      </div>
+ 
+-        {/* ── Authority + Scope ── */}
+-        <SectionHeading>Trust Graph & Scope Coverage</SectionHeading>
+-        <div style={{ paddingBottom: 32 }}>
+-          <LiveDatabasePanel />
+-        </div>
++      <div className="zk-grid-2 zk-section">
++        <AgentPassRates entries={entries} error={error} />
++        <BlockedReasons entries={entries} error={error} />
++      </div>
+ 
+-        {/* ── Footer stamp ── */}
+-        <div
+-          style={{
+-            marginTop: 24,
+-            borderTop: "1px solid rgba(233,228,242,0.08)",
+-            paddingTop: 16,
+-            display: "flex",
+-            justifyContent: "space-between",
+-            alignItems: "center",
+-          }}
+-        >
+-          <span style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "rgba(233,228,242,0.2)", letterSpacing: "0.12em" }}>
+-            ZK-MCP COMPLIANCE AUDITOR — ALL PROOFS VERIFIED ON-CHAIN
+-          </span>
+-          <span style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "rgba(233,228,242,0.2)", letterSpacing: "0.08em" }}>
+-            TICK #{tick}
+-          </span>
+-        </div>
++      <div className="zk-section">
++        <ProofLatencyStrip />
+       </div>
+ 
+-      <style>{`
+-        @keyframes pulse-dot {
+-          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+-          50%       { opacity: 0.7; box-shadow: 0 0 8px 2px currentColor; }
+-        }
+-      `}</style>
++      <LiveDatabasePanel />
+     </div>
+   );
+ }

@@ -8,21 +8,23 @@ interface Props {
 export function TeletypeLog({ lines, onLineClick }: Props) {
   return (
     <div
+      className="zk-wire-scroll"
       style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '12px 16px',
-        fontFamily: "'IBM Plex Mono', monospace",
-        fontSize: 10.5,
-        lineHeight: 1.7,
-        color: '#D9A94A',
+        fontFamily: 'var(--zk-mono)',
+        fontSize: 12.5,
+        color: '#0A3323',
       }}
-      className="scrollbar-paper"
     >
       {lines.length === 0 ? (
-        <div style={{ opacity: 0.4, paddingTop: 40, textAlign: 'center' }}>
-          <span style={{ animation: 'cursor-blink 1s step-end infinite', color: '#D9A94A' }}>█</span>
-          <p style={{ marginTop: 8, letterSpacing: '0.1em' }}>WIRE IDLE — AWAITING TRAFFIC…</p>
+        <div style={{ paddingTop: 48, textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--zk-sans)', fontWeight: 600, fontSize: 14, margin: 0, opacity: 0.7 }}>
+            Wire idle
+          </p>
+          <p style={{ margin: '4px 0 0', opacity: 0.5 }}>
+            Awaiting traffic<span className="cursor-blink" />
+          </p>
         </div>
       ) : (
         [...lines].reverse().map((line) => (
@@ -40,8 +42,9 @@ function TeletypeLine({
   line: WireLine;
   onClick?: (requestId: string) => void;
 }) {
-  const outcomeColor = line.outcome === 'pass' ? '#6EDBB0' : '#E15068';
-  const agentShort = line.agent.replace('-agent', '').replace('-service', '').replace('-mcp', '').toUpperCase();
+  const failed = line.outcome === 'fail';
+  const outcomeColor = line.outcome === 'pass' ? '#53662D' : failed ? '#A8362C' : '#5E2750';
+  const agentShort = line.agent.replace('-agent', '').replace('-service', '').replace('-mcp', '');
 
   return (
     <div
@@ -49,67 +52,52 @@ function TeletypeLine({
       tabIndex={onClick ? 0 : undefined}
       onClick={() => onClick?.(line.requestId)}
       onKeyDown={(e) => e.key === 'Enter' && onClick?.(line.requestId)}
-      className="wire-line-row"
-      style={{
-        display: 'flex',
-        gap: 10,
-        borderBottom: '1px solid rgba(217,169,74,0.06)',
-        paddingBottom: 1,
-        marginBottom: 1,
-        cursor: onClick ? 'pointer' : 'default',
-        animation: 'rise-in 0.25s ease-out both',
-      }}
+      className={`wire-line-row zk-wire-grid${failed ? ' wire-line-row--fail' : ''}`}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
-      {/* Timestamp */}
-      <span style={{ color: 'rgba(217,169,74,0.4)', flexShrink: 0, width: 58 }}>
-        {line.ts}
+      <span style={{ opacity: 0.55 }}>{line.ts}</span>
+
+      <span
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 11,
+          fontWeight: 700,
+          color: '#fff',
+          backgroundColor: outcomeColor,
+        }}
+      >
+        {line.outcome === 'pass' ? '✓' : failed ? '✕' : '…'}
       </span>
 
-      {/* Outcome marker */}
-      <span style={{ color: outcomeColor, flexShrink: 0, width: 8 }}>
-        {line.outcome === 'pass' ? '✓' : '✗'}
-      </span>
-
-      {/* Agent */}
-      <span style={{ color: '#D9A94A', flexShrink: 0, width: 90, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {agentShort}
-      </span>
-
-      {/* Tool */}
-      <span style={{ color: 'rgba(217,169,74,0.7)', flexShrink: 0, width: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {line.tool}
-      </span>
-
-      {/* State */}
-      <span style={{ color: 'rgba(217,169,74,0.45)', flexShrink: 0, width: 110 }}>
+      <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>{agentShort}</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{line.tool}</span>
+      <span style={{ opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {line.state.replace(/_/g, ' ')}
       </span>
 
-      {/* Proof hashes — sensitive digest material, live-masked until hovered */}
-      {(line.proof1 || line.proof2) && (
-        <span
-          className="wire-redact-target"
-          style={{ color: 'rgba(217,169,74,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, position: 'relative' }}
-        >
-          <span className="wire-redact-plain">
-            {line.proof1 ? `p1:${line.proof1.slice(0, 8)}` : ''}
-            {line.proof1 && line.proof2 ? ' ' : ''}
-            {line.proof2 ? `p2:${line.proof2.slice(0, 8)}` : ''}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+        {(line.proof1 || line.proof2) && (
+          <span className="wire-redact-target" style={{ color: '#5E2750' }}>
+            <span className="wire-redact-plain">
+              {line.proof1 ? `p1:${line.proof1.slice(0, 8)}` : ''}
+              {line.proof1 && line.proof2 ? ' ' : ''}
+              {line.proof2 ? `p2:${line.proof2.slice(0, 8)}` : ''}
+            </span>
+            <span className="wire-redact-mask" aria-hidden="true">
+              {line.proof1 ? 'p1:████████' : ''}
+              {line.proof1 && line.proof2 ? ' ' : ''}
+              {line.proof2 ? 'p2:████████' : ''}
+            </span>
           </span>
-          <span className="wire-redact-mask" aria-hidden="true">
-            {line.proof1 ? 'p1:████████' : ''}
-            {line.proof1 && line.proof2 ? ' ' : ''}
-            {line.proof2 ? 'p2:████████' : ''}
-          </span>
-        </span>
-      )}
-
-      {/* Fail reason */}
-      {line.reason && line.outcome === 'fail' && (
-        <span style={{ color: '#E15068', opacity: 0.8, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {line.reason}
-        </span>
-      )}
+        )}
+        {line.reason && failed && (
+          <span style={{ color: '#A8362C', marginLeft: line.proof1 || line.proof2 ? 12 : 0 }}>{line.reason}</span>
+        )}
+      </span>
     </div>
   );
 }

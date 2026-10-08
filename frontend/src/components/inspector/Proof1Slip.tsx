@@ -33,21 +33,20 @@ export function Proof1Slip({ proof1 }: Props) {
 
   return (
     <div
-      className="case-card"
-      style={{ padding: "12px 14px", marginBottom: 12 }}
+      style={{ padding: "14px 16px", marginBottom: 12, background: "#FFFFFF", border: "1px solid var(--zk-rule)", borderRadius: 8 }}
     >
-      <p style={stampStyle()}>Proof 1 — Evidence Slip</p>
-      <p style={{ ...monoStyle(8), color: "rgba(233,228,242,0.45)", marginTop: 4 }}>
-        SIGMA / Schnorr · secp256k1
+      <p style={stampStyle()}>Proof 1 · Schnorr authority</p>
+      <p style={{ ...monoStyle(11), color: "rgba(10,51,35,0.6)", marginTop: 4 }}>
+        sigma protocol · secp256k1
       </p>
 
-      <div style={{ marginTop: 10, ...monoStyle(9) }}>
+      <div style={{ marginTop: 10, ...monoStyle(12) }}>
         <Row label="R" value={truncateHex(proof1.R, 10, 8)} />
         <Row label="s" value={truncateHex(proof1.s, 10, 8)} />
         <Row label="c" value={truncateHex(proof1.c, 10, 8)} />
       </div>
 
-      <div style={{ marginTop: 12, borderTop: "1px solid rgba(233,228,242,0.1)", paddingTop: 10 }}>
+      <div style={{ marginTop: 12, borderTop: "1px solid rgba(10,51,35,0.1)", paddingTop: 10 }}>
         {CHECK_ORDER.map((key, idx) => {
           const resolved = resolvedCount > idx;
           const check = proof1.checks[key];
@@ -72,10 +71,10 @@ export function Proof1Slip({ proof1 }: Props) {
                 alignItems: "flex-start",
               }}
             >
-              <span style={{ ...monoStyle(8), color: "rgba(233,228,242,0.35)", width: 52, flexShrink: 0 }}>
+              <span style={{ ...monoStyle(11), color: "rgba(10,51,35,0.5)", width: 52, flexShrink: 0 }}>
                 {CHECK_LABELS[key]}
               </span>
-              <span style={{ ...monoStyle(9), color, flex: 1 }}>
+              <span style={{ ...monoStyle(12), color, flex: 1 }}>
                 {resolved ? line : <span className="cursor-blink" />}
               </span>
             </div>
@@ -99,7 +98,7 @@ export function Proof1Slip({ proof1 }: Props) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 3 }}>
-      <span style={{ color: "rgba(233,228,242,0.4)", width: 14 }}>{label}</span>
+      <span style={{ color: "rgba(10,51,35,0.55)", width: 14 }}>{label}</span>
       <span style={{ wordBreak: "break-all" }}>{value}</span>
     </div>
   );

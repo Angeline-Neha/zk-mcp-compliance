@@ -151,12 +151,12 @@ export function ExhibitPanel({ meta }: Props) {
         </div>
         {isFinalStep && isBlocked && (
           <div className="exhibit-verdict exhibit-verdict--blocked">
-            <span className="verdict-stamp">BLOCKED</span>
+            <span className="verdict-stamp">Blocked</span>
           </div>
         )}
         {isFinalStep && !isBlocked && (
           <div className="exhibit-verdict exhibit-verdict--pass">
-            <span className="verdict-stamp">PASSED</span>
+            <span className="verdict-stamp">Passed</span>
           </div>
         )}
       </div>
@@ -164,7 +164,7 @@ export function ExhibitPanel({ meta }: Props) {
       {/* ── Configure panel (only when this exhibit exposes params, and before a run starts) ── */}
       {!run && meta.params && meta.params.length > 0 && (
         <div className="exhibit-config">
-          <div className="exhibit-config-header">CONFIGURE THIS RUN</div>
+          <div className="exhibit-config-header">Configure this run</div>
           <div className="exhibit-config-grid">
             {meta.params.map((p) => (
               <div key={p.key} className="exhibit-config-field">
@@ -220,7 +220,7 @@ export function ExhibitPanel({ meta }: Props) {
             onClick={startRun}
             disabled={loading}
           >
-            {loading ? "INITIALISING…" : "▶ RUN EXHIBIT"}
+            {loading ? "Initialising…" : "Run exhibit"}
           </button>
         ) : (
           <>
@@ -231,19 +231,19 @@ export function ExhibitPanel({ meta }: Props) {
                 disabled={loading}
               >
                 {loading
-                  ? "EXECUTING…"
-                  : `STEP ${run.currentStep + 1}/${run.steps.length} — ${run.steps[run.currentStep]?.label}`}
+                  ? "Executing…"
+                  : `Step ${run.currentStep + 1}/${run.steps.length}: ${run.steps[run.currentStep]?.label}`}
               </button>
             )}
             <button className="exhibit-btn exhibit-btn--reset" onClick={reset}>
-              ↺ RESET{meta.params && meta.params.length > 0 ? " & RECONFIGURE" : ""}
+              Reset{meta.params && meta.params.length > 0 ? " and reconfigure" : ""}
             </button>
           </>
         )}
       </div>
 
       {error && (
-        <div className="exhibit-error">⚠ {error}</div>
+        <div className="exhibit-error">{error}</div>
       )}
 
       {/* ── Step progress bar ── */}
@@ -280,7 +280,7 @@ export function ExhibitPanel({ meta }: Props) {
                 onClick={() => setExpanded(expanded === i ? null : i)}
               >
                 <span className={`log-step-badge ${r.blocked ? "badge--blocked" : "badge--pass"}`}>
-                  {r.blocked ? "■ BLOCKED" : "● PASS"}
+                  {r.blocked ? "Blocked" : "Passed"}
                 </span>
                 <span className="log-step-label">{r.label}</span>
                 <span className="log-expand-icon">{expanded === i ? "▲" : "▼"}</span>
@@ -291,13 +291,13 @@ export function ExhibitPanel({ meta }: Props) {
                   <p className="log-narration">{r.narration}</p>
                   {!!r.request && (
                     <div className="log-payload">
-                      <div className="payload-label">REQUEST</div>
+                      <div className="payload-label">Request</div>
                       <pre className="payload-json">{JSON.stringify(r.request, null, 2)}</pre>
                     </div>
                   )}
                   {!!r.response && (
                     <div className="log-payload">
-                      <div className="payload-label">RESPONSE</div>
+                      <div className="payload-label">Response</div>
                       <pre className="payload-json">{JSON.stringify(r.response, null, 2)}</pre>
                     </div>
                   )}

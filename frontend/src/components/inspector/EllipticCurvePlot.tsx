@@ -45,17 +45,15 @@ export function EllipticCurvePlot({ R, s, c, publicKey, algebraOk, expanded, onT
         onClick={onToggle}
         style={{
           marginTop: 8,
-          fontFamily: "'Archivo', sans-serif",
-          fontSize: 9,
-          color: "#D9A94A",
+          fontFamily: "var(--zk-sans)",
+          fontSize: 12,
+          color: "#5E2750",
           background: "none",
           border: "none",
           cursor: "pointer",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
         }}
       >
-        ▸ show curve
+        ▸ Show curve
       </button>
     );
   }
@@ -66,33 +64,31 @@ export function EllipticCurvePlot({ R, s, c, publicKey, algebraOk, expanded, onT
         type="button"
         onClick={onToggle}
         style={{
-          fontFamily: "'Archivo', sans-serif",
-          fontSize: 9,
-          color: "#D9A94A",
+          fontFamily: "var(--zk-sans)",
+          fontSize: 12,
+          color: "#5E2750",
           background: "none",
           border: "none",
           cursor: "pointer",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
           marginBottom: 6,
         }}
       >
-        ▾ hide curve
+        ▾ Hide curve
       </button>
       <svg
         width={size}
         height={size}
         style={{
-          border: "1px solid rgba(233,228,242,0.15)",
+          border: "1px solid rgba(10,51,35,0.15)",
           borderRadius: 2,
-          background: "rgba(233,228,242,0.03)",
+          background: "rgba(10,51,35,0.03)",
         }}
       >
         {/* faint grid */}
         {[30, 60, 90].map((n) => (
           <g key={n} opacity={0.15}>
-            <line x1={n} y1={0} x2={n} y2={size} stroke="#E9E4F2" strokeWidth={0.5} />
-            <line x1={0} y1={n} x2={size} y2={n} stroke="#E9E4F2" strokeWidth={0.5} />
+            <line x1={n} y1={0} x2={n} y2={size} stroke="#0A3323" strokeWidth={0.5} />
+            <line x1={0} y1={n} x2={size} y2={n} stroke="#0A3323" strokeWidth={0.5} />
           </g>
         ))}
 
@@ -107,13 +103,13 @@ export function EllipticCurvePlot({ R, s, c, publicKey, algebraOk, expanded, onT
             transition: algebraOk ? undefined : "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
           }}
         />
-        <text x={sgX + 7} y={sgY + 3} fontSize={7} fill={PASS} fontFamily="IBM Plex Mono">
+        <text x={sgX + 7} y={sgY + 3} fontSize={7} fill="#53662D" fontFamily="Geist Mono">
           s·G
         </text>
 
         {/* R + c·P */}
         <circle cx={rcP_X} cy={rcP_Y} r={5} fill={algebraOk ? PASS : FAIL} opacity={0.85} />
-        <text x={rcP_X + 7} y={rcP_Y + 3} fontSize={7} fill={algebraOk ? PASS : FAIL} fontFamily="IBM Plex Mono">
+        <text x={rcP_X + 7} y={rcP_Y + 3} fontSize={7} fill={algebraOk ? PASS : FAIL} fontFamily="Geist Mono">
           R+c·P
         </text>
       </svg>

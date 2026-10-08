@@ -40,21 +40,22 @@ export function Proof2LabReport({ proof2, reached }: Props) {
 
   return (
     <div
-      className="case-card"
       style={{
-        padding: "12px 14px",
+        padding: "14px 16px",
         marginBottom: 12,
-        background: "rgba(233,228,242,0.03)",
+        background: "#FFFFFF",
+        border: "1px solid var(--zk-rule)",
+        borderRadius: 8,
       }}
     >
-      <p style={stampStyle()}>Proof 2 — Lab Report</p>
+      <p style={stampStyle()}>Proof 2 · Groth16 policy</p>
 
       <pre
         style={{
-          ...monoStyle(9),
+          ...monoStyle(12),
           marginTop: 10,
           whiteSpace: "pre-wrap",
-          color: "rgba(233,228,242,0.75)",
+          color: "rgba(10,51,35,0.85)",
         }}
       >
 {`CIRCUIT: ${circuitLabel}
@@ -76,7 +77,7 @@ public inputs
       </div>
 
       {reached && showProving && (
-        <p style={{ ...monoStyle(9), marginTop: 10 }}>
+        <p style={{ ...monoStyle(12), marginTop: 10 }}>
           proving…{" "}
           {provingDone ? (
             <span style={{ color: PASS }}>⏱ {proof2.timingMs}ms</span>
@@ -88,10 +89,10 @@ public inputs
 
       {reached && provingDone && (
         <>
-          <p style={{ ...monoStyle(9), marginTop: 4 }}>
+          <p style={{ ...monoStyle(12), marginTop: 4 }}>
             proof size: {proof2.proofSizeBytes} bytes
           </p>
-          <p style={{ ...monoStyle(9), marginTop: 4, color: proof2.approved ? PASS : FAIL }}>
+          <p style={{ ...monoStyle(12), marginTop: 4, color: proof2.approved ? PASS : FAIL }}>
             approved:{"   "}
             {proof2.approved ? "true" : "false"}
           </p>
@@ -105,8 +106,8 @@ public inputs
       )}
 
       {!reached && (
-        <p style={{ ...monoStyle(9), marginTop: 10, color: "rgba(233,228,242,0.35)" }}>
-          AWAITING — Proof 1 must pass first
+        <p style={{ ...monoStyle(12), marginTop: 10, color: "rgba(10,51,35,0.5)" }}>
+          Awaiting: Proof 1 must pass first
         </p>
       )}
     </div>
@@ -116,13 +117,13 @@ public inputs
 function SealedField({ label, active }: { label: string; active: boolean }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 4, alignItems: "center" }}>
-      <span style={{ ...monoStyle(8), color: "rgba(233,228,242,0.4)", width: 110 }}>{label}</span>
+      <span style={{ ...monoStyle(11), color: "rgba(10,51,35,0.55)", width: 110 }}>{label}</span>
       <span
         style={{
-          ...monoStyle(9),
+          ...monoStyle(12),
           letterSpacing: 2,
-          color: active ? "#D9A94A" : "#3C2E5C",
-          background: "#05030A",
+          color: active ? "#D3968C" : "rgba(247,244,213,0.45)",
+          background: "#0A3323",
           padding: "1px 4px",
           borderRadius: 2,
           opacity: active ? undefined : 0.7,

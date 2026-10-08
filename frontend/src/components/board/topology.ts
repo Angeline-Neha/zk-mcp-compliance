@@ -47,7 +47,7 @@ export const NODES: NodeDef[] = [
     label: 'Demo Gateway',
     port: ':4006',
     badge: 'entry point · owns session',
-    role: 'INTAKE & ROUTING',
+    role: 'Intake & routing',
     icon: 'gateway',
   },
   {
@@ -55,7 +55,7 @@ export const NODES: NodeDef[] = [
     label: 'Support Agent',
     port: ':4004',
     badge: 'handles issue_refund',
-    role: 'REFUNDS DESK',
+    role: 'Refund handling',
     icon: 'support',
   },
   {
@@ -63,7 +63,7 @@ export const NODES: NodeDef[] = [
     label: 'Admin Agent',
     port: ':4005',
     badge: 'handles delete/export',
-    role: 'RECORDS & DELETION',
+    role: 'Deletion handling',
     icon: 'admin-agent',
   },
   {
@@ -71,7 +71,7 @@ export const NODES: NodeDef[] = [
     label: 'Issuer Service',
     port: ':4001',
     badge: 'issues, verifies Proof 1',
-    role: 'NOTARY & CREDENTIALING',
+    role: 'Credential issuer',
     icon: 'issuer',
   },
   {
@@ -79,7 +79,7 @@ export const NODES: NodeDef[] = [
     label: 'Finance MCP',
     port: ':4003',
     badge: 'runs the gate · executes refunds',
-    role: 'THE VAULT',
+    role: 'Policy gate',
     icon: 'finance',
   },
   {
@@ -87,7 +87,7 @@ export const NODES: NodeDef[] = [
     label: 'Compliance Prover',
     port: ':4002',
     badge: 'generates Groth16 proofs',
-    role: 'THE CRIME LAB',
+    role: 'Proof generation',
     icon: 'compliance',
   },
   {
@@ -95,7 +95,7 @@ export const NODES: NodeDef[] = [
     label: 'Admin MCP',
     port: ':4005',
     badge: 'runs the gate for deletions',
-    role: 'THE ARCHIVES',
+    role: 'Deletion gate',
     icon: 'admin-mcp',
   },
 ];

@@ -55,14 +55,13 @@ export default function App() {
 
   return (
     <div
-      className={`live-backdrop${narrateMode ? " narrate-mode" : ""}`}
+      className={`zk-shell${narrateMode ? " narrate-mode" : ""}`}
       style={{
         display: "grid",
-        gridTemplateColumns: "52px 1fr 240px",
-        gridTemplateRows: "36px 1fr",
+        gridTemplateColumns: "78px 1fr 264px",
+        gridTemplateRows: "48px 1fr",
         height: "100vh",
         overflow: "hidden",
-        backgroundColor: "#0D0817",
       }}
     >
       <StatusStrip
@@ -81,7 +80,7 @@ export default function App() {
         highlightExhibits={calmPeriodOver && activeTab !== "exhibits"}
       />
 
-      <main style={{ overflow: "hidden", display: "flex", flexDirection: "column", gridColumn: 2, gridRow: 2 }}>
+      <main className="zk-main">
         {activeTab === "board" && (
           <BoardView
             boardState={displayedBoardState}

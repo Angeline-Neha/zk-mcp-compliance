@@ -13,15 +13,15 @@ export function InspectorContent({ snapshot }: Props) {
     return (
       <div style={{ opacity: 0.7 }}>
         <p style={stampStyle()}>Partial Record</p>
-        <p style={{ ...monoStyle(9), marginTop: 8 }}>
+        <p style={{ ...monoStyle(12), marginTop: 8 }}>
           Full cryptographic detail unavailable for this entry.
           Only audit-log hashes were captured.
         </p>
         {snapshot.failReason && (
-          <p style={{ ...monoStyle(9), marginTop: 8, color: FAIL }}>{snapshot.failReason}</p>
+          <p style={{ ...monoStyle(12), marginTop: 8, color: FAIL }}>{snapshot.failReason}</p>
         )}
         {snapshot.proof1Hash && (
-          <p style={{ ...monoStyle(8), marginTop: 8, color: "rgba(233,228,242,0.45)" }}>
+          <p style={{ ...monoStyle(11), marginTop: 8, color: "rgba(10,51,35,0.6)" }}>
             p1: {snapshot.proof1Hash.slice(0, 16)}…
           </p>
         )}
@@ -42,12 +42,12 @@ export function InspectorContent({ snapshot }: Props) {
         style={{
           marginBottom: 14,
           padding: "8px 10px",
-          border: "1px solid rgba(233,228,242,0.12)",
-          borderRadius: 2,
-          background: "rgba(233,228,242,0.03)",
+          border: "1px solid var(--zk-rule)",
+          borderRadius: 8,
+          background: "#FFFFFF",
         }}
       >
-        <p style={{ ...monoStyle(8), color: "rgba(233,228,242,0.45)" }}>
+        <p style={{ ...monoStyle(11), color: "rgba(10,51,35,0.6)" }}>
           {snapshot.agentId} · {snapshot.tool}
           {snapshot.orderRef ? ` · order ${snapshot.orderRef}` : ""}
         </p>
@@ -58,10 +58,10 @@ export function InspectorContent({ snapshot }: Props) {
             color: snapshot.outcome === "pass" ? PASS : FAIL,
           }}
         >
-          {snapshot.outcome === "pass" ? "VERIFIED" : "BLOCKED"}
+          {snapshot.outcome === "pass" ? "Verified" : "Blocked"}
         </p>
         {snapshot.failReason && (
-          <p style={{ ...monoStyle(8), marginTop: 6, color: FAIL, lineHeight: 1.5 }}>
+          <p style={{ ...monoStyle(11), marginTop: 6, color: FAIL, lineHeight: 1.5 }}>
             {snapshot.failReason}
           </p>
         )}
@@ -82,15 +82,16 @@ export function InspectorContent({ snapshot }: Props) {
         <div
           style={{
             marginTop: 10,
+            marginBottom: 12,
             padding: "8px 10px",
-            border: "1px solid rgba(240,200,116,0.4)",
-            borderRadius: 2,
-            background: "rgba(240,200,116,0.08)",
+            border: "1px solid rgba(211,150,140,0.8)",
+            borderRadius: 8,
+            background: "rgba(211,150,140,0.18)",
           }}
         >
-          <p style={{ ...monoStyle(8), color: "rgba(240,200,116,0.95)" }}>
-            ⚠ INTENT OVERRIDE — agent requested order {snapshot.override.requestedOrderRef},
-            enforced order {snapshot.override.enforcedOrderRef} instead (structurally-authenticated
+          <p style={{ ...monoStyle(11), color: "#6B2D22" }}>
+            Intent override: agent requested order {snapshot.override.requestedOrderRef},
+            enforced order {snapshot.override.enforcedOrderRef} instead (structurally authenticated
             value took precedence)
           </p>
         </div>

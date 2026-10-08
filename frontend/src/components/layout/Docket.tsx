@@ -14,8 +14,14 @@ interface Props {
   selectedId?: string;
 }
 
-const ROW_HEIGHT = 44; // Matches the height of DocketRow
+const ROW_HEIGHT = 52; // Matches the height of DocketRow
 const OVERSCAN = 10;
+
+const OUTCOME_COLOR = {
+  pass: "#839958",
+  fail: "#E4604E",
+  pending: "#D5B893",
+} as const;
 
 export function Docket({ entries = [], onSelect, selectedId }: Props) {
   const [scrollTop, setScrollTop] = useState(0);
@@ -24,8 +30,8 @@ export function Docket({ entries = [], onSelect, selectedId }: Props) {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      setContainerHeight(entries[0].contentRect.height);
+    const observer = new ResizeObserver((obs) => {
+      setContainerHeight(obs[0].contentRect.height);
     });
     observer.observe(containerRef.current);
     return () => observer.disconnect();
@@ -42,69 +48,41 @@ export function Docket({ entries = [], onSelect, selectedId }: Props) {
 
   return (
     <aside
-      className="flex flex-col border-l overflow-hidden"
       style={{
-        width: 240,
-        borderColor: "rgba(233,228,242,0.12)",
-        backgroundColor: "rgba(23,15,38,0.4)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        minHeight: 0,
+        backgroundColor: "#0A3323",
+        color: "#F7F4D5",
+        fontFamily: "var(--zk-sans)",
+        gridColumn: 3,
+        gridRow: 2,
       }}
     >
-      {/* Header */}
       <div
-        className="px-3 py-2 border-b flex items-center gap-2"
-        style={{ borderColor: "rgba(233,228,242,0.12)" }}
-      >
-        <span
-          className="font-stamp text-[10px] tracking-widest uppercase"
-          style={{ color: "#D9A94A", letterSpacing: "0.2em" }}
-        >
-          Docket
-        </span>
-        <span
-          className="ml-auto font-mono-data"
-          style={{ fontSize: 9, color: "rgba(233,228,242,0.35)" }}
-        >
-          {entries.length} entries
-        </span>
-      </div>
-
-      {/* Column headers */}
-      <div
-        className="px-3 py-1 flex items-center gap-2 border-b"
         style={{
-          borderColor: "rgba(233,228,242,0.08)",
-          backgroundColor: "rgba(233,228,242,0.04)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          padding: "14px 16px 10px",
+          borderBottom: "1px solid rgba(247,244,213,0.18)",
         }}
       >
-        {["TIME", "AGENT", "TOOL", ""].map((h) => (
-          <span
-            key={h}
-            className="font-display text-[8px] tracking-widest uppercase flex-1"
-            style={{ color: "rgba(233,228,242,0.3)" }}
-          >
-            {h}
-          </span>
-        ))}
+        <b style={{ fontSize: 14 }}>Docket</b>
+        <span style={{ font: "400 12px var(--zk-mono)", opacity: 0.6 }}>{entries.length} entries</span>
       </div>
 
-      {/* Entries */}
-      <div 
+      <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto scrollbar-paper"
+        className="zk-docket-scroll"
+        style={{ flex: 1, overflowY: "auto" }}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       >
         {entries.length === 0 ? (
-          <div className="p-4 text-center">
-            <p
-              className="font-stamp text-xs"
-              style={{ color: "rgba(233,228,242,0.25)", letterSpacing: "0.1em" }}
-            >
-              NO ENTRIES
-            </p>
-            <p
-              className="font-mono-data mt-1"
-              style={{ fontSize: 9, color: "rgba(233,228,242,0.2)" }}
-            >
+          <div style={{ padding: 20, textAlign: "center" }}>
+            <p style={{ fontSize: 13, fontWeight: 600, margin: 0, opacity: 0.7 }}>No entries</p>
+            <p style={{ font: "400 12px var(--zk-mono)", margin: "4px 0 0", opacity: 0.45 }}>
               Awaiting first request…
             </p>
           </div>
@@ -113,14 +91,14 @@ export function Docket({ entries = [], onSelect, selectedId }: Props) {
             {visibleEntries.map((entry, index) => {
               const actualIndex = startIndex + index;
               return (
-                <div 
-                  key={entry.id} 
-                  style={{ 
-                    position: "absolute", 
+                <div
+                  key={entry.id}
+                  style={{
+                    position: "absolute",
                     top: actualIndex * ROW_HEIGHT,
                     left: 0,
                     right: 0,
-                    height: ROW_HEIGHT 
+                    height: ROW_HEIGHT,
                   }}
                 >
                   <DocketRow
@@ -147,64 +125,54 @@ function DocketRow({
   isSelected: boolean;
   onClick: () => void;
 }) {
-  const outcomeColor = {
-    pass: "#54C99A",
-    fail: "#E15068",
-    pending: "#D9A94A",
-  }[entry.outcome];
+  const color = OUTCOME_COLOR[entry.outcome];
 
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-2 px-0 py-1.5 border-b text-left transition-colors hover:bg-white/5"
+      className="zk-docket-row"
       style={{
-        borderColor: "rgba(233,228,242,0.07)",
-        backgroundColor: isSelected ? "rgba(217,169,74,0.1)" : "transparent",
-        paddingLeft: 0,
+        display: "grid",
+        gridTemplateColumns: "10px 1fr auto",
+        gap: 10,
+        alignItems: "center",
+        width: "100%",
+        height: ROW_HEIGHT,
+        padding: "0 16px",
+        textAlign: "left",
+        color: "inherit",
+        font: "inherit",
+        cursor: "pointer",
+        border: 0,
+        borderBottom: "1px solid rgba(247,244,213,0.12)",
+        backgroundColor: isSelected ? "rgba(211,150,140,0.16)" : "transparent",
+        boxShadow: isSelected ? "inset 3px 0 0 #D3968C" : "none",
       }}
     >
-      {/* Outcome tab on left edge */}
-      <div
+      <span
         style={{
-          width: 3,
-          height: 28,
-          backgroundColor: outcomeColor,
-          flexShrink: 0,
-          opacity: 0.8,
-        }}
-      />
-
-      <div className="flex-1 min-w-0 pr-2">
-        <div className="flex items-center gap-1">
-          <span className="font-mono-data" style={{ fontSize: 9, color: "rgba(233,228,242,0.45)" }}>
-            {entry.timestamp}
-          </span>
-        </div>
-        <div className="flex items-baseline gap-1 mt-0.5">
-          <span
-            className="font-mono-data truncate"
-            style={{ fontSize: 9, color: "#E9E4F2", fontWeight: 500 }}
-          >
-            {entry.agent}
-          </span>
-          <span className="font-mono-data truncate" style={{ fontSize: 8, color: "rgba(233,228,242,0.4)" }}>
-            /{entry.tool}
-          </span>
-        </div>
-      </div>
-
-      {/* Pass/fail dot */}
-      <div
-        style={{
-          width: 6,
-          height: 6,
+          width: 10,
+          height: 10,
           borderRadius: "50%",
-          backgroundColor: outcomeColor,
-          flexShrink: 0,
-          marginRight: 8,
-          opacity: 0.7,
+          backgroundColor: color,
+          animation: entry.outcome === "pending" ? "zk-blink 1s ease-in-out infinite" : "none",
         }}
       />
+      <span style={{ minWidth: 0 }}>
+        <span
+          style={{
+            display: "block",
+            font: "500 13px var(--zk-mono)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {entry.tool}
+        </span>
+        <span style={{ fontSize: 11.5, opacity: 0.6 }}>{entry.agent}</span>
+      </span>
+      <span style={{ font: "400 11px var(--zk-mono)", opacity: 0.55 }}>{entry.timestamp}</span>
     </button>
   );
 }
