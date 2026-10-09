@@ -52,7 +52,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
       onClick={onClick}
       className={className}
       style={{
-        width: 200,
+        width: 260,
         backgroundColor: visualState === 'unauthorized' ? '#F8E6E2' : '#FFFFFF',
         border: '1.5px solid',
         borderRadius: 8,
@@ -78,27 +78,27 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
             lineHeight: 1,
           }}
         >
-          <span style={{ fontFamily: 'var(--zk-mono)', fontSize: 10, color: '#F7F4D5' }}>{port}</span>
+          <span style={{ fontFamily: 'var(--zk-mono)', fontSize: 11.5, color: '#F7F4D5' }}>{port}</span>
         </div>
       )}
 
       {/* Card body */}
       <div style={{ padding: '11px 12px 10px' }}>
-        <p style={{ fontSize: 11, color: 'rgba(10,51,35,0.6)', margin: '0 0 6px', fontWeight: 500 }}>{role}</p>
+        <p style={{ fontSize: 12.5, color: 'rgba(10,51,35,0.6)', margin: '0 0 6px', fontWeight: 500 }}>{role}</p>
 
         {/* Icon + label row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <div style={{ opacity: visualState === 'idle' ? 0.6 : 1, flexShrink: 0 }}>
             <AgentIcon type={icon} size={24} />
           </div>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#0A3323', lineHeight: 1.2 }}>{label}</span>
+          <span style={{ fontSize: 16, fontWeight: 600, color: '#0A3323', lineHeight: 1.2 }}>{label}</span>
         </div>
 
         {/* Badge */}
         <p
           style={{
             fontFamily: 'var(--zk-mono)',
-            fontSize: 10.5,
+            fontSize: 12,
             color: 'rgba(10,51,35,0.7)',
             lineHeight: 1.4,
             borderTop: '1px dashed rgba(10,51,35,0.2)',
@@ -120,7 +120,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
               borderRadius: '0 4px 4px 0',
             }}
           >
-            <p style={{ fontFamily: 'var(--zk-mono)', fontSize: 9, letterSpacing: '-0.03em', color: 'rgba(10,51,35,0.75)', margin: 0, overflowWrap: 'anywhere' }}>
+            <p style={{ fontFamily: 'var(--zk-mono)', fontSize: 10.5, letterSpacing: '-0.03em', color: 'rgba(10,51,35,0.75)', margin: 0, overflowWrap: 'anywhere' }}>
               ↳ {nestedAnnotation}
             </p>
           </div>

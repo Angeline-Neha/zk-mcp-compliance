@@ -9,9 +9,11 @@ export interface CheckpointProps {
   x1: number; y1: number; x2: number; y2: number;
   /** 0–1 along the bezier where the checkpoint sits */
   t?: number;
+  /** 'beside' for vertical threads, 'above' for horizontal ones */
+  labelPosition?: 'beside' | 'above';
 }
 
-export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: CheckpointProps) {
+export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5, labelPosition = 'beside' }: CheckpointProps) {
   if (state === 'hidden') return null;
 
   const pt = pathPoint(x1, y1, x2, y2, t);
@@ -54,15 +56,20 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
         </>
       )}
 
-      {/* Reason label below */}
+      {/* Reason label beside the gate, so it never lands on the next card */}
       {state === 'fail' && reason && (
-        <foreignObject x={cx - 80} y={cy + r + 6} width={160} height={40}>
+        <foreignObject
+          x={labelPosition === 'above' ? cx - 80 : cx + r + 10}
+          y={labelPosition === 'above' ? cy - r - 52 : cy - 18}
+          width={labelPosition === 'above' ? 160 : 180}
+          height={44}
+        >
           <div
             style={{
               fontFamily: 'var(--zk-mono)',
               fontSize: 10,
               color: '#A8362C',
-              textAlign: 'center',
+              textAlign: labelPosition === 'above' ? 'center' : 'left',
               lineHeight: 1.4,
               backgroundColor: '#F8E6E2',
               padding: '3px 6px',

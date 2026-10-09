@@ -1,0 +1,213 @@
+diff --git a/frontend/src/components/board/CaseBoard.tsx b/frontend/src/components/board/CaseBoard.tsx
+index ce0b042..b34551a 100755
+--- a/frontend/src/components/board/CaseBoard.tsx
++++ b/frontend/src/components/board/CaseBoard.tsx
+@@ -35,6 +35,8 @@ interface NodeRect {
+   cx: number;
+   top: number;
+   bottom: number;
++  left: number;
++  right: number;
+ }
+ 
+ interface Props {
+@@ -47,9 +49,12 @@ interface Props {
+ /* ── Layout ────────────────────────────────────────────────────────
+    Nodes sit in normal document flow inside a fixed-width canvas, so they
+    can never overlap whatever their height. The canvas is then scaled to
+-   fit the board (down as far as needed, up to 1.2x), and thread geometry is measured in the
++   fit the board (down as far as needed, up to 1.4x), and thread geometry is measured in the
+    canvas' own coordinates so it stays correct at any scale.            */
+-const CANVAS_W = 620;
++const CANVAS_W = 1010;
++const NODE_W = 260;
++// finance -> compliance runs sideways so the board needs only three rows
++const HORIZONTAL_EDGES = new Set<string>(['finance->compliance']);
+ const ROW_GAP = 84; // room for the call-signature card between rows
+ const VISIBLE_NODES = NODES.filter((n) => n.id !== 'admin-agent' && n.id !== 'admin-mcp');
+ 
+@@ -69,7 +74,7 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+     const cw = container.clientWidth;
+     const ch = container.clientHeight;
+     const naturalH = canvas.offsetHeight; // unaffected by the CSS transform
+-    const s = Math.min(1.2, cw / CANVAS_W, (ch - 36) / naturalH);
++    const s = Math.min(1.4, cw / CANVAS_W, (ch - 36) / naturalH);
+     setView({ s, ox: (cw - CANVAS_W * s) / 2, oy: Math.max(30, (ch - naturalH * s) / 2) });
+ 
+     // Rects are read from the DOM, so divide out whatever scale is applied right now.
+@@ -83,6 +88,8 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+           cx:     (r.left - canvasRect.left + r.width / 2) / applied,
+           top:    (r.top  - canvasRect.top) / applied,
+           bottom: (r.top  - canvasRect.top + r.height) / applied,
++          left:   (r.left - canvasRect.left) / applied,
++          right:  (r.left - canvasRect.left + r.width) / applied,
+         };
+       }
+     }
+@@ -201,18 +208,27 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+             const cpState = edgeState?.checkpoint;
+             const showTelegram = edgeState?.telegram ?? false;
+ 
+-            const x1 = fromRect?.cx ?? 0;
+-            const y1 = fromRect?.bottom ?? 0;
+-            const x2 = toRect?.cx ?? 0;
+-            const y2 = toRect?.top ?? 0;
+-            const hasRects = !!fromRect && !!toRect;
++            // Vertical edges run bottom -> top; the horizontal one runs right -> left at the source's mid-height.
++            const horizontal = HORIZONTAL_EDGES.has(edge.id);
++            const lineY = fromRect ? (fromRect.top + fromRect.bottom) / 2 : 0;
++            const from = fromRect && horizontal ? { cx: fromRect.right, top: lineY, bottom: lineY } : fromRect;
++            const to   = toRect   && horizontal ? { cx: toRect.left,   top: lineY, bottom: lineY } : toRect;
++
++            const x1 = from?.cx ?? 0;
++            const y1 = from?.bottom ?? 0;
++            const x2 = to?.cx ?? 0;
++            const y2 = to?.top ?? 0;
++            const hasRects = !!from && !!to;
++            // On a sideways edge, lift the call card above the row so it never covers a node.
++            const tgShift = horizontal && fromRect ? (fromRect.bottom - fromRect.top) / 2 + 44 : 0;
++            const tgShiftX = horizontal ? 80 : 0; // keep it clear of the support-agent call card
+ 
+             return (
+               <g key={edge.id}>
+                 <Thread
+                   id={edge.id}
+-                  fromRect={fromRect}
+-                  toRect={toRect}
++                  fromRect={from}
++                  toRect={to}
+                   state={threadState}
+                   pulses={edgeState?.pulses}
+                 />
+@@ -224,13 +240,14 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+                     reason={cpState.reason}
+                     x1={x1} y1={y1} x2={x2} y2={y2}
+                     t={edge.checkpointAt ?? 0.5}
++                    labelPosition={horizontal ? 'above' : 'beside'}
+                   />
+                 )}
+ 
+                 {hasRects && showTelegram && edge.callSig && (
+                   <Telegram
+                     callSig={edge.callSig}
+-                    x1={x1} y1={y1} x2={x2} y2={y2}
++                    x1={x1 + tgShiftX} y1={y1 - tgShift} x2={x2 + tgShiftX} y2={y2 - tgShift}
+                     t={0.38}
+                     visible
+                   />
+@@ -240,16 +257,14 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+           })}
+         </svg>
+ 
+-        {/* ── Node cards, one row per topology level ── */}
+-        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: ROW_GAP, padding: '4px 0 18px' }}>
+-          {renderNode('gateway')}
+-          {renderNode('support-agent')}
+-          <div style={{ display: 'flex', gap: 100 }}>
++        {/* ── Node cards: gateway and support-agent centred over the finance column ── */}
++        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: ROW_GAP, padding: '4px 0 18px' }}>
++          <div style={{ marginLeft: NODE_W + 60 }}>{renderNode('gateway')}</div>
++          <div style={{ marginLeft: NODE_W + 60 }}>{renderNode('support-agent')}</div>
++          <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+             {renderNode('issuer')}
+-            {renderNode('finance')}
+-          </div>
+-          <div style={{ alignSelf: 'flex-end', marginRight: (CANVAS_W - 540) / 2 }}>
+-            {renderNode('compliance')}
++            <div style={{ marginLeft: 60 }}>{renderNode('finance')}</div>
++            <div style={{ marginLeft: 170 }}>{renderNode('compliance')}</div>
+           </div>
+         </div>
+       </div>
+diff --git a/frontend/src/components/board/Checkpoint.tsx b/frontend/src/components/board/Checkpoint.tsx
+index e17aaef..8f47b31 100755
+--- a/frontend/src/components/board/Checkpoint.tsx
++++ b/frontend/src/components/board/Checkpoint.tsx
+@@ -9,9 +9,11 @@ export interface CheckpointProps {
+   x1: number; y1: number; x2: number; y2: number;
+   /** 0–1 along the bezier where the checkpoint sits */
+   t?: number;
++  /** 'beside' for vertical threads, 'above' for horizontal ones */
++  labelPosition?: 'beside' | 'above';
+ }
+ 
+-export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: CheckpointProps) {
++export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5, labelPosition = 'beside' }: CheckpointProps) {
+   if (state === 'hidden') return null;
+ 
+   const pt = pathPoint(x1, y1, x2, y2, t);
+@@ -56,13 +58,18 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
+ 
+       {/* Reason label beside the gate, so it never lands on the next card */}
+       {state === 'fail' && reason && (
+-        <foreignObject x={cx + r + 10} y={cy - 18} width={180} height={40}>
++        <foreignObject
++          x={labelPosition === 'above' ? cx - 80 : cx + r + 10}
++          y={labelPosition === 'above' ? cy - r - 52 : cy - 18}
++          width={labelPosition === 'above' ? 160 : 180}
++          height={44}
++        >
+           <div
+             style={{
+               fontFamily: 'var(--zk-mono)',
+               fontSize: 10,
+               color: '#A8362C',
+-              textAlign: 'left',
++              textAlign: labelPosition === 'above' ? 'center' : 'left',
+               lineHeight: 1.4,
+               backgroundColor: '#F8E6E2',
+               padding: '3px 6px',
+diff --git a/frontend/src/components/board/Node.tsx b/frontend/src/components/board/Node.tsx
+index 18d1b65..9a417e4 100755
+--- a/frontend/src/components/board/Node.tsx
++++ b/frontend/src/components/board/Node.tsx
+@@ -52,7 +52,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
+       onClick={onClick}
+       className={className}
+       style={{
+-        width: 220,
++        width: 260,
+         backgroundColor: visualState === 'unauthorized' ? '#F8E6E2' : '#FFFFFF',
+         border: '1.5px solid',
+         borderRadius: 8,
+@@ -78,27 +78,27 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
+             lineHeight: 1,
+           }}
+         >
+-          <span style={{ fontFamily: 'var(--zk-mono)', fontSize: 10, color: '#F7F4D5' }}>{port}</span>
++          <span style={{ fontFamily: 'var(--zk-mono)', fontSize: 11.5, color: '#F7F4D5' }}>{port}</span>
+         </div>
+       )}
+ 
+       {/* Card body */}
+       <div style={{ padding: '11px 12px 10px' }}>
+-        <p style={{ fontSize: 11, color: 'rgba(10,51,35,0.6)', margin: '0 0 6px', fontWeight: 500 }}>{role}</p>
++        <p style={{ fontSize: 12.5, color: 'rgba(10,51,35,0.6)', margin: '0 0 6px', fontWeight: 500 }}>{role}</p>
+ 
+         {/* Icon + label row */}
+         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+           <div style={{ opacity: visualState === 'idle' ? 0.6 : 1, flexShrink: 0 }}>
+             <AgentIcon type={icon} size={24} />
+           </div>
+-          <span style={{ fontSize: 14, fontWeight: 600, color: '#0A3323', lineHeight: 1.2 }}>{label}</span>
++          <span style={{ fontSize: 16, fontWeight: 600, color: '#0A3323', lineHeight: 1.2 }}>{label}</span>
+         </div>
+ 
+         {/* Badge */}
+         <p
+           style={{
+             fontFamily: 'var(--zk-mono)',
+-            fontSize: 10.5,
++            fontSize: 12,
+             color: 'rgba(10,51,35,0.7)',
+             lineHeight: 1.4,
+             borderTop: '1px dashed rgba(10,51,35,0.2)',
+@@ -120,7 +120,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
+               borderRadius: '0 4px 4px 0',
+             }}
+           >
+-            <p style={{ fontFamily: 'var(--zk-mono)', fontSize: 9, letterSpacing: '-0.03em', color: 'rgba(10,51,35,0.75)', margin: 0, overflowWrap: 'anywhere' }}>
++            <p style={{ fontFamily: 'var(--zk-mono)', fontSize: 10.5, letterSpacing: '-0.03em', color: 'rgba(10,51,35,0.75)', margin: 0, overflowWrap: 'anywhere' }}>
+               ↳ {nestedAnnotation}
+             </p>
+           </div>

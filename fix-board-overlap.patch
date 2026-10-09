@@ -1,0 +1,397 @@
+diff --git a/frontend/src/components/board/CaseBoard.tsx b/frontend/src/components/board/CaseBoard.tsx
+index cd20a78..ce0b042 100755
+--- a/frontend/src/components/board/CaseBoard.tsx
++++ b/frontend/src/components/board/CaseBoard.tsx
+@@ -44,36 +44,45 @@ interface Props {
+   onInspectRequest?: (requestId: string) => void;
+ }
+ 
+-/* ── Layout: node positions in the topology grid ──────────────────── */
+-// Each entry maps node ID → CSS position within the board container
+-const NODE_POSITIONS: Record<NodeId, React.CSSProperties> = {
+-  'gateway':       { top: '3%',  left: '50%', transform: 'translateX(-50%)' },
+-  'support-agent': { top: '32%', left: '50%', transform: 'translateX(-50%)' },
+-  'admin-agent':   { top: '30%', left: '7%' },
+-  'issuer':        { top: '55%', left: '27%' },
+-  'finance':       { top: '55%', left: '55%' },
+-  'compliance':    { top: '81%', left: '55%' },
+-  'admin-mcp':     { top: '60%', left: '7%' },
+-};
++/* ── Layout ────────────────────────────────────────────────────────
++   Nodes sit in normal document flow inside a fixed-width canvas, so they
++   can never overlap whatever their height. The canvas is then scaled to
++   fit the board (down as far as needed, up to 1.2x), and thread geometry is measured in the
++   canvas' own coordinates so it stays correct at any scale.            */
++const CANVAS_W = 620;
++const ROW_GAP = 84; // room for the call-signature card between rows
++const VISIBLE_NODES = NODES.filter((n) => n.id !== 'admin-agent' && n.id !== 'admin-mcp');
+ 
+ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectRequest }: Props) {
+   const containerRef = useRef<HTMLDivElement>(null);
++  const canvasRef = useRef<HTMLDivElement>(null);
+   const nodeRefs = useRef<Partial<Record<NodeId, HTMLDivElement | null>>>({});
+   const [nodeRects, setNodeRects] = useState<Partial<Record<NodeId, NodeRect>>>({});
++  const [view, setView] = useState({ s: 1, ox: 0, oy: 0 });
+ 
+-  /* ── Measure node positions after layout ── */
++  /* ── Fit the canvas to the board, then measure nodes in canvas coords ── */
+   const measure = useCallback(() => {
+     const container = containerRef.current;
+-    if (!container) return;
+-    const cr = container.getBoundingClientRect();
++    const canvas = canvasRef.current;
++    if (!container || !canvas) return;
++
++    const cw = container.clientWidth;
++    const ch = container.clientHeight;
++    const naturalH = canvas.offsetHeight; // unaffected by the CSS transform
++    const s = Math.min(1.2, cw / CANVAS_W, (ch - 36) / naturalH);
++    setView({ s, ox: (cw - CANVAS_W * s) / 2, oy: Math.max(30, (ch - naturalH * s) / 2) });
++
++    // Rects are read from the DOM, so divide out whatever scale is applied right now.
++    const canvasRect = canvas.getBoundingClientRect();
++    const applied = canvasRect.width / canvas.offsetWidth || 1;
+     const rects: Partial<Record<NodeId, NodeRect>> = {};
+     for (const [id, el] of Object.entries(nodeRefs.current) as [NodeId, HTMLDivElement | null][]) {
+       if (el) {
+         const r = el.getBoundingClientRect();
+         rects[id] = {
+-          cx:     r.left - cr.left + r.width / 2,
+-          top:    r.top  - cr.top,
+-          bottom: r.top  - cr.top + r.height,
++          cx:     (r.left - canvasRect.left + r.width / 2) / applied,
++          top:    (r.top  - canvasRect.top) / applied,
++          bottom: (r.top  - canvasRect.top + r.height) / applied,
+         };
+       }
+     }
+@@ -84,6 +93,7 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+     measure();
+     const ro = new ResizeObserver(measure);
+     if (containerRef.current) ro.observe(containerRef.current);
++    if (canvasRef.current) ro.observe(canvasRef.current); // node content can change height
+     return () => ro.disconnect();
+   }, [measure]);
+ 
+@@ -92,16 +102,60 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+     onInspectRequest?.(id);
+   }
+ 
++  function renderNode(id: NodeId) {
++    const nodeDef = VISIBLE_NODES.find((n) => n.id === id)!;
++    const ns = boardState.nodes[id] ?? { visual: 'idle' };
++    return (
++      <div key={id} style={{ position: 'relative', zIndex: 10 }}>
++        <Node
++          ref={(el) => { nodeRefs.current[id] = el; }}
++          id={id}
++          label={nodeDef.label}
++          port={nodeDef.port}
++          badge={nodeDef.badge}
++          role={nodeDef.role}
++          icon={nodeDef.icon}
++          visualState={ns.visual}
++          vitals={agentVitals?.[id] ? { rollingPassRate: agentVitals[id] } : undefined}
++          nestedAnnotation={
++            id === 'gateway' ? 'orchestrator-agent  ↳ handleIncomingStructuredTask()' : undefined
++          }
++          onClick={() => handleNodeClick(id)}
++        />
++
++        {/* Verdict stamp hangs off the bottom edge so it never covers node text */}
++        {ns.stamp?.visible && (
++          <div style={{ position: 'absolute', bottom: -14, right: 12, pointerEvents: 'none', zIndex: 11 }}>
++            <div
++              style={{
++                fontFamily: 'var(--zk-sans)',
++                fontSize: 12,
++                fontWeight: 700,
++                letterSpacing: '0.06em',
++                color: ns.stamp.state === 'pass' ? '#53662D' : '#A8362C',
++                border: `2px solid ${ns.stamp.state === 'pass' ? '#53662D' : '#A8362C'}`,
++                backgroundColor: '#FCFBEA',
++                padding: '2px 8px',
++                borderRadius: 6,
++                display: 'inline-block',
++                transform: 'rotate(-3deg)',
++                animation: 'stamp-land-overshoot 0.5s cubic-bezier(.2,1.6,.4,1) forwards',
++                textTransform: 'uppercase',
++              }}
++            >
++              {ns.stamp.state === 'pass' ? 'APPROVED' : 'BLOCKED'}
++            </div>
++          </div>
++        )}
++      </div>
++    );
++  }
++
+   return (
+     <div
+       ref={containerRef}
+       className="zk-board-grid"
+-      style={{
+-        position: 'relative',
+-        width: '100%',
+-        height: '100%',
+-        overflow: 'hidden',
+-      }}
++      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}
+     >
+       {/* ── Section label ── */}
+       <div style={{ position: 'absolute', top: 10, left: 14, zIndex: 2, pointerEvents: 'none' }}>
+@@ -110,136 +164,95 @@ export function CaseBoard({ boardState, agentVitals, onNodeClick, onInspectReque
+         </span>
+       </div>
+ 
+-      {/* ── SVG threads layer (behind cards) ── */}
+-      <svg
++      {/* ── Scaled canvas: node flow + thread layer share one coordinate space ── */}
++      <div
++        ref={canvasRef}
+         style={{
+           position: 'absolute',
+-          inset: 0,
+-          width: '100%',
+-          height: '100%',
+-          pointerEvents: 'none',
+-          zIndex: 1,
+-          overflow: 'visible',
++          left: 0,
++          top: 0,
++          width: CANVAS_W,
++          transformOrigin: '0 0',
++          transform: `translate(${view.ox}px, ${view.oy}px) scale(${view.s})`,
+         }}
+       >
+-        <defs>
+-          <style>{`
+-            @keyframes dash-march { to { stroke-dashoffset: -20; } }
+-          `}</style>
+-        </defs>
+-
+-        {EDGES.filter((edge) => edge.from !== 'admin-agent' && edge.to !== 'admin-agent' && edge.from !== 'admin-mcp' && edge.to !== 'admin-mcp').map((edge) => {
+-          const fromRect = nodeRects[edge.from];
+-          const toRect   = nodeRects[edge.to];
+-          const edgeState = boardState.edges[edge.id];
+-          const threadState: ThreadState = edgeState?.thread ?? 'idle';
+-          const cpState = edgeState?.checkpoint;
+-          const showTelegram = edgeState?.telegram ?? false;
+-
+-          const x1 = fromRect?.cx ?? 0;
+-          const y1 = fromRect?.bottom ?? 0;
+-          const x2 = toRect?.cx ?? 0;
+-          const y2 = toRect?.top ?? 0;
+-          const hasRects = !!fromRect && !!toRect;
+-
+-          return (
+-            <g key={edge.id}>
+-              <Thread
+-                id={edge.id}
+-                fromRect={fromRect}
+-                toRect={toRect}
+-                state={threadState}
+-                pulses={edgeState?.pulses}
+-              />
+-
+-              {hasRects && cpState && cpState.state !== 'hidden' && (
+-                <Checkpoint
++        <svg
++          style={{
++            position: 'absolute',
++            inset: 0,
++            width: '100%',
++            height: '100%',
++            pointerEvents: 'none',
++            zIndex: 12,
++            overflow: 'visible',
++          }}
++        >
++          <defs>
++            <style>{`
++              @keyframes dash-march { to { stroke-dashoffset: -20; } }
++            `}</style>
++          </defs>
++
++          {EDGES.filter((edge) => edge.from !== 'admin-agent' && edge.to !== 'admin-agent' && edge.from !== 'admin-mcp' && edge.to !== 'admin-mcp').map((edge) => {
++            const fromRect = nodeRects[edge.from];
++            const toRect   = nodeRects[edge.to];
++            const edgeState = boardState.edges[edge.id];
++            const threadState: ThreadState = edgeState?.thread ?? 'idle';
++            const cpState = edgeState?.checkpoint;
++            const showTelegram = edgeState?.telegram ?? false;
++
++            const x1 = fromRect?.cx ?? 0;
++            const y1 = fromRect?.bottom ?? 0;
++            const x2 = toRect?.cx ?? 0;
++            const y2 = toRect?.top ?? 0;
++            const hasRects = !!fromRect && !!toRect;
++
++            return (
++              <g key={edge.id}>
++                <Thread
+                   id={edge.id}
+-                  state={cpState.state}
+-                  reason={cpState.reason}
+-                  x1={x1} y1={y1} x2={x2} y2={y2}
+-                  t={edge.checkpointAt ?? 0.5}
++                  fromRect={fromRect}
++                  toRect={toRect}
++                  state={threadState}
++                  pulses={edgeState?.pulses}
+                 />
+-              )}
+-
+-              {hasRects && showTelegram && edge.callSig && (
+-                <Telegram
+-                  callSig={edge.callSig}
+-                  x1={x1} y1={y1} x2={x2} y2={y2}
+-                  t={0.38}
+-                  visible
+-                />
+-              )}
+-            </g>
+-          );
+-        })}
+-      </svg>
+-
+-      {/* ── Node cards (above threads) ── */}
+-      {NODES.filter((n) => n.id !== 'admin-agent' && n.id !== 'admin-mcp').map((nodeDef) => {
+-        const ns = boardState.nodes[nodeDef.id] ?? { visual: 'idle' };
+-        return (
+-          <div
+-            key={nodeDef.id}
+-            style={{
+-              position: 'absolute',
+-              zIndex: 10,
+-              ...NODE_POSITIONS[nodeDef.id],
+-            }}
+-          >
+-            <Node
+-              ref={(el) => { nodeRefs.current[nodeDef.id] = el; }}
+-              id={nodeDef.id}
+-              label={nodeDef.label}
+-              port={nodeDef.port}
+-              badge={nodeDef.badge}
+-              role={nodeDef.role}
+-              icon={nodeDef.icon}
+-              visualState={ns.visual}
+-              vitals={agentVitals?.[nodeDef.id] ? { rollingPassRate: agentVitals[nodeDef.id] } : undefined}
+-              nestedAnnotation={
+-                nodeDef.id === 'gateway'
+-                  ? 'orchestrator-agent  ↳ handleIncomingStructuredTask()'
+-                  : undefined
+-              }
+-              onClick={() => handleNodeClick(nodeDef.id)}
+-            />
+-
+-            {/* Stamp overlay */}
+-            {ns.stamp?.visible && (
+-              <div
+-                style={{
+-                  position: 'absolute',
+-                  bottom: 8,
+-                  right: 8,
+-                  pointerEvents: 'none',
+-                  zIndex: 11,
+-                }}
+-              >
+-                <div
+-                  style={{
+-                    fontFamily: 'var(--zk-sans)',
+-                    fontSize: 12,
+-                    fontWeight: 700,
+-                    letterSpacing: '0.06em',
+-                    color: ns.stamp.state === 'pass' ? '#53662D' : '#A8362C',
+-                    border: `2px solid ${ns.stamp.state === 'pass' ? '#53662D' : '#A8362C'}`,
+-                    backgroundColor: '#FCFBEA',
+-                    padding: '2px 8px',
+-                    borderRadius: 6,
+-                    display: 'inline-block',
+-                    transform: 'rotate(-3deg)',
+-                    animation: 'stamp-land-overshoot 0.5s cubic-bezier(.2,1.6,.4,1) forwards',
+-                    textTransform: 'uppercase',
+-                  }}
+-                >
+-                  {ns.stamp.state === 'pass' ? 'APPROVED' : 'BLOCKED'}
+-                </div>
+-              </div>
+-            )}
++
++                {hasRects && cpState && cpState.state !== 'hidden' && (
++                  <Checkpoint
++                    id={edge.id}
++                    state={cpState.state}
++                    reason={cpState.reason}
++                    x1={x1} y1={y1} x2={x2} y2={y2}
++                    t={edge.checkpointAt ?? 0.5}
++                  />
++                )}
++
++                {hasRects && showTelegram && edge.callSig && (
++                  <Telegram
++                    callSig={edge.callSig}
++                    x1={x1} y1={y1} x2={x2} y2={y2}
++                    t={0.38}
++                    visible
++                  />
++                )}
++              </g>
++            );
++          })}
++        </svg>
++
++        {/* ── Node cards, one row per topology level ── */}
++        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: ROW_GAP, padding: '4px 0 18px' }}>
++          {renderNode('gateway')}
++          {renderNode('support-agent')}
++          <div style={{ display: 'flex', gap: 100 }}>
++            {renderNode('issuer')}
++            {renderNode('finance')}
+           </div>
+-        );
+-      })}
++          <div style={{ alignSelf: 'flex-end', marginRight: (CANVAS_W - 540) / 2 }}>
++            {renderNode('compliance')}
++          </div>
++        </div>
++      </div>
+     </div>
+   );
+ }
+diff --git a/frontend/src/components/board/Checkpoint.tsx b/frontend/src/components/board/Checkpoint.tsx
+index d4b4a64..e17aaef 100755
+--- a/frontend/src/components/board/Checkpoint.tsx
++++ b/frontend/src/components/board/Checkpoint.tsx
+@@ -54,15 +54,15 @@ export function Checkpoint({ id, state, reason, x1, y1, x2, y2, t = 0.5 }: Check
+         </>
+       )}
+ 
+-      {/* Reason label below */}
++      {/* Reason label beside the gate, so it never lands on the next card */}
+       {state === 'fail' && reason && (
+-        <foreignObject x={cx - 80} y={cy + r + 6} width={160} height={40}>
++        <foreignObject x={cx + r + 10} y={cy - 18} width={180} height={40}>
+           <div
+             style={{
+               fontFamily: 'var(--zk-mono)',
+               fontSize: 10,
+               color: '#A8362C',
+-              textAlign: 'center',
++              textAlign: 'left',
+               lineHeight: 1.4,
+               backgroundColor: '#F8E6E2',
+               padding: '3px 6px',
+diff --git a/frontend/src/components/board/Node.tsx b/frontend/src/components/board/Node.tsx
+index 8f7864d..18d1b65 100755
+--- a/frontend/src/components/board/Node.tsx
++++ b/frontend/src/components/board/Node.tsx
+@@ -52,7 +52,7 @@ export const Node = forwardRef<HTMLDivElement, NodeProps>(function Node(
+       onClick={onClick}
+       className={className}
+       style={{
+-        width: 200,
++        width: 220,
+         backgroundColor: visualState === 'unauthorized' ? '#F8E6E2' : '#FFFFFF',
+         border: '1.5px solid',
+         borderRadius: 8,
